@@ -30,17 +30,22 @@ export function SurveyStep() {
   // section flagged "(optional)". Open-ended text and "select all that apply"
   // multis stay optional, so respondents are never trapped by a question that
   // may legitimately have no answer.
-  let optionalSection = false;
-  const required = qs.map((q) => {
-    if (q.kind === "section") {
-      optionalSection = /optional/i.test(q.title || "");
-      return false;
-    }
-    return (
-      !optionalSection &&
-      (q.kind === "radio" || q.kind === "select" || q.kind === "number" || q.kind === "matrix")
-    );
-  });
+  const required = qs.reduce(
+    (acc, q) => {
+      const optionalSection =
+        q.kind === "section" ? /optional/i.test(q.title || "") : acc.optionalSection;
+      const isRequired =
+        q.kind !== "section" &&
+        !acc.optionalSection &&
+        (q.kind === "radio" || q.kind === "select" || q.kind === "number" || q.kind === "matrix");
+
+      return {
+        optionalSection,
+        values: [...acc.values, isRequired],
+      };
+    },
+    { optionalSection: false, values: [] as boolean[] },
+  ).values;
 
   const firstMissing = qs.findIndex(
     (q, i) => required[i] && !isAnswered(q, state.survey[q.id as string]),

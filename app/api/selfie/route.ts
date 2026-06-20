@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase as db } from "@/lib/supabase";
+import { createAnonClient } from "@/lib/supabase";
 
 // POST /api/selfie — upload an identity selfie to Supabase Storage
 export async function POST(req: NextRequest) {
@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
   const path = `${crypto.randomUUID()}.${ext}`;
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  const db = createAnonClient();
 
   const { error } = await db.storage.from("selfies").upload(path, buffer, {
     contentType: file.type || "image/jpeg",

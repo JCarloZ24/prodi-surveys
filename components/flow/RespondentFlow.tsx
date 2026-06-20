@@ -451,14 +451,13 @@ function Register() {
 
 function Otp() {
   const { state, actions } = usePortal();
-  const [sending, setSending] = useState(false);
+  const [sending, setSending] = useState(true);
   const [sent, setSent] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [otpError, setOtpError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    setSending(true);
     fetch("/api/otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

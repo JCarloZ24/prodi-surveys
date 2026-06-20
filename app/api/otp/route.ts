@@ -4,8 +4,6 @@ import { createAdminClient } from "@/lib/supabase-server";
 
 // OTP codes are written/verified server-side with the service-role client so the
 // anon role needs no access to the otp_codes table (no anon RLS policies).
-const db = createAdminClient();
-
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT) || 587,
@@ -25,6 +23,7 @@ export async function POST(req: NextRequest) {
   const { email } = await req.json();
   if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 });
 
+  const db = createAdminClient();
   const code = generateCode();
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
@@ -64,6 +63,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Email and code required" }, { status: 400 });
   }
 
+  const db = createAdminClient();
   const { data } = await db
     .from("otp_codes")
     .select()
