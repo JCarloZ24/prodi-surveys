@@ -8,6 +8,7 @@ import { tok, bon } from "@/lib/selectors";
 import { code, hash, peso, typePillClass, typeShort } from "@/lib/format";
 import { LogoMark } from "@/lib/icons";
 import { cx } from "@/lib/cx";
+import { detectFaceCount } from "@/lib/faceDetect";
 import { FlowNav } from "./FlowNav";
 import { ProfileStep } from "./ProfileStep";
 import { SurveyStep } from "./SurveyStep";
@@ -20,6 +21,7 @@ import { SurveyStep } from "./SurveyStep";
 export function RespondentFlow() {
   const { state, actions } = usePortal();
   const step = state.rStep;
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   // Progress indicator: survey-only respondents only ever see Survey onward,
   // and the Payout pip drops out when no token is offered.
@@ -29,6 +31,8 @@ export function RespondentFlow() {
   if (state.payoutOn) stepDefs.push(["Payout", 7]);
   stepDefs.push(["Submit", 8]);
   const showSteps = state.surveyOnly ? step >= 5 && step <= 8 : step >= 1 && step <= 8;
+  const activeIdx = stepDefs.findIndex(([, t]) => step === t);
+  const progressPct = stepDefs.length ? ((activeIdx + 1) / stepDefs.length) * 100 : 0;
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-surface">
@@ -36,43 +40,63 @@ export function RespondentFlow() {
         <LogoMark size={28} />
         <div className="text-[15px] font-extrabold tracking-[-.3px]">Prodi-Surveys</div>
         <div className="flex-1" />
-        <button onClick={actions.exitFlow} className="text-[12.5px] font-semibold text-gray-500">
+        <button onClick={() => setShowExitConfirm(true)} className="text-[12.5px] font-semibold text-gray-500">
           Exit survey ✕
         </button>
       </header>
 
       {showSteps && (
-        <div className="flex flex-none justify-center border-b border-line2 bg-white px-[22px] py-3">
-          <div className="flex w-full max-w-[760px] items-center gap-[5px]">
-            {stepDefs.map(([label, t], i) => {
-              const done = step > t;
-              const active = step === t;
-              return (
-                <div key={label} className="flex flex-1 items-center gap-[5px]">
-                  <div
-                    className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-[11.5px] font-extrabold"
-                    style={{
-                      background: done ? "#15803D" : active ? "#E0195F" : "#E7E7EA",
-                      color: done || active ? "#fff" : "#9CA3AF",
-                    }}
-                  >
-                    {done ? "✓" : i + 1}
-                  </div>
-                  <span
-                    className="whitespace-nowrap text-[11.5px] font-semibold"
-                    style={{ color: active ? "#18181B" : done ? "#15803D" : "#9CA3AF" }}
-                  >
-                    {label}
-                  </span>
-                  {i < stepDefs.length - 1 && (
+        <div className="flex-none border-b border-line2 bg-white">
+          {/* Mobile: active step label + progress bar (the full pip row can't fit) */}
+          <div className="px-[22px] py-2.5 sm:hidden">
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[13px] font-bold text-brand-ink">
+                {stepDefs[activeIdx]?.[0] ?? ""}
+              </span>
+              <span className="text-[11.5px] font-semibold text-gray-400">
+                Step {activeIdx + 1} of {stepDefs.length}
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#E7E7EA]">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${progressPct}%`, background: "#E0195F" }}
+              />
+            </div>
+          </div>
+          {/* Desktop / tablet: full labeled pip stepper */}
+          <div className="hidden justify-center px-[22px] py-3 sm:flex">
+            <div className="flex w-full max-w-[760px] items-center gap-[5px]">
+              {stepDefs.map(([label, t], i) => {
+                const done = step > t;
+                const active = step === t;
+                return (
+                  <div key={label} className="flex flex-1 items-center gap-[5px]">
                     <div
-                      className="mx-1 h-0.5 flex-1 rounded-sm"
-                      style={{ background: step > t ? "#15803D" : "#E7E7EA" }}
-                    />
-                  )}
-                </div>
-              );
-            })}
+                      className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-[11.5px] font-extrabold"
+                      style={{
+                        background: done ? "#15803D" : active ? "#E0195F" : "#E7E7EA",
+                        color: done || active ? "#fff" : "#9CA3AF",
+                      }}
+                    >
+                      {done ? "✓" : i + 1}
+                    </div>
+                    <span
+                      className="whitespace-nowrap text-[11.5px] font-semibold"
+                      style={{ color: active ? "#18181B" : done ? "#15803D" : "#9CA3AF" }}
+                    >
+                      {label}
+                    </span>
+                    {i < stepDefs.length - 1 && (
+                      <div
+                        className="mx-1 h-0.5 flex-1 rounded-sm"
+                        style={{ background: step > t ? "#15803D" : "#E7E7EA" }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -91,33 +115,82 @@ export function RespondentFlow() {
           {step === 9 && <Success />}
         </div>
       </div>
+
+      {showExitConfirm && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-5"
+          onClick={() => setShowExitConfirm(false)}
+        >
+          <div
+            className="w-full max-w-[380px] rounded-2xl bg-white p-6 text-center shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
+              <span className="text-[26px] leading-none">⚠️</span>
+            </div>
+            <h2 className="mb-2 text-[18px] font-extrabold tracking-[-.3px]">Exit the survey?</h2>
+            <p className="mb-5 text-[13.5px] leading-[1.55] text-gray-500">
+              Your progress on this survey will be lost and you&apos;ll return to the start. This
+              can&apos;t be undone.
+            </p>
+            <div className="flex gap-2.5">
+              <button
+                onClick={() => setShowExitConfirm(false)}
+                className="h-11 flex-1 rounded-[11px] border border-[#E2E2E6] bg-white text-[13.5px] font-bold text-gray-700"
+              >
+                Keep going
+              </button>
+              <button
+                onClick={() => {
+                  setShowExitConfirm(false);
+                  actions.exitFlow();
+                }}
+                className="h-11 flex-1 rounded-[11px] bg-red-600 text-[13.5px] font-bold text-white"
+              >
+                Yes, exit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function Welcome() {
   const { state, actions } = usePortal();
+  const agreeTerms = state.consentTerms;
+  const agreePrivacy = state.consentPrivacy;
+  const canStart = agreeTerms && agreePrivacy;
+  const start = () => {
+    if (!canStart) return;
+    actions.confirmConsent();
+    actions.flowNext();
+  };
   return (
-    <div className="pt-[18px] text-center">
-      <div
-        className="mx-auto mb-[22px] flex h-16 w-16 items-center justify-center rounded-[18px]"
-        style={{ background: "linear-gradient(135deg,#F0246A,#FB923C)" }}
-      >
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9 11l3 3L22 4" />
-          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-        </svg>
-      </div>
-      <h1 className="mb-2.5 text-[26px] font-extrabold tracking-[-.6px]">Prodi-Surveys</h1>
-      <p className="mx-auto mb-2 max-w-[460px] text-[14.5px] leading-[1.65] text-gray-500">
-        You&apos;ve been invited to take part in a baseline data collection study. The survey takes
-        about <b>5–10 minutes</b>.
-      </p>
-      {state.referredBy && (
-        <div className="my-3.5 inline-flex items-center gap-2 rounded-[9px] border border-brand-pinkLine bg-brand-pinkSoft2 px-3.5 py-2 text-[13px] font-semibold text-[#9D174D]">
-          Referred by {state.referredBy} · code {state.referredCode}
+    <div className="pt-[18px]">
+      <div className="text-center">
+        <div
+          className="mx-auto mb-[22px] flex h-16 w-16 items-center justify-center rounded-[18px]"
+          style={{ background: "linear-gradient(135deg,#F0246A,#FB923C)" }}
+        >
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 11l3 3L22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
         </div>
-      )}
+        <h1 className="mb-2.5 text-[26px] font-extrabold tracking-[-.6px]">Prodi-Surveys</h1>
+        <p className="mx-auto mb-2 max-w-[460px] text-[14.5px] leading-[1.65] text-gray-500">
+          You&apos;ve been invited to take part in a baseline data collection study. The survey takes
+          about <b>5–10 minutes</b>.
+        </p>
+        {state.referredBy && (
+          <div className="my-3.5 inline-flex items-center gap-2 rounded-[9px] border border-brand-pinkLine bg-brand-pinkSoft2 px-3.5 py-2 text-[13px] font-semibold text-[#9D174D]">
+            Referred by {state.referredBy} · code {state.referredCode}
+          </div>
+        )}
+      </div>
+
       <div className="my-[22px] rounded-2xl border border-line bg-white p-[18px] text-left">
         <div className="mb-3 text-[12px] font-bold uppercase tracking-[.4px] text-gray-400">
           What you&apos;ll need
@@ -135,12 +208,81 @@ function Welcome() {
           ))}
         </div>
       </div>
+
+      <div className="mb-4 rounded-2xl border border-line bg-white p-[18px] text-left">
+        <div className="mb-3 text-[12px] font-bold uppercase tracking-[.4px] text-gray-400">
+          Terms, consent &amp; data privacy
+        </div>
+        <div className="mb-3.5 max-h-[210px] space-y-2.5 overflow-y-auto rounded-xl border border-line2 bg-muted px-3.5 py-3 text-[12.5px] leading-[1.6] text-gray-600">
+          <p>
+            <b className="text-gray-700">Purpose.</b> Prodigitality is conducting this baseline study to
+            understand the needs of food-processing businesses and the organizations that support them.
+            Your participation is voluntary, and you may stop at any time before submitting.
+          </p>
+          <p>
+            <b className="text-gray-700">What we collect.</b> Your name, email, mobile number, organization
+            details, survey responses, and an identity selfie used solely for verification and quality
+            control. If a token is offered, we also collect the payout details you provide.
+          </p>
+          <p>
+            <b className="text-gray-700">How we use it.</b> Your information is used to verify your response,
+            process any incentive, and produce aggregated, de-identified research insights. We do not sell
+            your personal data. Payout details are accessible only to authorized Prodigitality administrators.
+          </p>
+          <p>
+            <b className="text-gray-700">Data privacy.</b> We process your personal data in accordance with the
+            Philippine Data Privacy Act of 2012 (RA&nbsp;10173). You have the right to access, correct, or
+            request deletion of your data. To exercise these rights, contact privacy@prodigitality.net.
+          </p>
+          <p>
+            <b className="text-gray-700">Retention.</b> Records are kept only for as long as needed for
+            verification, incentive processing, and research, after which they are de-identified or securely
+            deleted.
+          </p>
+        </div>
+
+        <label className="mb-2.5 flex cursor-pointer items-start gap-2.5 text-[13px] leading-[1.5] text-gray-700">
+          <input
+            type="checkbox"
+            checked={agreeTerms}
+            onChange={(e) => actions.setConsentTerms(e.target.checked)}
+            className="mt-[2px] h-[17px] w-[17px] flex-none"
+            style={{ accentColor: "#E0195F" }}
+          />
+          <span>
+            I have read and agree to the <b>Terms &amp; Conditions</b> of participation in this survey.
+          </span>
+        </label>
+        <label className="flex cursor-pointer items-start gap-2.5 text-[13px] leading-[1.5] text-gray-700">
+          <input
+            type="checkbox"
+            checked={agreePrivacy}
+            onChange={(e) => actions.setConsentPrivacy(e.target.checked)}
+            className="mt-[2px] h-[17px] w-[17px] flex-none"
+            style={{ accentColor: "#E0195F" }}
+          />
+          <span>
+            I <b>consent</b>{" "}to the collection and processing of my personal data as described above, in accordance with the Data Privacy Act of 2012 (RA&nbsp;10173).
+          </span>
+        </label>
+      </div>
+
       <button
-        onClick={actions.flowNext}
-        className="h-12 w-full rounded-[11px] bg-brand-ink text-[15px] font-bold text-white"
+        onClick={start}
+        disabled={!canStart}
+        className="h-12 w-full rounded-[11px] text-[15px] font-bold text-white"
+        style={{
+          background: canStart ? "#18181B" : "#D4D4D8",
+          cursor: canStart ? "pointer" : "not-allowed",
+        }}
       >
         Get started
       </button>
+      {!canStart && (
+        <p className="mt-2.5 text-center text-[12px] text-gray-400">
+          Please accept the terms and data privacy consent to continue.
+        </p>
+      )}
     </div>
   );
 }
@@ -188,7 +330,7 @@ function Register() {
       </p>
       <div className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-[22px]">
         <Field label="Full name" value={reg.name} onChange={(v) => actions.setReg("name", v)} placeholder="Juan Dela Cruz" />
-        <div className="grid grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
           <Field label="Email address" value={reg.email} onChange={(v) => actions.setReg("email", v)} placeholder="you@email.com" />
           <Field label="Mobile number" value={reg.mobile} onChange={(v) => actions.setReg("mobile", v)} placeholder="+63 9XX XXX XXXX" />
         </div>
@@ -465,6 +607,7 @@ function Selfie() {
   const done = state.selfie;
   const methodLabel = state.selfieMethod === "upload" ? "Image uploaded" : "Selfie captured";
   const [uploading, setUploading] = useState(false);
+  const [busyMsg, setBusyMsg] = useState("Uploading…");
   const [uploadError, setUploadError] = useState("");
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
@@ -473,6 +616,19 @@ function Selfie() {
     setUploading(true);
     setUploadError("");
     try {
+      // Verify the photo actually shows a single face before uploading. A count
+      // of -1 means detection couldn't run (model/CDN unavailable) — fail open
+      // so an outage never blocks a respondent from finishing the survey.
+      setBusyMsg("Checking photo…");
+      const faces = await detectFaceCount(file);
+      if (faces === 0) {
+        throw new Error("We couldn't detect a face. Use a clear, well-lit photo showing your face.");
+      }
+      if (faces > 1) {
+        throw new Error("More than one face detected. Make sure only your face is visible.");
+      }
+
+      setBusyMsg("Uploading…");
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/selfie", { method: "POST", body: fd });
@@ -496,8 +652,8 @@ function Selfie() {
     <div className="pt-2 text-center">
       <h1 className="mb-2 text-[22px] font-extrabold tracking-[-.5px]">Identity selfie</h1>
       <p className="mx-auto mb-6 max-w-[420px] text-[13.5px] text-gray-500">
-        A quick selfie confirms a real person completed this survey. Used for audit &amp; quality
-        control only.
+        A quick selfie confirms a real person completed this survey. Make sure your face is clearly
+        visible and well-lit. Used for audit &amp; quality control only.
       </p>
       <div
         className="mx-auto flex h-[180px] w-full max-w-[320px] items-center justify-center rounded-2xl border-2 border-dashed"
@@ -508,7 +664,7 @@ function Selfie() {
       >
         {uploading ? (
           <div className="text-center">
-            <div className="text-[13.5px] font-semibold text-gray-400">Uploading…</div>
+            <div className="text-[13.5px] font-semibold text-gray-400">{busyMsg}</div>
           </div>
         ) : done ? (
           <div className="text-center">
@@ -601,7 +757,7 @@ function Payout() {
       <div className="flex flex-col gap-[18px] rounded-2xl border border-line bg-white p-[22px]">
         <div>
           <span className="mb-2 block text-[12px] font-bold text-gray-700">Payout method</span>
-          <div className="grid grid-cols-4 gap-[9px]">
+          <div className="grid grid-cols-2 gap-[9px] sm:grid-cols-4">
             {PAYOUT_METHODS.map((m) => {
               const active = p.method === m;
               return (
@@ -621,7 +777,7 @@ function Payout() {
         </div>
 
         {isEwallet && (
-          <div className="grid grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <Field label="Account name" value={p.acctName} onChange={(v) => actions.setPayout("acctName", v)} placeholder="Registered name" />
             <Field label="Mobile number" value={p.acctNum} onChange={(v) => actions.setPayout("acctNum", v)} placeholder="09XX XXX XXXX" />
           </div>
@@ -629,7 +785,7 @@ function Payout() {
         {isBank && (
           <div className="flex flex-col gap-3.5">
             <Field label="Bank name" value={p.bank} onChange={(v) => actions.setPayout("bank", v)} placeholder="e.g. BDO, BPI" />
-            <div className="grid grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <Field label="Account name" value={p.acctName} onChange={(v) => actions.setPayout("acctName", v)} placeholder="Account holder" />
               <Field label="Account number" value={p.acctNum} onChange={(v) => actions.setPayout("acctNum", v)} placeholder="000000000" />
             </div>
@@ -686,7 +842,7 @@ function Review() {
     setSubmitting(true);
     setSubmitError("");
     try {
-      await fetch("/api/submit", {
+      const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -697,8 +853,17 @@ function Review() {
           selfie_url: state.selfieUrl || null,
           payout_details: state.payoutOn ? state.payout : null,
           referrer_code: state.reg.code || null,
+          consent: {
+            terms: state.consentTerms,
+            privacy: state.consentPrivacy,
+            accepted_at: state.consentAt || null,
+          },
         }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Submission failed");
+      }
       actions.submitFlow();
     } catch {
       setSubmitError("Submission failed. Please check your connection and try again.");

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
-import { supabase as db } from "@/lib/supabase";
+import { createAdminClient } from "@/lib/supabase-server";
+
+// OTP codes are written/verified server-side with the service-role client so the
+// anon role needs no access to the otp_codes table (no anon RLS policies).
+const db = createAdminClient();
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,

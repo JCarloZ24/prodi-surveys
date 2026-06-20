@@ -14,7 +14,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { blankQual, classify } from "./classify";
+import { blankQual } from "./classify";
 import { buildData } from "./mockData";
 import { code as codeOf, hash } from "./format";
 import type {
@@ -82,6 +82,9 @@ export interface PortalState {
   handoffMode: string;
   payout: PayoutDetails;
   newCode: string;
+  consentTerms: boolean;
+  consentPrivacy: boolean;
+  consentAt: string;
 }
 
 const USER_NAMES: Record<Role, string> = {
@@ -166,6 +169,9 @@ function initialState(): PortalState {
     handoffMode: "",
     payout: blankPayout(),
     newCode: "",
+    consentTerms: false,
+    consentPrivacy: false,
+    consentAt: "",
   };
 }
 
@@ -233,6 +239,9 @@ export interface PortalActions {
   submitFlow(): void;
   copyReferral(): void;
   previewReferral(): void;
+  setConsentTerms(v: boolean): void;
+  setConsentPrivacy(v: boolean): void;
+  confirmConsent(): void;
 }
 
 interface PortalContextValue {
@@ -305,6 +314,9 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
       qual: blankQual(),
       reg: blankReg(),
       payout: blankPayout(),
+      consentTerms: false,
+      consentPrivacy: false,
+      consentAt: "",
     });
 
     return {
@@ -595,81 +607,19 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
       },
 
       submitFlow: () => {
+        // The submission is already persisted to Supabase by the Review step's
+        // /api/submit call. Here we only generate the referral code shown on the
+        // success screen and advance the wizard.
         const s = stateRef.current;
-        const r = s.reg;
-        const q = s.qual;
-        const c = "PS-" + codeOf(s.respondents.length * 13 + 99);
-        const cls = classify(q);
-        const surveyType = (cls.surveyType || "SME") as Respondent["type"];
-        const payoutOn = s.payoutOn;
-        const token = payoutOn ? s.incentives[surveyType]?.token ?? 0 : 0;
-        // Survey-only respondents self-served via link; otherwise an enumerator
-        // assisted and is credited as the first enumerator on file.
-        const assisted = !s.surveyOnly;
-        const mode: Respondent["mode"] = assisted ? "Enumerator-assisted" : "Self-service";
-        const enumName = assisted ? s.enumerators[0]?.name ?? "—" : "—";
-        const referrer =
-          (q.refName && q.refName.trim()) ||
-          s.referredBy ||
-          ((r.code || "").trim() ? "Referral code" : null) ||
-          null;
-        const org =
-          q.govOrg ||
-          (q.foodProducts ? "Food: " + q.foodProducts : "") ||
-          (q.techTypes && q.techTypes[0]) ||
-          "Self-registered";
-        const rec: Respondent = {
-          id: 9000 + s.respondents.length,
-          name: r.name || "New Respondent",
-          org,
-          type: surveyType,
-          status: "Pending QA",
-          region: "NCR",
-          position: q.foodRole || "—",
-          email: r.email || "—",
-          mobile: r.mobile || "—",
-          emailV: true,
-          surveyDone: true,
-          selfie: true,
-          selfieMethod: s.selfieMethod || "camera",
-          verified: false,
-          token,
-          payoutOn,
-          assignedType: cls.assignedType,
-          qualStatus: cls.status,
-          hearAbout: q.hearAbout,
-          referred: !!referrer,
-          referrer,
-          mode,
-          enumerator: enumName,
-          payStatus: "—",
-          method: payoutOn ? s.payout.method : "—",
-          acct: payoutOn
-            ? s.payout.method + " •••• " + (s.payout.acctNum || "").slice(-3)
-            : "No payout",
-          compMin: 12,
-          bonus: 0,
-          flags: cls.flags.slice(),
-          code: c,
-          createdDays: 0,
-          color: "#E0195F",
-          _new: true,
-        };
-        // Chained logs: most recent ends up first, matching the prototype.
-        const logs: AuditEntry[] = [
-          logEntry("Respondent registered", "· " + rec.name + " (" + cls.assignedType + ")", mode),
-          logEntry("Respondent profile completed", "· " + rec.name + " · " + cls.status, "System"),
-          logEntry("Survey completed", "· " + rec.name, mode),
-        ];
-        if (cls.flags.length)
-          logs.push(logEntry("Submission flagged", "· " + rec.name + " (" + cls.flags[0] + ")", "System"));
-        set({
-          respondents: [rec, ...s.respondents],
-          newCode: c,
-          rStep: 9,
-          audit: [...logs.reverse(), ...s.audit],
-        });
+        const c = "PS-" + codeOf(hash((s.reg.email || s.reg.name || "respondent") + Date.now()));
+        set({ newCode: c, rStep: 9 });
       },
+
+      setConsentTerms: (v) => set({ consentTerms: v }),
+      setConsentPrivacy: (v) => set({ consentPrivacy: v }),
+      // Stamp the moment both consents were accepted (when leaving the Welcome
+      // step), so the submission carries an auditable consent timestamp.
+      confirmConsent: () => set({ consentAt: new Date().toISOString() }),
 
       copyReferral: () => {
         const link = "surveys.prodigitality.net/r/" + (stateRef.current.newCode || "");
@@ -700,6 +650,9 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
           qual: blankQual(),
           reg: { ...blankReg(), code: c },
           payout: blankPayout(),
+          consentTerms: false,
+          consentPrivacy: false,
+          consentAt: "",
         });
       },
     };

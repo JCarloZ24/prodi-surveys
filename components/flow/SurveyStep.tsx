@@ -108,7 +108,7 @@ export function SurveyStep() {
                     const obj = cur && typeof cur === "object" && !Array.isArray(cur) ? cur : {};
                     return (
                       <div key={row} className="flex items-center gap-3">
-                        <span className="w-[140px] flex-none text-[12.5px] font-semibold text-gray-700">
+                        <span className="w-[104px] flex-none text-[12.5px] font-semibold leading-[1.3] text-gray-700 sm:w-[140px]">
                           {row}
                         </span>
                         <select

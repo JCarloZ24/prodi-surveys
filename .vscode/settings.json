@@ -1,0 +1,4 @@
+{
+  "// note": "This project intentionally uses arbitrary pixel utilities (e.g. h-[46px]) ported pixel-for-pixel from the design prototype. The Tailwind IntelliSense 'canonical class' suggestion is advisory only and conflicts with that convention, so it is disabled here.",
+  "tailwindCSS.lint.suggestCanonicalClasses": "ignore"
+}
