@@ -4,7 +4,7 @@
 import type { EmailDef } from "./types";
 
 export function emailDefs(): EmailDef[] {
-  const link = "surveys.prodigitality.net";
+  const link = "prodigitalitydata.live";
   return [
     {
       id: "verify", audience: "Respondent", name: "Verify your email",
@@ -93,7 +93,7 @@ export function emailDefs(): EmailDef[] {
         { type: "h", text: "Welcome to the field team" },
         { type: "p", text: "Hi Grace, you’ve been added as an enumerator on the Prodigitality baseline survey project. Set up your account to start adding and assisting respondents." },
         { type: "btn", text: "Set up my account" },
-        { type: "kv", rows: [["Role", "Enumerator"], ["Assigned region", "Region VII"], ["Portal", "surveys.prodigitality.net"]] },
+        { type: "kv", rows: [["Role", "Enumerator"], ["Assigned region", "Region VII"], ["Portal", "prodigitalitydata.live"]] },
       ],
     },
     {

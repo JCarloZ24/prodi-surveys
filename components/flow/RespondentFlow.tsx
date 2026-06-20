@@ -9,6 +9,7 @@ import { code, hash, peso, typePillClass, typeShort } from "@/lib/format";
 import { LogoMark } from "@/lib/icons";
 import { cx } from "@/lib/cx";
 import { detectFaceCount } from "@/lib/faceDetect";
+import { publicUrl } from "@/lib/public-url";
 import { FlowNav } from "./FlowNav";
 import { ProfileStep } from "./ProfileStep";
 import { SurveyStep } from "./SurveyStep";
@@ -102,7 +103,7 @@ export function RespondentFlow() {
       )}
 
       <div className="flex-1 overflow-y-auto px-[22px] pt-[34px]">
-        <div className="mx-auto w-full max-w-[620px] pb-[120px]">
+        <div key={step} className="animate-flow-step mx-auto w-full max-w-[620px] pb-[120px]">
           {step === 0 && <Welcome />}
           {step === 1 && <ProfileStep />}
           {step === 2 && <Register />}
@@ -232,7 +233,7 @@ function Welcome() {
           <p>
             <b className="text-gray-700">Data privacy.</b> We process your personal data in accordance with the
             Philippine Data Privacy Act of 2012 (RA&nbsp;10173). You have the right to access, correct, or
-            request deletion of your data. To exercise these rights, contact privacy@prodigitality.net.
+            request deletion of your data. To exercise these rights, contact accounts@prodigitality.net.
           </p>
           <p>
             <b className="text-gray-700">Retention.</b> Records are kept only for as long as needed for
@@ -339,6 +340,8 @@ function Register() {
   const { state, actions } = usePortal();
   const reg = state.reg;
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [refStatus, setRefStatus] = useState<"idle" | "checking" | "valid" | "invalid" | "error">("idle");
+  const [checkedRefCode, setCheckedRefCode] = useState("");
   const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
 
   // Mobile is stored as "+63" + the local digits the user types (leading 0
@@ -347,7 +350,59 @@ function Register() {
   const nameOk = reg.name.trim().length > 0;
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reg.email.trim());
   const mobileOk = mobileLocal.replace(/\D/g, "").length >= 10;
-  const canContinue = nameOk && emailOk && mobileOk;
+  const normalizedRefCode = reg.code.trim().toUpperCase();
+  const hasReferralCode = normalizedRefCode.length > 0;
+  const referralFormatOk = /^PS-[A-Z0-9]{4,}$/.test(normalizedRefCode);
+  const effectiveRefStatus: typeof refStatus = !hasReferralCode
+    ? "idle"
+    : !referralFormatOk
+      ? "invalid"
+      : checkedRefCode === normalizedRefCode
+        ? refStatus
+        : "checking";
+  const referralOk = !hasReferralCode || effectiveRefStatus === "valid";
+  const canContinue = nameOk && emailOk && mobileOk && referralOk && effectiveRefStatus !== "checking";
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!normalizedRefCode || !referralFormatOk) return;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch("/api/referral/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: normalizedRefCode }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        setCheckedRefCode(normalizedRefCode);
+        setRefStatus(res.ok && data.valid ? "valid" : "invalid");
+      } catch {
+        if (!cancelled) {
+          setCheckedRefCode(normalizedRefCode);
+          setRefStatus("error");
+        }
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [normalizedRefCode, referralFormatOk]);
+
+  const referralMessage =
+    effectiveRefStatus === "checking"
+      ? "Checking referral code..."
+      : effectiveRefStatus === "valid"
+        ? "Referral code is valid."
+        : effectiveRefStatus === "invalid"
+          ? "Referral code is invalid."
+          : effectiveRefStatus === "error"
+            ? "Could not validate this code. Please try again."
+            : "";
+  const referralError = effectiveRefStatus === "invalid" || effectiveRefStatus === "error";
 
   return (
     <div>
@@ -407,9 +462,11 @@ function Register() {
         <Field
           label={<>Referral code <span className="font-medium text-gray-400">· optional</span></>}
           value={reg.code}
-          onChange={(v) => actions.setReg("code", v)}
+          onChange={(v) => actions.setReg("code", v.toUpperCase())}
           placeholder="e.g. PS-XXXX"
           mono
+          hint={!referralError ? referralMessage : ""}
+          error={referralError ? referralMessage : ""}
         />
         <div className="border-t border-[#F2F2F4] pt-4">
           <div className="flex items-start gap-3">
@@ -449,38 +506,64 @@ function Register() {
   );
 }
 
+const OTP_AUTO_SEND_WINDOW_MS = 2 * 60 * 1000;
+
+function otpStorageKey(email: string) {
+  return "prodi-surveys.otpSent." + email.trim().toLowerCase();
+}
+
+function hasRecentOtpAutoSend(email: string) {
+  if (typeof window === "undefined") return false;
+  const lastSent = Number(window.sessionStorage.getItem(otpStorageKey(email)) || 0);
+  return !!lastSent && Date.now() - lastSent < OTP_AUTO_SEND_WINDOW_MS;
+}
+
 function Otp() {
   const { state, actions } = usePortal();
-  const [sending, setSending] = useState(true);
-  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(() => !hasRecentOtpAutoSend(state.reg.email));
+  const [sent, setSent] = useState(() => hasRecentOtpAutoSend(state.reg.email));
   const [verifying, setVerifying] = useState(false);
   const [otpError, setOtpError] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/otp", {
+  const sendOtp = async (resend: boolean) => {
+    const res = await fetch("/api/otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: state.reg.email }),
-    })
+      body: JSON.stringify({ email: state.reg.email, resend }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Verification email could not be sent.");
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    if (hasRecentOtpAutoSend(state.reg.email)) return () => { cancelled = true; };
+    const storageKey = otpStorageKey(state.reg.email);
+    window.sessionStorage.setItem(storageKey, String(Date.now()));
+    sendOtp(false)
       .then(() => { if (!cancelled) setSent(true); })
-      .catch(() => { if (!cancelled) setOtpError("Failed to send code. Check your connection and try again."); })
+      .catch(() => {
+        window.sessionStorage.removeItem(storageKey);
+        if (!cancelled) setOtpError("Verification email could not be sent. Please try again in a moment.");
+      })
       .finally(() => { if (!cancelled) setSending(false); });
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleResend = () => {
+  const handleResend = async () => {
     setSent(false);
     setOtpError("");
     setSending(true);
-    fetch("/api/otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: state.reg.email }),
-    })
-      .then(() => setSent(true))
-      .catch(() => setOtpError("Failed to resend code."))
-      .finally(() => setSending(false));
+    try {
+      await sendOtp(true);
+      setSent(true);
+    } catch {
+      setOtpError("Verification email could not be sent. Please try again in a moment.");
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleVerify = async () => {
@@ -492,7 +575,7 @@ function Otp() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: state.reg.email, code: state.otp }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (data.ok) {
         actions.verifyOtp();
       } else {
@@ -524,8 +607,13 @@ function Otp() {
         value={state.otp}
         onChange={(e) => actions.setOtp(e.target.value)}
         maxLength={6}
+        autoComplete="one-time-code"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        aria-label="Six digit verification code"
+        autoFocus
         placeholder="• • • • • •"
-        className="mb-[18px] h-14 w-[240px] rounded-xl border border-[#E2E2E6] text-center font-mono text-2xl font-bold tracking-[10px] outline-none"
+        className="mb-[18px] h-14 w-[240px] rounded-xl border border-[#E2E2E6] text-center font-mono text-2xl font-bold outline-none focus:border-brand-pink focus:ring-4 focus:ring-pink-100"
       />
       <div className="flex justify-center gap-2.5">
         <button
@@ -559,8 +647,8 @@ function Handoff() {
   const { state, actions } = usePortal();
   const picking = state.handoffMode !== "link";
   const who = (state.reg.name || "").trim() || "the respondent";
-  const surveyLink =
-    "surveys.prodigitality.net/s/PS-" + code(hash(state.reg.email || state.reg.name || "survey"));
+  const surveyCode = "PS-" + code(hash(state.reg.email || state.reg.name || "survey"));
+  const surveyLink = publicUrl("/s/" + encodeURIComponent(surveyCode));
 
   return (
     <div>
@@ -647,14 +735,14 @@ function Handoff() {
           <div className="mb-4 flex items-center gap-2 rounded-[9px] border border-line2 bg-muted px-[13px] py-[11px]">
             <span className="flex-1 break-all font-mono text-[13px] text-gray-700">{surveyLink}</span>
             <button
-              onClick={actions.copySurveyLink}
+              onClick={() => actions.copySurveyLink(surveyCode)}
               className="rounded-[7px] bg-brand-pink px-[13px] py-[7px] text-[11.5px] font-bold text-white"
             >
               Copy
             </button>
           </div>
           <button
-            onClick={actions.previewSurveyOnly}
+            onClick={() => actions.previewSurveyOnly(surveyCode)}
             className="mb-2.5 h-[46px] w-full rounded-[11px] bg-brand-ink text-sm font-bold text-white"
           >
             Preview the respondent&apos;s survey-only view
@@ -959,7 +1047,8 @@ function Review() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Submission failed");
       }
-      actions.submitFlow();
+      const data = await res.json().catch(() => ({}));
+      actions.submitFlow(data.referral_code);
     } catch {
       setSubmitError("Submission failed. Please check your connection and try again.");
       setSubmitting(false);
@@ -994,6 +1083,8 @@ function Success() {
   const { state, actions } = usePortal();
   const thanks = (state.reg.name && state.reg.name.trim()) ? "Thanks, " + state.reg.name.trim() + "." : "Thanks!";
   const tokenLabel = state.payoutOn ? peso(tok(state.incentives, state.rType)) : "No token";
+  const referralPath = state.referralPath || "/r/" + encodeURIComponent(state.newCode || "");
+  const referralUrl = publicUrl(referralPath);
   return (
     <div className="pt-[18px] text-center">
       <div className="mx-auto mb-[22px] flex h-[72px] w-[72px] items-center justify-center rounded-full bg-green-100">
@@ -1018,7 +1109,7 @@ function Success() {
         </p>
         <div className="flex items-center gap-2 rounded-[9px] border border-line2 bg-muted px-[13px] py-2.5">
           <span className="flex-1 break-all text-left font-mono text-[13px] text-gray-700">
-            surveys.prodigitality.net/r/{state.newCode}
+            {referralUrl}
           </span>
           <button
             onClick={actions.copyReferral}

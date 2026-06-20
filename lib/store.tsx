@@ -17,6 +17,7 @@ import {
 import { blankQual } from "./classify";
 import { buildData } from "./mockData";
 import { code as codeOf, hash } from "./format";
+import { publicUrl } from "./public-url";
 import type {
   AppMode,
   AuditEntry,
@@ -59,6 +60,7 @@ export interface PortalState {
   newRefKind: string;
   referredBy: string;
   referredCode: string;
+  referralPath: string;
   qual: Qual;
   respondents: Respondent[];
   audit: AuditEntry[];
@@ -109,9 +111,33 @@ function blankPayout(): PayoutDetails {
   return { method: "GCash", acctName: "", acctNum: "", bank: "" };
 }
 
+const FLOW_DRAFT_KEY = "prodi-surveys.flowDraft.v1";
+const FLOW_DRAFT_FIELDS = [
+  "mode",
+  "rStep",
+  "rType",
+  "reg",
+  "qual",
+  "survey",
+  "selfie",
+  "selfieMethod",
+  "selfieUrl",
+  "payoutOn",
+  "surveyOnly",
+  "handoffMode",
+  "payout",
+  "newCode",
+  "consentTerms",
+  "consentPrivacy",
+  "consentAt",
+  "referredBy",
+  "referredCode",
+  "referralPath",
+] as const;
+
 function initialState(): PortalState {
   const data = buildData();
-  return {
+  const base: PortalState = {
     mode: "login",
     role: "admin",
     view: "dashboard",
@@ -146,6 +172,7 @@ function initialState(): PortalState {
     newRefKind: "Partner / TSI",
     referredBy: "",
     referredCode: "",
+    referralPath: "",
     qual: blankQual(),
     respondents: data.respondents,
     audit: data.audit,
@@ -173,6 +200,25 @@ function initialState(): PortalState {
     consentPrivacy: false,
     consentAt: "",
   };
+  if (typeof window === "undefined") return base;
+
+  try {
+    const raw = window.localStorage.getItem(FLOW_DRAFT_KEY);
+    if (!raw) return base;
+    const draft = JSON.parse(raw) as Partial<PortalState>;
+    if (draft.mode !== "flow") return base;
+    return {
+      ...base,
+      ...draft,
+      reg: { ...blankReg(), ...(draft.reg || {}) },
+      qual: { ...blankQual(), ...(draft.qual || {}) },
+      survey: draft.survey || {},
+      payout: { ...blankPayout(), ...(draft.payout || {}) },
+      otp: "",
+    };
+  } catch {
+    return base;
+  }
 }
 
 function logEntry(action: string, target: string, by: string): AuditEntry {
@@ -214,6 +260,8 @@ export interface PortalActions {
   addReferrer(): void;
   setEmail(id: string): void;
   launchFlow(): void;
+  launchReferralFlow(code: string, preview?: boolean): void;
+  launchSurveyOnlyFlow(code: string, preview?: boolean): void;
   exitFlow(): void;
   flowNext(): void;
   flowBack(): void;
@@ -229,14 +277,14 @@ export interface PortalActions {
   setPayoutOn(v: boolean): void;
   handoffAssisted(): void;
   handoffSendLink(): void;
-  previewSurveyOnly(): void;
+  previewSurveyOnly(code?: string): void;
   handoffDone(): void;
-  copySurveyLink(): void;
+  copySurveyLink(code?: string): void;
   setPayout(k: keyof PayoutDetails, v: string): void;
   setOrg(t: Qual["orgType"]): void;
   setQual(f: keyof Qual, v: string): void;
   toggleTech(opt: string): void;
-  submitFlow(): void;
+  submitFlow(referralCode?: string): void;
   copyReferral(): void;
   previewReferral(): void;
   setConsentTerms(v: boolean): void;
@@ -262,6 +310,21 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     stateRef.current = state;
   });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (state.mode !== "flow") {
+      window.localStorage.removeItem(FLOW_DRAFT_KEY);
+      return;
+    }
+    const draft = FLOW_DRAFT_FIELDS.reduce(
+      (acc, key) => ({
+        ...acc,
+        [key]: state[key],
+      }),
+      {} as Partial<PortalState>,
+    );
+    window.localStorage.setItem(FLOW_DRAFT_KEY, JSON.stringify(draft));
+  }, [state]);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const set = useCb(
@@ -311,6 +374,7 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
       handoffMode: "",
       referredBy: "",
       referredCode: "",
+      referralPath: "",
       qual: blankQual(),
       reg: blankReg(),
       payout: blankPayout(),
@@ -489,19 +553,31 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
 
       setEmail: (id) => set({ emailSel: id }),
 
-      launchFlow: () =>
+      launchFlow: () => set(resetFlow()),
+      launchReferralFlow: (referralCode, preview = false) => {
+        const c = referralCode.trim().toUpperCase();
+        const s = stateRef.current;
+        if (s.mode === "flow" && s.reg.code === c) return;
         set({
-          mode: "flow",
-          rStep: 0,
-          referredBy: "",
-          referredCode: "",
-          qual: blankQual(),
-          payoutOn: true,
-          surveyOnly: false,
-          handoffMode: "",
-          selfie: false,
-          selfieMethod: "",
-        }),
+          ...resetFlow(),
+          referredBy: "Referral",
+          referredCode: c,
+          referralPath: (preview ? "/preview/r/" : "/r/") + encodeURIComponent(c),
+          reg: { ...blankReg(), code: c },
+        });
+      },
+      launchSurveyOnlyFlow: (surveyCode, preview = false) => {
+        const c = surveyCode.trim().toUpperCase();
+        const s = stateRef.current;
+        if (s.mode === "flow" && s.surveyOnly && s.reg.code === c) return;
+        set({
+          ...resetFlow(),
+          rStep: 5,
+          surveyOnly: true,
+          handoffMode: preview ? "preview" : "",
+          reg: { ...blankReg(), code: c },
+        });
+      },
       exitFlow: () => set(resetFlow()),
       // Branching wizard: Welcome(0) → Profile(1) → Register(2) → Verify(3) →
       // Handoff(4) → Survey(5) → Selfie(6) → Payout(7) → Review(8) → Success(9).
@@ -570,17 +646,23 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
           audit: [logEntry("Survey link sent", "· " + who + " (self-service)", userName()), ...s.audit],
         });
       },
-      previewSurveyOnly: () => set({ rStep: 5, surveyOnly: true, handoffMode: "" }),
+      previewSurveyOnly: (code) => {
+        const c = (code || "").trim().toUpperCase();
+        if (c && typeof window !== "undefined") {
+          window.location.href = "/preview/s/" + encodeURIComponent(c);
+          return;
+        }
+        set({ rStep: 5, surveyOnly: true, handoffMode: "" });
+      },
       handoffDone: () => {
         set(resetFlow());
         toast("Self-service survey link sent");
       },
-      copySurveyLink: () => {
-        const s = stateRef.current;
-        const link =
-          "surveys.prodigitality.net/s/" + (s.newCode || codeOf(Date.now() % 99999));
+      copySurveyLink: (code) => {
+        const c = (code || "").trim().toUpperCase() || "PS-" + codeOf(Date.now() % 99999);
+        const link = publicUrl("/s/" + encodeURIComponent(c));
         try {
-          if (navigator.clipboard) navigator.clipboard.writeText("https://" + link);
+          if (navigator.clipboard) navigator.clipboard.writeText(link);
         } catch {
           /* clipboard unavailable */
         }
@@ -606,12 +688,13 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
         });
       },
 
-      submitFlow: () => {
+      submitFlow: (referralCode) => {
         // The submission is already persisted to Supabase by the Review step's
         // /api/submit call. Here we only generate the referral code shown on the
-        // success screen and advance the wizard.
+        // success screen and advance the wizard. The API returns the saved code;
+        // the client fallback is only for old/offline-like responses.
         const s = stateRef.current;
-        const c = "PS-" + codeOf(hash((s.reg.email || s.reg.name || "respondent") + Date.now()));
+        const c = referralCode || "PS-" + codeOf(hash((s.reg.email || s.reg.name || "respondent") + Date.now()));
         set({ newCode: c, rStep: 9 });
       },
 
@@ -622,9 +705,11 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
       confirmConsent: () => set({ consentAt: new Date().toISOString() }),
 
       copyReferral: () => {
-        const link = "surveys.prodigitality.net/r/" + (stateRef.current.newCode || "");
+        const path =
+          stateRef.current.referralPath || "/r/" + encodeURIComponent(stateRef.current.newCode || "");
+        const link = publicUrl(path);
         try {
-          if (navigator.clipboard) navigator.clipboard.writeText("https://" + link);
+          if (navigator.clipboard) navigator.clipboard.writeText(link);
         } catch {
           /* clipboard unavailable */
         }
@@ -633,12 +718,16 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
       previewReferral: () => {
         const s = stateRef.current;
         const c = s.newCode;
-        const name = (s.reg.name || "").trim() || "A Prodi-Surveys respondent";
+        if (typeof window !== "undefined") {
+          window.location.href = "/preview/r/" + encodeURIComponent(c);
+          return;
+        }
         set({
           mode: "flow",
           rStep: 0,
-          referredBy: name,
+          referredBy: "Referral",
           referredCode: c,
+          referralPath: "/preview/r/" + encodeURIComponent(c),
           rType: "SME",
           otp: "",
           survey: {},

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { usePortal } from "@/lib/store";
 import { RadioOption, MultiOption } from "./Options";
 import { cx } from "@/lib/cx";
@@ -63,16 +64,24 @@ export function ProfileStep() {
   const { state, actions } = usePortal();
   const q = state.qual;
   const techArr = q.techTypes || [];
+  const [showOtherReview, setShowOtherReview] = useState(false);
 
-  const profileBlocked = q.orgType === "other" || (q.orgType === "food" && q.foodMakes === "No");
+  const profileBlocked =
+    (q.orgType === "other" && showOtherReview) || (q.orgType === "food" && q.foodMakes === "No");
   const blockTone = q.orgType === "food" && q.foodMakes === "No";
   let ready = false;
   if (q.orgType === "gov") ready = !!q.govOrg && !!q.govDept && !!q.govSupports;
   else if (q.orgType === "tech") ready = techArr.length > 0 && !!q.techSells;
   else if (q.orgType === "food")
     ready = q.foodMakes === "Yes" && !!q.foodProducts && !!q.foodEmployees && !!q.foodRole;
+  else if (q.orgType === "other") ready = !!q.orgName.trim();
   ready = ready && !!q.hearAbout && !profileBlocked;
+  if (q.orgType === "other") ready = !!q.orgName.trim() && !showOtherReview;
   const showHearAbout = (q.orgType === "gov" || q.orgType === "tech" || q.orgType === "food") && !blockTone;
+  const chooseDifferentCategory = () => {
+    setShowOtherReview(false);
+    actions.setOrg("");
+  };
 
   // When the respondent doesn't qualify ("Other", or a food business that
   // doesn't make/process food), take over the whole step with a dedicated
@@ -121,7 +130,7 @@ export function ProfileStep() {
         </button>
         <div className="mt-3.5">
           <button
-            onClick={() => actions.setOrg("")}
+            onClick={chooseDifferentCategory}
             className="text-[12.5px] font-semibold text-gray-400 underline"
           >
             Choose a different category
@@ -157,7 +166,10 @@ export function ProfileStep() {
         {ORG_CARDS.map((c) => (
           <div
             key={c.key}
-            onClick={() => actions.setOrg(c.key)}
+            onClick={() => {
+              setShowOtherReview(false);
+              actions.setOrg(c.key);
+            }}
             className={cx(
               "relative min-h-[120px] cursor-pointer rounded-2xl border p-4",
               q.orgType === c.key ? "border-brand-pink bg-brand-pinkSoft" : "border-line bg-white",
@@ -182,6 +194,25 @@ export function ProfileStep() {
           </div>
         ))}
       </div>
+
+      {q.orgType === "other" && (
+        <Branch>
+          <div>
+            <FieldLabel>
+              Organization / business name<Req />
+            </FieldLabel>
+            <input
+              value={q.orgName}
+              onChange={(e) => actions.setQual("orgName", e.target.value)}
+              placeholder="Your organization or business name"
+              className="h-[46px] w-full rounded-[9px] border border-[#E2E2E6] px-3 text-[14px] outline-none"
+            />
+            <p className="mt-2 text-[12px] leading-[1.5] text-gray-400">
+              Our team will review whether this survey applies to your organization.
+            </p>
+          </div>
+        </Branch>
+      )}
 
       {q.orgType === "gov" && (
         <Branch>
@@ -328,12 +359,19 @@ export function ProfileStep() {
           Back
         </button>
         <button
-          onClick={() => ready && actions.flowNext()}
+          onClick={() => {
+            if (!ready) return;
+            if (q.orgType === "other") {
+              setShowOtherReview(true);
+              return;
+            }
+            actions.flowNext();
+          }}
           disabled={!ready}
           className="h-[46px] flex-1 rounded-[11px] text-sm font-bold text-white"
           style={{ background: ready ? "#18181B" : "#D4D4D8", cursor: ready ? "pointer" : "not-allowed" }}
         >
-          Continue to registration
+          Next
         </button>
       </div>
     </div>

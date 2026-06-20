@@ -11,6 +11,7 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    ".vercel/**",
     "next-env.d.ts",
     // Design prototype artifacts (generated dc-runtime + exported HTML) — not app source.
     "drafts/**",

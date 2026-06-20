@@ -68,10 +68,23 @@
     transform: rotate(360deg);
   }
 }
+@keyframes flowStep {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
 .animate-pop {
   animation: pop 0.25s ease;
 }
 .animate-fade-up {
   animation: fadeUp 0.3s ease;
+}
+.animate-flow-step {
+  animation: flowStep 0.28s ease;
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { code, hash } from "@/lib/format";
 import { createAdminClient } from "@/lib/supabase-server";
 
 // POST /api/submit — persist a completed survey submission.
@@ -14,10 +15,17 @@ export async function POST(req: NextRequest) {
   }
 
   const db = createAdminClient();
+  const generatedReferralCode =
+    "PS-" + code(hash((registration.email || registration.name || "respondent") + Date.now()));
+  const savedRegistration = {
+    ...registration,
+    generated_referral_code: generatedReferralCode,
+  };
+
   const { data, error } = await db
     .from("submissions")
     .insert({
-      registration,
+      registration: savedRegistration,
       qualification,
       survey_type,
       answers,
@@ -35,5 +43,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ id: data.id });
+  return NextResponse.json({ id: data.id, referral_code: generatedReferralCode });
 }
