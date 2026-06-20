@@ -43,3 +43,23 @@ npm run lint
 Sign in with any of the **Quick demo access** buttons (or the dark "Sign in" button = Admin). Use the
 role switcher in the top bar to preview Enumerator and read-only Stakeholder views. Launch the
 respondent flow from the **Respondent flow** button in the top bar.
+
+## Team tooling — MCP servers
+
+This repo ships project-scoped MCP servers in [`.mcp.json`](.mcp.json) so the whole team can drive
+**Vercel** (deployments, logs, project management) and **Supabase** (database, when we wire it up)
+from Claude Code / Cursor / other MCP clients. Both are remote servers with **per-user OAuth — no
+secrets are committed**; everyone authenticates with their own account.
+
+First time in the repo:
+
+1. Open the project in Claude Code and **approve** the project MCP servers when prompted (project-scoped
+   servers require explicit approval before they load).
+2. Run `/mcp` and authenticate **vercel** and **supabase** in your browser.
+
+Notes:
+
+- Supabase is configured **read-only** and account-scoped by default. To scope it to one project and/or
+  allow writes, edit the URL in `.mcp.json` — e.g.
+  `https://mcp.supabase.com/mcp?project_ref=<your-project-ref>` (drop `read_only=true` to enable writes).
+- Other clients: `npx add-mcp https://mcp.vercel.com`, or point any MCP client at the URLs in `.mcp.json`.
