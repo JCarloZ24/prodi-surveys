@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#18181B;background:#F6F6F7}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#D4D4D8;border-radius:6px;border:2px solid #F6F6F7}
+  ::-webkit-scrollbar-track{background:transparent}
+  input,select,button,textarea{font-family:inherit}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes pop{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+
+<div style="position:fixed;inset:0;display:flex;flex-direction:column;background:#F6F6F7;overflow:hidden">
+
+  <!-- ============ STAFF LOGIN ============ -->
+  <sc-if value="{{ isLogin }}" hint-placeholder-val="">
+  <div style="position:absolute;inset:0;display:flex;background:#fff;z-index:40">
+    <!-- left brand panel -->
+    <div style="width:46%;flex:none;background:linear-gradient(150deg,#1F1147 0%,#3A1655 55%,#7A1742 100%);color:#fff;padding:52px 56px;display:flex;flex-direction:column;position:relative;overflow:hidden">
+      <div style="position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(240,36,106,.32),transparent 70%);top:-120px;right:-120px"></div>
+      <div style="position:absolute;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(251,146,60,.22),transparent 70%);bottom:-90px;left:-80px"></div>
+      <div style="display:flex;align-items:center;gap:12px;position:relative">
+        <svg width="34" height="34" viewBox="0 0 40 40" style="flex:none"><defs><linearGradient id="pgLogin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0246A"/><stop offset="1" stop-color="#FB923C"/></linearGradient></defs><path d="M20 2.5 L34.7 11 V29 L20 37.5 L5.3 29 V11 Z" fill="url(#pgLogin)"/><path d="M14 11.5h7.5c3.6 0 6 2.2 6 5.6s-2.4 5.7-6 5.7H18v5.7h-4Zm4 3.4v4.5h3c1.5 0 2.4-.8 2.4-2.2s-.9-2.3-2.4-2.3Z" fill="#fff"/></svg>
+        <div style="font-weight:800;font-size:18px;letter-spacing:-.3px">Prodi-Surveys</div>
+      </div>
+      <div style="flex:1"></div>
+      <div style="position:relative">
+        <h1 style="font-size:32px;font-weight:800;letter-spacing:-.8px;line-height:1.15;margin-bottom:16px;max-width:380px">Survey verification &amp; fieldwork operations</h1>
+        <p style="font-size:14.5px;color:rgba(255,255,255,.72);line-height:1.65;max-width:380px">Register, verify, and track every respondent — with selfie checks, QA review, referral tracking, and a full audit trail.</p>
+        <div style="display:flex;gap:24px;margin-top:32px">
+          <div><div style="font-size:24px;font-weight:800;letter-spacing:-.5px">{{ stats.verified }}/{{ totalTarget }}</div><div style="font-size:11.5px;color:rgba(255,255,255,.6);font-weight:600;margin-top:2px">Verified to date</div></div>
+          <div style="width:1px;background:rgba(255,255,255,.18)"></div>
+          <div><div style="font-size:24px;font-weight:800;letter-spacing:-.5px">{{ overallPctLabel }}</div><div style="font-size:11.5px;color:rgba(255,255,255,.6);font-weight:600;margin-top:2px">Of target reached</div></div>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <div style="position:relative;font-size:12px;color:rgba(255,255,255,.5)">surveys.prodigitality.net · internal staff portal</div>
+    </div>
+    <!-- right form -->
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px">
+      <div style="width:100%;max-width:380px">
+        <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin-bottom:6px">Sign in</h2>
+        <p style="font-size:13.5px;color:#6B7280;margin-bottom:26px">Welcome back. Sign in to the operations portal.</p>
+        <label style="display:block;margin-bottom:14px"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Work email</span><input value="{{ loginEmail }}" onChange="{{ onLoginEmail }}" placeholder="you@prodigitality.net" style="width:100%;height:44px;border:1px solid #E2E2E6;border-radius:10px;padding:0 14px;font-size:14px;outline:none" style-focus="border-color:#E0195F" /></label>
+        <label style="display:block;margin-bottom:8px"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Password</span><input value="{{ loginPw }}" onChange="{{ onLoginPw }}" type="password" placeholder="••••••••" style="width:100%;height:44px;border:1px solid #E2E2E6;border-radius:10px;padding:0 14px;font-size:14px;outline:none" style-focus="border-color:#E0195F" /></label>
+        <div style="text-align:right;margin-bottom:20px"><span style="font-size:12.5px;color:#E0195F;font-weight:600;cursor:pointer">Forgot password?</span></div>
+        <button onClick="{{ onSignIn }}" style="width:100%;height:46px;border-radius:11px;border:none;background:#18181B;color:#fff;font-size:14.5px;font-weight:700;cursor:pointer">Sign in</button>
+        <div style="display:flex;align-items:center;gap:12px;margin:26px 0 18px"><div style="flex:1;height:1px;background:#EFEFF1"></div><span style="font-size:11.5px;color:#9CA3AF;font-weight:600">QUICK DEMO ACCESS</span><div style="flex:1;height:1px;background:#EFEFF1"></div></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ loginRoles }}" as="r" hint-placeholder-count="3">
+            <button onClick="{{ r.onSelect }}" style="display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:1px solid #E7E7EA;border-radius:11px;background:#fff;cursor:pointer;text-align:left" style-hover="border-color:#E0195F;background:#FFF8FB">
+              <span style="width:32px;height:32px;border-radius:9px;background:{{ r.avatarBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none">{{ r.initials }}</span>
+              <span style="flex:1"><span style="display:block;font-size:13px;font-weight:700;color:#18181B">{{ r.label }}</span><span style="display:block;font-size:11.5px;color:#9CA3AF">{{ r.sub }}</span></span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C4C4CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isPortal }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;flex-direction:column;height:100%">
+
+    <!-- TOP BAR -->
+    <header style="height:60px;flex:none;background:#fff;border-bottom:1px solid #E7E7EA;display:flex;align-items:center;padding:0 18px;gap:18px;z-index:30">
+      <div style="display:flex;align-items:center;gap:11px;width:236px;flex:none">
+        <svg width="30" height="30" viewBox="0 0 40 40" style="flex:none">
+          <defs><linearGradient id="pg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0246A"/><stop offset="1" stop-color="#FB923C"/></linearGradient></defs>
+          <path d="M20 2.5 L34.7 11 V29 L20 37.5 L5.3 29 V11 Z" fill="url(#pg)"/>
+          <path d="M14 11.5h7.5c3.6 0 6 2.2 6 5.6s-2.4 5.7-6 5.7H18v5.7h-4Zm4 3.4v4.5h3c1.5 0 2.4-.8 2.4-2.2s-.9-2.3-2.4-2.3Z" fill="#fff"/>
+        </svg>
+        <div style="line-height:1.05">
+          <div style="font-weight:800;font-size:15px;letter-spacing:-.3px">Prodi-Surveys</div>
+          <div style="font-size:10px;color:#9CA3AF;font-weight:600;letter-spacing:.3px">Survey Operations</div>
+        </div>
+      </div>
+
+      <div style="position:relative;flex:1;max-width:420px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg>
+        <input value="{{ search }}" onChange="{{ onSearch }}" placeholder="Search respondents, orgs, referral codes…" style="width:100%;height:38px;border:1px solid #E7E7EA;border-radius:9px;padding:0 14px 0 36px;font-size:13.5px;background:#FAFAFA;color:#18181B;outline:none" />
+      </div>
+
+      <div style="flex:1"></div>
+
+      <button onClick="{{ onLaunchFlow }}" style="height:38px;display:flex;align-items:center;gap:7px;padding:0 14px;border-radius:9px;border:1px solid #E7E7EA;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14L21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+        Respondent flow
+      </button>
+
+      <!-- ROLE SWITCHER -->
+      <div style="display:flex;align-items:center;background:#F3F4F6;border-radius:10px;padding:3px;gap:2px">
+        <sc-for list="{{ roleOptions }}" as="ro" hint-placeholder-count="3">
+          <button onClick="{{ ro.onSelect }}" style="{{ ro.style }}">{{ ro.label }}</button>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:9px;padding-left:6px">
+        <div style="width:34px;height:34px;border-radius:50%;background:{{ userAvatarBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">{{ userInitials }}</div>
+        <div style="line-height:1.15;max-width:130px">
+          <div style="font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ userName }}</div>
+          <div style="font-size:11px;color:#9CA3AF;font-weight:500">{{ roleLabel }}</div>
+        </div>
+        <button onClick="{{ onLogout }}" title="Sign out" style="width:34px;height:34px;border-radius:9px;border:1px solid #E7E7EA;background:#fff;color:#9CA3AF;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;margin-left:4px" style-hover="background:#FEF2F2;color:#B91C1C;border-color:#F3D0D0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></button>
+      </div>
+    </header>
+
+    <div style="display:flex;flex:1;min-height:0">
+      <!-- SIDEBAR -->
+      <nav style="width:236px;flex:none;background:#fff;border-right:1px solid #E7E7EA;padding:14px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto">
+        <div style="font-size:10.5px;font-weight:700;color:#9CA3AF;letter-spacing:.6px;padding:6px 10px 8px">MENU</div>
+        <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="8">
+          <button onClick="{{ n.onClick }}" style="{{ n.style }}">
+            <span style="display:flex;color:{{ n.iconColor }}">{{ n.iconEl }}</span>
+            <span style="flex:1;text-align:left">{{ n.label }}</span>
+            <sc-if value="{{ n.badge }}" hint-placeholder-val="">
+              <span style="{{ n.badgeStyle }}">{{ n.badge }}</span>
+            </sc-if>
+          </button>
+        </sc-for>
+        <div style="flex:1"></div>
+        <div style="margin:10px;padding:13px;background:#FAFAFA;border:1px solid #EFEFF1;border-radius:12px">
+          <div style="font-size:11px;color:#6B7280;font-weight:600;margin-bottom:7px">Verified progress</div>
+          <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:8px"><span style="font-size:24px;font-weight:800;letter-spacing:-.5px">{{ stats.verified }}</span><span style="font-size:13px;color:#9CA3AF;font-weight:600">/ {{ totalTarget }}</span></div>
+          <div style="height:7px;background:#E7E7EA;border-radius:5px;overflow:hidden"><div style="{{ overallBarStyle }}"></div></div>
+          <div style="font-size:10.5px;color:#9CA3AF;margin-top:7px;font-weight:600">{{ overallPctLabel }} of target</div>
+        </div>
+      </nav>
+
+      <!-- MAIN -->
+      <main style="flex:1;min-width:0;overflow-y:auto;padding:26px 30px 60px">
+
+        <!-- DASHBOARD -->
+        <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+        <div style="max-width:1180px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px;gap:16px">
+            <div>
+              <h1 style="font-size:24px;font-weight:800;letter-spacing:-.5px">{{ dashTitle }}</h1>
+              <p style="font-size:13.5px;color:#6B7280;margin-top:4px">{{ dashSubtitle }}</p>
+            </div>
+            <button onClick="{{ onExportProgress }}" style="height:38px;display:flex;align-items:center;gap:7px;padding:0 15px;border-radius:9px;border:none;background:#18181B;color:#fff;font-size:13px;font-weight:600;cursor:pointer">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+              Export report
+            </button>
+          </div>
+
+          <!-- overall stat cards -->
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px">
+            <sc-for list="{{ statCards }}" as="c" hint-placeholder-count="6">
+              <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:15px 16px">
+                <div style="font-size:11.5px;color:#6B7280;font-weight:600;margin-bottom:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.label }}</div>
+                <div style="display:flex;align-items:baseline;gap:6px"><span style="font-size:26px;font-weight:800;letter-spacing:-.6px;color:{{ c.color }}">{{ c.value }}</span><span style="font-size:12px;color:#9CA3AF;font-weight:600">{{ c.sub }}</span></div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- progress by group -->
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:20px;margin-bottom:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h2 style="font-size:15px;font-weight:700">Progress by respondent group</h2><span style="font-size:12px;color:#9CA3AF;font-weight:600">Verified vs target</span></div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
+              <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+                <div>
+                  <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
+                    <span style="width:9px;height:9px;border-radius:3px;background:{{ g.color }};flex:none"></span>
+                    <span style="font-size:13.5px;font-weight:700;flex:1">{{ g.label }}</span>
+                    <span style="font-size:13px;font-weight:700"><span style="color:{{ g.color }}">{{ g.verified }}</span><span style="color:#C4C4CC">/{{ g.target }}</span></span>
+                  </div>
+                  <div style="height:9px;background:#F1F1F3;border-radius:6px;overflow:hidden;margin-bottom:9px"><div style="{{ g.barStyle }}"></div></div>
+                  <div style="display:flex;gap:14px">
+                    <span style="font-size:11.5px;color:#6B7280;font-weight:500">{{ g.pendingQa }} in QA</span>
+                    <span style="font-size:11.5px;color:#6B7280;font-weight:500">{{ g.inProgress }} in progress</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- QA + funnel row -->
+          <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-bottom:14px">
+            <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:20px">
+              <h2 style="font-size:15px;font-weight:700;margin-bottom:16px">Verification funnel</h2>
+              <div style="display:flex;flex-direction:column;gap:11px">
+                <sc-for list="{{ funnel }}" as="f" hint-placeholder-count="5">
+                  <div style="display:flex;align-items:center;gap:12px">
+                    <span style="font-size:12.5px;color:#374151;font-weight:600;width:130px;flex:none">{{ f.label }}</span>
+                    <div style="flex:1;height:22px;background:#F4F4F6;border-radius:6px;overflow:hidden;position:relative"><div style="{{ f.barStyle }}"></div></div>
+                    <span style="font-size:13px;font-weight:700;width:34px;text-align:right">{{ f.value }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <sc-if value="{{ showQaCard }}" hint-placeholder-val="{{ true }}">
+            <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:20px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h2 style="font-size:15px;font-weight:700">QA review</h2><button onClick="{{ onGoQa }}" style="font-size:12px;font-weight:700;color:#E0195F;background:none;border:none;cursor:pointer">Open queue →</button></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <sc-for list="{{ qaTiles }}" as="q" hint-placeholder-count="4">
+                  <div style="border:1px solid #EFEFF1;border-radius:11px;padding:13px;background:{{ q.bg }}">
+                    <div style="font-size:22px;font-weight:800;color:{{ q.fg }};letter-spacing:-.5px">{{ q.value }}</div>
+                    <div style="font-size:11.5px;color:#6B7280;font-weight:600;margin-top:2px">{{ q.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            </sc-if>
+          </div>
+
+          <!-- referral + payout row (admin only) -->
+          <sc-if value="{{ isAdmin }}" hint-placeholder-val="">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:20px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h2 style="font-size:15px;font-weight:700">Referrals</h2><button onClick="{{ onGoRef }}" style="font-size:12px;font-weight:700;color:#E0195F;background:none;border:none;cursor:pointer">View all →</button></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <sc-for list="{{ refTiles }}" as="r" hint-placeholder-count="4">
+                  <div style="border:1px solid #EFEFF1;border-radius:11px;padding:13px">
+                    <div style="font-size:20px;font-weight:800;letter-spacing:-.5px">{{ r.value }}</div>
+                    <div style="font-size:11.5px;color:#6B7280;font-weight:600;margin-top:2px">{{ r.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="background:linear-gradient(135deg,#1F1147,#3A1655);border:1px solid #2A1850;border-radius:14px;padding:20px;color:#fff">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h2 style="font-size:15px;font-weight:700">Payouts <span style="font-size:10px;font-weight:700;background:rgba(255,255,255,.16);padding:2px 7px;border-radius:5px;margin-left:5px;vertical-align:middle">ADMIN</span></h2><button onClick="{{ onGoPay }}" style="font-size:12px;font-weight:700;color:#FCA5C7;background:none;border:none;cursor:pointer">Manage →</button></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <sc-for list="{{ payTiles }}" as="p" hint-placeholder-count="4">
+                  <div style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:11px;padding:13px">
+                    <div style="font-size:18px;font-weight:800;letter-spacing:-.5px">{{ p.value }}</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,.7);font-weight:600;margin-top:2px">{{ p.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          </sc-if>
+
+          <sc-if value="{{ isStake }}" hint-placeholder-val="">
+          <div style="background:#FFF8FB;border:1px solid #FBD7E6;border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:12px">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E0195F" stroke-width="2" stroke-linecap="round"><path d="M12 16v-4"/><path d="M12 8h.01"/><circle cx="12" cy="12" r="9"/></svg>
+            <span style="font-size:13px;color:#9D174D;font-weight:500">You are viewing the <b>read-only stakeholder dashboard</b>. Finance, payouts, selfies and personal contact details are hidden.</span>
+          </div>
+          </sc-if>
+        </div>
+        </sc-if>
+
+        <!-- RESPONDENTS -->
+        <sc-if value="{{ isRespondents }}" hint-placeholder-val="">
+        <div style="max-width:1240px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;gap:16px">
+            <div>
+              <h1 style="font-size:24px;font-weight:800;letter-spacing:-.5px">{{ respTitle }}</h1>
+              <p style="font-size:13.5px;color:#6B7280;margin-top:4px">{{ rows.length }} of {{ totalRespondents }} respondents shown</p>
+            </div>
+            <button onClick="{{ onExportRespondents }}" style="height:38px;display:flex;align-items:center;gap:7px;padding:0 15px;border-radius:9px;border:1px solid #E7E7EA;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer">Export CSV</button>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+            <sc-for list="{{ typeFilters }}" as="t" hint-placeholder-count="4">
+              <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+            </sc-for>
+            <div style="width:1px;background:#E7E7EA;margin:4px 4px"></div>
+            <select value="{{ filterStatus }}" onChange="{{ onStatusFilter }}" style="height:34px;border:1px solid #E7E7EA;border-radius:8px;padding:0 10px;font-size:12.5px;font-weight:600;color:#374151;background:#fff;cursor:pointer">
+              <sc-for list="{{ statusFilterOptions }}" as="s" hint-placeholder-count="6"><option value="{{ s.value }}">{{ s.label }}</option></sc-for>
+            </select>
+            <label style="display:flex;align-items:center;gap:7px;height:34px;padding:0 12px;border:1px solid #E7E7EA;border-radius:8px;background:#fff;font-size:12.5px;font-weight:600;color:#374151;cursor:pointer"><input type="checkbox" checked="{{ flaggedOnly }}" onChange="{{ onToggleFlagged }}" style="accent-color:#E0195F" />Flagged only</label>
+          </div>
+
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:{{ tableCols }};padding:11px 16px;background:#FAFAFA;border-bottom:1px solid #EFEFF1;font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.4px;text-transform:uppercase">
+              <span>Respondent</span><span>Type</span><span>Region</span><span>Mode</span><sc-if value="{{ showEnumCol }}" hint-placeholder-val="{{ true }}"><span>Enumerator</span></sc-if><span>Status</span><span>Flags</span><sc-if value="{{ isAdmin }}" hint-placeholder-val=""><span style="text-align:right">Token</span></sc-if>
+            </div>
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="9">
+              <div onClick="{{ r.onOpen }}" style="display:grid;grid-template-columns:{{ tableCols }};padding:12px 16px;border-bottom:1px solid #F2F2F4;font-size:13px;align-items:center;cursor:pointer" style-hover="background:#FAFAFA">
+                <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                  <div style="width:32px;height:32px;border-radius:8px;background:{{ r.avatarBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none">{{ r.initials }}</div>
+                  <div style="min-width:0">
+                    <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div>
+                    <div style="font-size:11.5px;color:#9CA3AF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.org }}</div>
+                  </div>
+                </div>
+                <span style="{{ r.typeStyle }}">{{ r.typeShort }}</span>
+                <span style="color:#6B7280;font-size:12.5px">{{ r.region }}</span>
+                <span style="{{ r.modeStyle }}">{{ r.mode }}</span>
+                <sc-if value="{{ showEnumCol }}" hint-placeholder-val="{{ true }}"><span style="color:#6B7280;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.enumerator }}</span></sc-if>
+                <span><span style="{{ r.statusStyle }}">{{ r.status }}</span></span>
+                <span>{{ r.flagsEl }}</span>
+                <sc-if value="{{ isAdmin }}" hint-placeholder-val=""><span style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums">{{ r.tokenLabel }}</span></sc-if>
+              </div>
+            </sc-for>
+            <sc-if value="{{ noRows }}" hint-placeholder-val="">
+              <div style="padding:48px;text-align:center;color:#9CA3AF;font-size:13.5px">No respondents match these filters.</div>
+            </sc-if>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- QA REVIEW -->
+        <sc-if value="{{ isQa }}" hint-placeholder-val="">
+        <div style="max-width:1080px">
+          <h1 style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px">QA Review queue</h1>
+          <p style="font-size:13.5px;color:#6B7280;margin-bottom:20px">{{ qaQueue.length }} submissions awaiting decision. Flagged items are highlighted.</p>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <sc-for list="{{ qaQueue }}" as="q" hint-placeholder-count="5">
+              <div style="background:#fff;border:1px solid {{ q.borderColor }};border-left:4px solid {{ q.accent }};border-radius:13px;padding:16px 18px">
+                <div style="display:flex;align-items:center;gap:13px;margin-bottom:14px">
+                  <div style="width:40px;height:40px;border-radius:10px;background:{{ q.avatarBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex:none">{{ q.initials }}</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;gap:9px"><span style="font-weight:700;font-size:14.5px">{{ q.name }}</span><span style="{{ q.typeStyle }}">{{ q.typeShort }}</span></div>
+                    <div style="font-size:12px;color:#9CA3AF">{{ q.org }} · {{ q.region }} · {{ q.modeLabel }}</div>
+                  </div>
+                  <button onClick="{{ q.onOpen }}" style="font-size:12.5px;font-weight:700;color:#374151;background:#F3F4F6;border:none;border-radius:8px;padding:8px 12px;cursor:pointer">View profile</button>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+                  <sc-for list="{{ q.checks }}" as="c" hint-placeholder-count="4"><span style="{{ c.style }}">{{ c.icon }} {{ c.label }}</span></sc-for>
+                </div>
+                <sc-if value="{{ q.hasFlags }}" hint-placeholder-val="">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:#FEF2F2;border:1px solid #FECACA;border-radius:9px">
+                  <span style="font-size:11.5px;font-weight:700;color:#B91C1C;align-self:center">⚠ FLAGS</span>
+                  <sc-for list="{{ q.flagList }}" as="f" hint-placeholder-count="2"><span style="font-size:11.5px;font-weight:600;color:#991B1B;background:#fff;border:1px solid #FECACA;border-radius:6px;padding:3px 8px">{{ f }}</span></sc-for>
+                </div>
+                </sc-if>
+                <div style="display:flex;gap:9px">
+                  <button onClick="{{ q.onApprove }}" style="height:38px;flex:1;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:#15803D;color:#fff;font-size:13px;font-weight:700;cursor:pointer">✓ Approve · Verify</button>
+                  <button onClick="{{ q.onFollow }}" style="height:38px;flex:1;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:1px solid #FED7AA;background:#FFF7ED;color:#9A3412;font-size:13px;font-weight:700;cursor:pointer">⟳ Needs follow-up</button>
+                  <button onClick="{{ q.onReject }}" style="height:38px;flex:1;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:1px solid #FECACA;background:#FEF2F2;color:#B91C1C;font-size:13px;font-weight:700;cursor:pointer">✕ Reject</button>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ qaEmpty }}" hint-placeholder-val="">
+              <div style="background:#fff;border:1px solid #E7E7EA;border-radius:13px;padding:56px;text-align:center"><div style="font-size:15px;font-weight:700;color:#15803D">Queue clear 🎉</div><div style="font-size:13px;color:#9CA3AF;margin-top:5px">No submissions pending review right now.</div></div>
+            </sc-if>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- PAYOUTS (admin) -->
+        <sc-if value="{{ isPayouts }}" hint-placeholder-val="">
+        <div style="max-width:1240px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px">
+            <div><h1 style="font-size:24px;font-weight:800;letter-spacing:-.5px">Payout tracking</h1><p style="font-size:13.5px;color:#6B7280;margin-top:4px">Tracking only — no payment gateway integration. Visible to Prodigitality Admin.</p></div>
+            <button onClick="{{ onExportPayouts }}" style="height:38px;display:flex;align-items:center;gap:7px;padding:0 15px;border-radius:9px;border:1px solid #E7E7EA;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer">Export payout report</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px">
+            <sc-for list="{{ payTotals }}" as="p" hint-placeholder-count="5">
+              <div style="background:#fff;border:1px solid #E7E7EA;border-radius:13px;padding:15px 16px">
+                <div style="font-size:11.5px;color:#6B7280;font-weight:600;margin-bottom:8px">{{ p.label }}</div>
+                <div style="font-size:21px;font-weight:800;letter-spacing:-.5px;color:{{ p.color }}">{{ p.value }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:1.6fr .8fr 1fr 1.1fr 1fr .9fr;padding:11px 16px;background:#FAFAFA;border-bottom:1px solid #EFEFF1;font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.4px;text-transform:uppercase"><span>Respondent</span><span>Token</span><span>Ref. bonus</span><span>Method</span><span>Payout status</span><span style="text-align:right">Action</span></div>
+            <sc-for list="{{ payRows }}" as="r" hint-placeholder-count="8">
+              <div style="display:grid;grid-template-columns:1.6fr .8fr 1fr 1.1fr 1fr .9fr;padding:12px 16px;border-bottom:1px solid #F2F2F4;font-size:13px;align-items:center">
+                <div style="min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div><div style="font-size:11.5px;color:#9CA3AF">{{ r.typeShort }} · {{ r.payoutAcct }}</div></div>
+                <span style="font-weight:700;font-variant-numeric:tabular-nums">{{ r.tokenLabel }}</span>
+                <span style="font-variant-numeric:tabular-nums;color:{{ r.bonusColor }};font-weight:600">{{ r.bonusLabel }}</span>
+                <span style="font-size:12.5px;color:#374151">{{ r.method }}</span>
+                <span><span style="{{ r.payStyle }}">{{ r.payStatus }}</span></span>
+                <span style="text-align:right"><sc-if value="{{ r.canPay }}" hint-placeholder-val="{{ true }}"><button onClick="{{ r.onPay }}" style="font-size:12px;font-weight:700;color:#fff;background:#15803D;border:none;border-radius:7px;padding:7px 11px;cursor:pointer">Mark paid</button></sc-if><sc-if value="{{ r.paidDone }}" hint-placeholder-val=""><span style="font-size:12px;color:#15803D;font-weight:700">✓ {{ r.paidDate }}</span></sc-if></span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- REFERRALS -->
+        <sc-if value="{{ isReferrals }}" hint-placeholder-val="">
+        <div style="max-width:1180px">
+          <h1 style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px">Referral tracking</h1>
+          <p style="font-size:13.5px;color:#6B7280;margin-bottom:20px">Bonuses become eligible only after the referred respondent is Verified.</p>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">
+            <sc-for list="{{ refTiles }}" as="r" hint-placeholder-count="4">
+              <div style="background:#fff;border:1px solid #E7E7EA;border-radius:13px;padding:15px 16px"><div style="font-size:11.5px;color:#6B7280;font-weight:600;margin-bottom:8px">{{ r.label }}</div><div style="font-size:22px;font-weight:800;letter-spacing:-.5px">{{ r.value }}</div></div>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px">
+            <h2 style="font-size:15px;font-weight:700">Top referrers</h2>
+            <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ onShowAddRef }}" style="height:36px;display:flex;align-items:center;gap:7px;padding:0 14px;border-radius:9px;border:none;background:#18181B;color:#fff;font-size:12.5px;font-weight:600;cursor:pointer"><span style="font-size:16px;line-height:1">+</span> Add referrer</button>
+            </sc-if>
+          </div>
+          <sc-if value="{{ showAddRef }}" hint-placeholder-val="">
+          <div style="background:#fff;border:1px solid #E0195F;border-radius:14px;padding:18px;margin-bottom:14px">
+            <div style="font-size:14px;font-weight:700;margin-bottom:6px">Add referrer</div>
+            <p style="font-size:12px;color:#9CA3AF;margin-bottom:14px">A unique referral code is generated automatically. Use this to pre-register partners (e.g. DTI, Philexport) before they refer anyone.</p>
+            <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:12px;margin-bottom:14px">
+              <label style="display:block"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Referrer name</span><input value="{{ newRefName }}" onChange="{{ onNewRefName }}" placeholder="e.g. Chamber of Commerce" style="width:100%;height:40px;border:1px solid #E2E2E6;border-radius:9px;padding:0 12px;font-size:13.5px;outline:none" /></label>
+              <label style="display:block"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Type</span><select value="{{ newRefKind }}" onChange="{{ onNewRefKind }}" style="width:100%;height:40px;border:1px solid #E2E2E6;border-radius:9px;padding:0 10px;font-size:13.5px;background:#fff;outline:none"><sc-for list="{{ refKindOptions }}" as="o" hint-placeholder-count="4"><option value="{{ o }}">{{ o }}</option></sc-for></select></label>
+            </div>
+            <div style="display:flex;gap:9px;justify-content:flex-end">
+              <button onClick="{{ onCancelAddRef }}" style="height:38px;padding:0 16px;border-radius:9px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+              <button onClick="{{ onAddRef }}" style="height:38px;padding:0 18px;border-radius:9px;border:none;background:#E0195F;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Add &amp; generate code</button>
+            </div>
+          </div>
+          </sc-if>
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:1.6fr .8fr .8fr .8fr 1fr;padding:11px 16px;background:#FAFAFA;border-bottom:1px solid #EFEFF1;font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.4px;text-transform:uppercase"><span>Referrer</span><span>Code</span><span>Referred</span><span>Verified</span><sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}"><span style="text-align:right">Bonus eligible</span></sc-if><sc-if value="{{ notAdmin }}" hint-placeholder-val=""><span style="text-align:right">Conversion</span></sc-if></div>
+            <sc-for list="{{ referrers }}" as="r" hint-placeholder-count="6">
+              <div style="display:grid;grid-template-columns:1.6fr .8fr .8fr .8fr 1fr;padding:12px 16px;border-bottom:1px solid #F2F2F4;font-size:13px;align-items:center">
+                <div style="display:flex;align-items:center;gap:10px"><div style="width:30px;height:30px;border-radius:8px;background:{{ r.avatarBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">{{ r.initials }}</div><div><div style="font-weight:700">{{ r.name }}</div><div style="font-size:11px;color:#9CA3AF">{{ r.kind }}</div></div></div>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#6B7280">{{ r.code }}</span>
+                <span style="font-weight:600">{{ r.referred }}</span>
+                <span style="font-weight:700;color:#15803D">{{ r.verified }}</span>
+                <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}"><span style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums">{{ r.bonusLabel }}</span></sc-if>
+                <sc-if value="{{ notAdmin }}" hint-placeholder-val=""><span style="text-align:right;font-weight:700">{{ r.convLabel }}</span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ENUMERATORS -->
+        <sc-if value="{{ isEnumerators }}" hint-placeholder-val="">
+        <div style="max-width:1180px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px">
+            <div><h1 style="font-size:24px;font-weight:800;letter-spacing:-.5px">Enumerators</h1><p style="font-size:13.5px;color:#6B7280;margin-top:4px">Field team collection performance. Edit names &amp; emails inline, or add new enumerators.</p></div>
+            <button onClick="{{ onShowAddEnum }}" style="height:38px;display:flex;align-items:center;gap:7px;padding:0 15px;border-radius:9px;border:none;background:#18181B;color:#fff;font-size:13px;font-weight:600;cursor:pointer"><span style="font-size:16px;line-height:1">+</span> Add enumerator</button>
+          </div>
+          <sc-if value="{{ showAddEnum }}" hint-placeholder-val="">
+          <div style="background:#fff;border:1px solid #E0195F;border-radius:14px;padding:18px;margin-bottom:16px">
+            <div style="font-size:14px;font-weight:700;margin-bottom:14px">New enumerator</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+              <label style="display:block"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Full name</span><input value="{{ newEnumName }}" onChange="{{ onNewEnumName }}" placeholder="e.g. Grace Tan" style="width:100%;height:40px;border:1px solid #E2E2E6;border-radius:9px;padding:0 12px;font-size:13.5px;outline:none" /></label>
+              <label style="display:block"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Email</span><input value="{{ newEnumEmail }}" onChange="{{ onNewEnumEmail }}" placeholder="name@prodigitality.net" style="width:100%;height:40px;border:1px solid #E2E2E6;border-radius:9px;padding:0 12px;font-size:13.5px;outline:none" /></label>
+            </div>
+            <div style="display:flex;gap:9px;justify-content:flex-end">
+              <button onClick="{{ onCancelAddEnum }}" style="height:38px;padding:0 16px;border-radius:9px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+              <button onClick="{{ onAddEnum }}" style="height:38px;padding:0 18px;border-radius:9px;border:none;background:#E0195F;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Add enumerator</button>
+            </div>
+          </div>
+          </sc-if>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
+            <sc-for list="{{ enumCards }}" as="e" hint-placeholder-count="4">
+              <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:18px">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+                  <div style="width:42px;height:42px;border-radius:11px;background:{{ e.avatarBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex:none">{{ e.initials }}</div>
+                  <div style="flex:1;min-width:0">
+                    <input value="{{ e.name }}" onChange="{{ e.onRename }}" style="width:100%;font-weight:700;font-size:14.5px;border:1px solid transparent;border-radius:7px;padding:3px 6px;margin:-3px -6px;outline:none;color:#18181B" style-hover="border-color:#E7E7EA" style-focus="border-color:#E0195F;background:#FFF8FB" />
+                    <input value="{{ e.email }}" onChange="{{ e.onEmail }}" placeholder="add email" style="width:100%;font-size:12px;color:#9CA3AF;border:1px solid transparent;border-radius:6px;padding:2px 6px;margin:2px -6px 0;outline:none" style-hover="border-color:#EFEFF1" style-focus="border-color:#E0195F;background:#FFF8FB;color:#6B7280" />
+                  </div>
+                  <button onClick="{{ e.onRemove }}" title="Remove" style="width:30px;height:30px;border-radius:8px;border:1px solid #F3D0D0;background:#fff;color:#B91C1C;cursor:pointer;flex:none;font-size:14px" style-hover="background:#FEF2F2">✕</button>
+                </div>
+                <div style="font-size:12px;color:#9CA3AF;margin-bottom:14px">{{ e.assigned }} assigned respondents</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+                  <div style="background:#FAFAFA;border-radius:10px;padding:11px 12px"><div style="font-size:19px;font-weight:800;letter-spacing:-.5px">{{ e.completed }}</div><div style="font-size:11px;color:#6B7280;font-weight:600">Completed</div></div>
+                  <div style="background:#FAFAFA;border-radius:10px;padding:11px 12px"><div style="font-size:19px;font-weight:800;letter-spacing:-.5px;color:#9A3412">{{ e.followups }}</div><div style="font-size:11px;color:#6B7280;font-weight:600">Follow-ups</div></div>
+                  <div style="background:#FAFAFA;border-radius:10px;padding:11px 12px"><div style="font-size:19px;font-weight:800;letter-spacing:-.5px;color:#15803D">{{ e.rate }}</div><div style="font-size:11px;color:#6B7280;font-weight:600">Completion</div></div>
+                </div>
+                <div style="height:8px;background:#F1F1F3;border-radius:6px;overflow:hidden"><div style="{{ e.barStyle }}"></div></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- REPORTS -->
+        <sc-if value="{{ isReports }}" hint-placeholder-val="">
+        <div style="max-width:980px">
+          <h1 style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px">Reports &amp; Export</h1>
+          <p style="font-size:13.5px;color:#6B7280;margin-bottom:20px">Survey answers export in a KoboToolbox-compatible structure for the research team.</p>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:13px">
+            <sc-for list="{{ exportItems }}" as="x" hint-placeholder-count="6">
+              <div style="background:#fff;border:1px solid #E7E7EA;border-radius:13px;padding:17px;display:flex;align-items:center;gap:14px">
+                <div style="width:42px;height:42px;border-radius:11px;background:{{ x.bg }};color:{{ x.fg }};display:flex;align-items:center;justify-content:center;flex:none">{{ x.iconEl }}</div>
+                <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">{{ x.label }}</div><div style="font-size:12px;color:#9CA3AF">{{ x.desc }}</div></div>
+                <div style="display:flex;gap:6px">
+                  <sc-for list="{{ x.formats }}" as="fmt" hint-placeholder-count="2"><button onClick="{{ fmt.onClick }}" style="font-size:11.5px;font-weight:700;color:#374151;background:#F3F4F6;border:none;border-radius:7px;padding:7px 10px;cursor:pointer">{{ fmt.label }}</button></sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- AUDIT -->
+        <sc-if value="{{ isAudit }}" hint-placeholder-val="">
+        <div style="max-width:1080px">
+          <h1 style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px">Audit log</h1>
+          <p style="font-size:13.5px;color:#6B7280;margin-bottom:20px">Every important action is recorded for traceability.</p>
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;overflow:hidden">
+            <sc-for list="{{ auditRows }}" as="a" hint-placeholder-count="10">
+              <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid #F2F2F4">
+                <div style="width:30px;height:30px;border-radius:8px;background:{{ a.bg }};color:{{ a.fg }};display:flex;align-items:center;justify-content:center;flex:none">{{ a.iconEl }}</div>
+                <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">{{ a.action }} <span style="color:#6B7280;font-weight:500">{{ a.target }}</span></div><div style="font-size:11.5px;color:#9CA3AF">by {{ a.by }}</div></div>
+                <span style="font-size:11.5px;color:#9CA3AF;font-variant-numeric:tabular-nums;white-space:nowrap">{{ a.time }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- EMAILS -->
+        <sc-if value="{{ isEmails }}" hint-placeholder-val="">
+        <div style="max-width:1180px">
+          <h1 style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px">Email notifications</h1>
+          <p style="font-size:13.5px;color:#6B7280;margin-bottom:20px">Previews of the transactional emails the system sends to respondents, enumerators, referrers, and stakeholders.</p>
+          <div style="display:grid;grid-template-columns:248px 1fr;gap:20px;align-items:start">
+            <!-- left list -->
+            <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:10px;position:sticky;top:0">
+              <sc-for list="{{ emailGroups }}" as="g" hint-placeholder-count="4">
+                <div style="margin-bottom:6px">
+                  <div style="display:flex;align-items:center;gap:7px;padding:8px 11px 6px"><span style="width:7px;height:7px;border-radius:2px;background:{{ g.color }};flex:none"></span><span style="font-size:10.5px;font-weight:700;color:#9CA3AF;letter-spacing:.5px;text-transform:uppercase">{{ g.audience }}</span></div>
+                  <sc-for list="{{ g.items }}" as="e" hint-placeholder-count="3">
+                    <button onClick="{{ e.onSelect }}" style="{{ e.style }}"><span style="{{ e.dotStyle }}"></span><span style="flex:1">{{ e.name }}</span></button>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+            <!-- email preview -->
+            <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;overflow:hidden">
+              <!-- meta header -->
+              <div style="padding:16px 20px;border-bottom:1px solid #EFEFF1">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-size:10.5px;font-weight:700;color:#fff;background:{{ email.audienceColor }};padding:3px 9px;border-radius:6px">{{ email.audience }}</span><span style="font-size:12px;color:#9CA3AF">→ sent on this trigger</span></div>
+                <div style="font-size:16px;font-weight:800;letter-spacing:-.3px;margin-bottom:10px">{{ email.subject }}</div>
+                <div style="display:flex;gap:10px;font-size:12px;margin-bottom:3px"><span style="color:#9CA3AF;font-weight:600;width:42px;flex:none">From</span><span style="color:#374151">{{ email.from }}</span></div>
+                <div style="display:flex;gap:10px;font-size:12px"><span style="color:#9CA3AF;font-weight:600;width:42px;flex:none">To</span><span style="color:#374151">{{ email.to }}</span></div>
+              </div>
+              <!-- rendered email body -->
+              <div style="background:#F4F4F6;padding:28px">
+                <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+                  <div style="height:6px;background:{{ email.accent }}"></div>
+                  <div style="padding:16px 32px;border-bottom:1px solid #F2F2F4;display:flex;align-items:center;gap:10px">
+                    <svg width="26" height="26" viewBox="0 0 40 40" style="flex:none"><defs><linearGradient id="pgEmail" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0246A"/><stop offset="1" stop-color="#FB923C"/></linearGradient></defs><path d="M20 2.5 L34.7 11 V29 L20 37.5 L5.3 29 V11 Z" fill="url(#pgEmail)"/><path d="M14 11.5h7.5c3.6 0 6 2.2 6 5.6s-2.4 5.7-6 5.7H18v5.7h-4Zm4 3.4v4.5h3c1.5 0 2.4-.8 2.4-2.2s-.9-2.3-2.4-2.3Z" fill="#fff"/></svg>
+                    <span style="font-weight:800;font-size:14px;letter-spacing:-.2px">Prodi-Surveys</span>
+                  </div>
+                  <div style="padding:28px 32px 12px">
+                    <sc-for list="{{ email.blocks }}" as="b" hint-placeholder-count="4">
+                      <sc-if value="{{ b.isH }}" hint-placeholder-val=""><div style="font-size:20px;font-weight:800;letter-spacing:-.4px;color:#18181B;margin-bottom:14px;line-height:1.25">{{ b.text }}</div></sc-if>
+                      <sc-if value="{{ b.isP }}" hint-placeholder-val=""><p style="font-size:14px;color:#52525B;line-height:1.6;margin-bottom:16px">{{ b.text }}</p></sc-if>
+                      <sc-if value="{{ b.isBtn }}" hint-placeholder-val=""><div style="margin-bottom:18px"><a href="#" style="{{ b.btnStyle }}">{{ b.text }}</a></div></sc-if>
+                      <sc-if value="{{ b.isCode }}" hint-placeholder-val=""><div style="background:#F4F4F6;border-radius:11px;padding:18px;text-align:center;margin-bottom:16px"><span style="font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:700;letter-spacing:8px;color:#18181B">{{ b.text }}</span></div></sc-if>
+                      <sc-if value="{{ b.isLink }}" hint-placeholder-val=""><div style="background:#F4F4F6;border-radius:9px;padding:12px 14px;margin-bottom:16px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#4F46E5;word-break:break-all">{{ b.text }}</div></sc-if>
+                      <sc-if value="{{ b.isKv }}" hint-placeholder-val=""><div style="border:1px solid #EFEFF1;border-radius:11px;overflow:hidden;margin-bottom:16px"><sc-for list="{{ b.kvRows }}" as="r" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #F2F2F4"><span style="font-size:13px;color:#9CA3AF">{{ r.k }}</span><span style="font-size:13px;font-weight:700;color:#18181B">{{ r.v }}</span></div></sc-for></div></sc-if>
+                      <sc-if value="{{ b.isBullets }}" hint-placeholder-val=""><div style="margin-bottom:16px"><sc-for list="{{ b.items }}" as="it" hint-placeholder-count="2"><div style="display:flex;gap:9px;font-size:14px;color:#52525B;line-height:1.55;margin-bottom:7px"><span style="color:#E0195F">•</span><span style="flex:1">{{ it }}</span></div></sc-for></div></sc-if>
+                      <sc-if value="{{ b.isNote }}" hint-placeholder-val=""><p style="font-size:12.5px;color:#9CA3AF;line-height:1.55;margin-bottom:16px">{{ b.text }}</p></sc-if>
+                      <sc-if value="{{ b.isDivider }}" hint-placeholder-val=""><div style="height:1px;background:#F0F0F2;margin:6px 0 18px"></div></sc-if>
+                    </sc-for>
+                  </div>
+                  <div style="padding:18px 32px;border-top:1px solid #F2F2F4;background:#FAFAFA">
+                    <div style="font-size:11.5px;color:#9CA3AF;line-height:1.55">Prodigitality · surveys.prodigitality.net<br/>You received this email because you registered for or were added to the Prodigitality baseline survey.</div>
+                  </div>
+                </div>
+                <div style="max-width:560px;margin:14px auto 0;text-align:center;font-size:11px;color:#B0B0B8">{{ email.preheader }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- SETTINGS -->
+        <sc-if value="{{ isSettings }}" hint-placeholder-val="">
+        <div style="max-width:900px">
+          <h1 style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px">Settings</h1>
+          <p style="font-size:13.5px;color:#6B7280;margin-bottom:20px">Targets, incentive structure &amp; survey paths.</p>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px"><h2 style="font-size:15px;font-weight:700">Target respondents per path</h2><span style="font-size:12.5px;color:#6B7280;font-weight:600">Total target: <b style="color:#18181B">{{ totalTargetSettings }}</b></span></div>
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:8px 18px;margin-bottom:22px">
+            <sc-for list="{{ targetEditors }}" as="t" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid #F2F2F4">
+                <span style="width:9px;height:9px;border-radius:3px;background:{{ t.color }};flex:none"></span>
+                <span style="flex:1;font-size:13.5px;font-weight:600;color:#374151">{{ t.label }}</span>
+                <input value="{{ t.value }}" onChange="{{ t.onChange }}" type="number" min="0" style="width:90px;height:38px;border:1px solid #E2E2E6;border-radius:9px;padding:0 12px;font-size:14px;font-weight:700;text-align:center;outline:none;font-variant-numeric:tabular-nums" />
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px"><h2 style="font-size:15px;font-weight:700">Token &amp; referral structure</h2><span style="font-size:12px;color:#9CA3AF;font-weight:600">Amounts in ₱ · editable</span></div>
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;overflow:hidden;margin-bottom:22px">
+            <div style="display:grid;grid-template-columns:2fr 1.1fr 1.1fr 1fr;padding:11px 16px;background:#FAFAFA;border-bottom:1px solid #EFEFF1;font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.4px;text-transform:uppercase"><span>Group</span><span>Respondent token</span><span>Referral bonus</span><span style="text-align:right">Total / verified</span></div>
+            <sc-for list="{{ incentiveEditors }}" as="t" hint-placeholder-count="3">
+              <div style="display:grid;grid-template-columns:2fr 1.1fr 1.1fr 1fr;padding:12px 16px;border-bottom:1px solid #F2F2F4;font-size:13.5px;align-items:center;gap:8px">
+                <span style="display:flex;align-items:center;gap:9px;font-weight:700"><span style="width:9px;height:9px;border-radius:3px;background:{{ t.color }};flex:none"></span>{{ t.label }}</span>
+                <span style="display:flex;align-items:center;gap:5px"><span style="color:#9CA3AF;font-weight:600">₱</span><input value="{{ t.token }}" onChange="{{ t.onToken }}" type="number" min="0" style="width:84px;height:36px;border:1px solid #E2E2E6;border-radius:8px;padding:0 10px;font-size:13.5px;font-weight:700;outline:none;font-variant-numeric:tabular-nums" /></span>
+                <span style="display:flex;align-items:center;gap:5px"><span style="color:#9CA3AF;font-weight:600">₱</span><input value="{{ t.bonus }}" onChange="{{ t.onBonus }}" type="number" min="0" style="width:84px;height:36px;border:1px solid #E2E2E6;border-radius:8px;padding:0 10px;font-size:13.5px;font-weight:700;outline:none;font-variant-numeric:tabular-nums" /></span>
+                <span style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums">{{ t.totalLabel }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <h2 style="font-size:15px;font-weight:700;margin-bottom:11px">Survey paths</h2>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+            <sc-for list="{{ surveyPaths }}" as="s" hint-placeholder-count="3">
+              <div style="background:#fff;border:1px solid #E7E7EA;border-radius:13px;padding:16px"><div style="font-weight:700;font-size:14px;margin-bottom:5px">{{ s.label }}</div><div style="font-size:12px;color:#9CA3AF;margin-bottom:11px">{{ s.count }} questions · conditional logic</div><span style="font-size:11px;font-weight:700;color:#15803D;background:#DCFCE7;padding:4px 9px;border-radius:6px">Active</span></div>
+            </sc-for>
+          </div>
+
+          <!-- sticky save bar -->
+          <div style="position:sticky;bottom:0;margin-top:24px;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border:1px solid {{ saveBarBorder }};border-radius:13px;padding:13px 16px;display:flex;align-items:center;gap:14px;box-shadow:0 6px 20px rgba(0,0,0,.06)">
+            <span style="font-size:13px;font-weight:600;color:{{ saveBarFg }};flex:1">{{ saveBarMsg }}</span>
+            <sc-if value="{{ settingsDirty }}" hint-placeholder-val="">
+            <button onClick="{{ onDiscardSettings }}" style="height:40px;padding:0 16px;border-radius:10px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:13.5px;font-weight:700;cursor:pointer">Discard</button>
+            </sc-if>
+            <button onClick="{{ onSaveSettings }}" style="{{ saveBtnStyle }}">Save changes</button>
+          </div>
+        </div>
+        </sc-if>
+
+      </main>
+    </div>
+  </div>
+  </sc-if>
+  <sc-if value="{{ profile }}" hint-placeholder-val="">
+  <div onClick="{{ closeProfile }}" style="position:fixed;inset:0;background:rgba(15,15,20,.4);z-index:50;display:flex;justify-content:flex-end">
+    <div onClick="{{ stop }}" style="width:520px;max-width:92vw;height:100%;background:#fff;box-shadow:-12px 0 40px rgba(0,0,0,.18);overflow-y:auto;animation:pop .25s ease">
+      <div style="position:sticky;top:0;background:#fff;border-bottom:1px solid #EFEFF1;padding:18px 22px;display:flex;align-items:center;gap:13px;z-index:2">
+        <div style="width:44px;height:44px;border-radius:11px;background:{{ profile.avatarBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px">{{ profile.initials }}</div>
+        <div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:9px"><span style="font-weight:800;font-size:16px">{{ profile.name }}</span><span style="{{ profile.typeStyle }}">{{ profile.typeShort }}</span></div><div style="font-size:12.5px;color:#9CA3AF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ profile.org }}</div></div>
+        <button onClick="{{ closeProfile }}" style="width:32px;height:32px;border-radius:8px;border:none;background:#F3F4F6;color:#6B7280;cursor:pointer;font-size:17px;flex:none">✕</button>
+      </div>
+      <div style="padding:20px 22px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:18px"><span style="{{ profile.statusStyle }}">{{ profile.status }}</span><span style="font-size:12px;color:#9CA3AF">Registered {{ profile.createdAt }}</span></div>
+
+        <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px">Verification checklist</div>
+        <div style="background:#FAFAFA;border:1px solid #EFEFF1;border-radius:12px;padding:6px 14px;margin-bottom:20px">
+          <sc-for list="{{ profile.checklist }}" as="c" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F0F0F2"><span style="{{ c.iconStyle }}">{{ c.mark }}</span><span style="font-size:13px;flex:1;color:{{ c.textColor }}">{{ c.label }}</span><span style="font-size:11.5px;color:#9CA3AF">{{ c.detail }}</span></div>
+          </sc-for>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+          <sc-for list="{{ profile.fields }}" as="f" hint-placeholder-count="6"><div style="background:#FAFAFA;border:1px solid #EFEFF1;border-radius:10px;padding:11px 13px"><div style="font-size:10.5px;color:#9CA3AF;font-weight:700;letter-spacing:.3px;text-transform:uppercase;margin-bottom:4px">{{ f.label }}</div><div style="font-size:13px;font-weight:600;word-break:break-word">{{ f.value }}</div></div></sc-for>
+        </div>
+
+        <sc-if value="{{ profile.showSelfie }}" hint-placeholder-val="">
+        <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px">Selfie verification</div>
+        <div style="display:flex;gap:13px;margin-bottom:20px;padding:13px;background:#FAFAFA;border:1px solid #EFEFF1;border-radius:12px">
+          <div style="width:74px;height:74px;border-radius:10px;background:linear-gradient(135deg,#E5E7EB,#CBD5E1);display:flex;align-items:center;justify-content:center;flex:none"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.6"><circle cx="12" cy="9" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></div>
+          <div style="font-size:12px;color:#6B7280;line-height:1.7"><div><b style="color:#374151">Captured</b> {{ profile.selfieTime }}</div><div>IP {{ profile.ip }}</div><div>{{ profile.device }}</div></div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ profile.showSurvey }}" hint-placeholder-val="">
+        <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px">Survey snapshot · {{ profile.typeShort }} path</div>
+        <div style="border:1px solid #EFEFF1;border-radius:12px;overflow:hidden;margin-bottom:20px">
+          <sc-for list="{{ profile.survey }}" as="s" hint-placeholder-count="4"><div style="padding:11px 14px;border-bottom:1px solid #F0F0F2"><div style="font-size:12px;color:#9CA3AF;margin-bottom:3px">{{ s.q }}</div><div style="font-size:13px;font-weight:600">{{ s.a }}</div></div></sc-for>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ profile.showFinance }}" hint-placeholder-val="">
+        <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px">Payout <span style="color:#E0195F">· Admin only</span></div>
+        <div style="background:#FAFAFA;border:1px solid #EFEFF1;border-radius:12px;padding:14px;margin-bottom:20px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:12.5px;color:#6B7280">Respondent token</span><span style="font-size:13px;font-weight:700">{{ profile.tokenLabel }}</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:12.5px;color:#6B7280">Referral bonus</span><span style="font-size:13px;font-weight:700">{{ profile.bonusLabel }}</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:12.5px;color:#6B7280">Method</span><span style="font-size:13px;font-weight:600">{{ profile.payoutAcct }}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12.5px;color:#6B7280">Payout status</span><span style="{{ profile.payStyle }}">{{ profile.payStatus }}</span></div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ profile.showQaActions }}" hint-placeholder-val="">
+        <div style="display:flex;gap:9px;position:sticky;bottom:0;background:#fff;padding-top:6px">
+          <button onClick="{{ profile.onApprove }}" style="height:42px;flex:1;border-radius:10px;border:none;background:#15803D;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer">✓ Approve</button>
+          <button onClick="{{ profile.onFollow }}" style="height:42px;flex:1;border-radius:10px;border:1px solid #FED7AA;background:#FFF7ED;color:#9A3412;font-size:13.5px;font-weight:700;cursor:pointer">Follow-up</button>
+          <button onClick="{{ profile.onReject }}" style="height:42px;flex:1;border-radius:10px;border:1px solid #FECACA;background:#FEF2F2;color:#B91C1C;font-size:13.5px;font-weight:700;cursor:pointer">✕ Reject</button>
+        </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ RESPONDENT FLOW ============ -->
+  <sc-if value="{{ isFlow }}" hint-placeholder-val="">
+  <div style="position:fixed;inset:0;background:#F6F6F7;z-index:60;display:flex;flex-direction:column;overflow:hidden">
+    <header style="height:60px;flex:none;background:#fff;border-bottom:1px solid #E7E7EA;display:flex;align-items:center;padding:0 22px;gap:14px">
+      <svg width="28" height="28" viewBox="0 0 40 40"><path d="M20 2.5 L34.7 11 V29 L20 37.5 L5.3 29 V11 Z" fill="url(#pg)"/><path d="M14 11.5h7.5c3.6 0 6 2.2 6 5.6s-2.4 5.7-6 5.7H18v5.7h-4Zm4 3.4v4.5h3c1.5 0 2.4-.8 2.4-2.2s-.9-2.3-2.4-2.3Z" fill="#fff"/></svg>
+      <div style="font-weight:800;font-size:15px;letter-spacing:-.3px">Prodi-Surveys</div>
+      <div style="flex:1"></div>
+      <button onClick="{{ exitFlow }}" style="font-size:12.5px;font-weight:600;color:#6B7280;background:none;border:none;cursor:pointer">Exit survey ✕</button>
+    </header>
+
+    <!-- progress steps -->
+    <sc-if value="{{ flowShowSteps }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:none;background:#fff;border-bottom:1px solid #EFEFF1;padding:12px 22px;display:flex;justify-content:center">
+      <div style="display:flex;align-items:center;gap:5px;max-width:760px;width:100%">
+        <sc-for list="{{ flowSteps }}" as="s" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;gap:5px;flex:1">
+            <div style="{{ s.dotStyle }}">{{ s.mark }}</div>
+            <span style="font-size:11.5px;font-weight:600;color:{{ s.labelColor }};white-space:nowrap">{{ s.label }}</span>
+            <sc-if value="{{ s.showLine }}" hint-placeholder-val="{{ true }}"><div style="flex:1;height:2px;background:{{ s.lineColor }};border-radius:2px;margin:0 4px"></div></sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <div style="flex:1;overflow-y:auto;padding:34px 22px 60px;display:flex;justify-content:center">
+      <div style="width:100%;max-width:620px">
+
+        <!-- STEP 0 welcome -->
+        <sc-if value="{{ fStep0 }}" hint-placeholder-val="">
+        <div style="text-align:center;padding-top:18px">
+          <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#F0246A,#FB923C);margin:0 auto 22px;display:flex;align-items:center;justify-content:center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+          <h1 style="font-size:26px;font-weight:800;letter-spacing:-.6px;margin-bottom:10px">Prodi-Surveys</h1>
+          <p style="font-size:14.5px;color:#6B7280;line-height:1.65;max-width:460px;margin:0 auto 8px">You've been invited to take part in a baseline data collection study. The survey takes about <b>5–10 minutes</b>.</p>
+          <sc-if value="{{ flowReferredBy }}" hint-placeholder-val="">
+          <div style="display:inline-flex;align-items:center;gap:8px;background:#FFF8FB;border:1px solid #FBD7E6;border-radius:9px;padding:8px 14px;margin:14px 0;font-size:13px;color:#9D174D;font-weight:600">Referred by {{ flowReferredBy }} · code {{ flowRefCode }}</div>
+          </sc-if>
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:18px;margin:22px 0;text-align:left">
+            <div style="font-size:12px;font-weight:700;color:#9CA3AF;letter-spacing:.4px;text-transform:uppercase;margin-bottom:12px">What you'll need</div>
+            <div style="display:flex;flex-direction:column;gap:11px">
+              <div style="display:flex;align-items:center;gap:11px;font-size:13.5px;color:#374151"><span style="color:#E0195F">●</span>A valid email address &amp; mobile number</div>
+              <div style="display:flex;align-items:center;gap:11px;font-size:13.5px;color:#374151"><span style="color:#E0195F">●</span>A quick selfie for identity verification</div>
+              <div style="display:flex;align-items:center;gap:11px;font-size:13.5px;color:#374151"><span style="color:#E0195F">●</span>Your payout details (GCash, Maya, or bank)</div>
+            </div>
+          </div>
+          <button onClick="{{ flowNext }}" style="height:48px;width:100%;border-radius:11px;border:none;background:#18181B;color:#fff;font-size:15px;font-weight:700;cursor:pointer">Get started</button>
+        </div>
+        </sc-if>
+
+        <!-- STEP 2 register -->
+        <sc-if value="{{ fStep2 }}" hint-placeholder-val="">
+        <div>
+          <h1 style="font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:6px">Register your details</h1>
+          <p style="font-size:13.5px;color:#6B7280;margin-bottom:22px">Register your details to participate in the Prodigitality baseline survey.</p>
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:16px">
+            <label style="display:block"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Full name</span><input value="{{ reg.name }}" onChange="{{ reg.onName }}" placeholder="Juan Dela Cruz" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 13px;font-size:13.5px;outline:none" /></label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              <label style="display:block"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Email address</span><input value="{{ reg.email }}" onChange="{{ reg.onEmail }}" placeholder="you@email.com" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 13px;font-size:13.5px;outline:none" /></label>
+              <label style="display:block"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Mobile number</span><input value="{{ reg.mobile }}" onChange="{{ reg.onMobile }}" placeholder="+63 9XX XXX XXXX" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 13px;font-size:13.5px;outline:none" /></label>
+            </div>
+            <label style="display:block"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Referral code <span style="color:#9CA3AF;font-weight:500">· optional</span></span><input value="{{ reg.code }}" onChange="{{ reg.onCode }}" placeholder="e.g. PS-XXXX" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 13px;font-size:13.5px;outline:none;font-family:'JetBrains Mono',monospace" /></label>
+            <div style="border-top:1px solid #F2F2F4;padding-top:16px">
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <div style="flex:1">
+                  <span style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:3px">Provide a token / payout for this respondent?</span>
+                  <span style="font-size:11.5px;color:#9CA3AF;line-height:1.45">Enumerators can choose whether to offer the incentive. If off, no payout step is shown and no token is owed.</span>
+                </div>
+                <div style="display:flex;background:#F3F4F6;border-radius:9px;padding:3px;gap:2px;flex:none">
+                  <sc-for list="{{ payoutToggleOpts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.onSelect }}" style="{{ o.style }}">{{ o.label }}</button></sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button onClick="{{ flowBack }}" style="height:46px;padding:0 22px;border-radius:11px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:14px;font-weight:700;cursor:pointer">Back</button>
+            <button onClick="{{ flowNext }}" style="height:46px;flex:1;border-radius:11px;border:none;background:#18181B;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Continue</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- STEP 3 verify -->
+        <sc-if value="{{ fStep3 }}" hint-placeholder-val="">
+        <div style="text-align:center;padding-top:14px">
+          <div style="width:60px;height:60px;border-radius:16px;background:#EEF2FF;margin:0 auto 20px;display:flex;align-items:center;justify-content:center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>
+          <h1 style="font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:8px">Verify your email</h1>
+          <p style="font-size:13.5px;color:#6B7280;margin-bottom:6px">We sent a 6-digit code to <b style="color:#374151">{{ reg.email }}</b></p>
+          <p style="font-size:12px;color:#C084A6;margin-bottom:22px">Demo: enter any 6 digits (e.g. 000000)</p>
+          <input value="{{ otp }}" onChange="{{ onOtp }}" maxlength="6" placeholder="• • • • • •" style="width:240px;height:56px;border:1px solid #E2E2E6;border-radius:12px;text-align:center;font-size:24px;font-weight:700;letter-spacing:10px;font-family:'JetBrains Mono',monospace;outline:none;margin-bottom:18px" />
+          <div style="display:flex;gap:10px;justify-content:center">
+            <button onClick="{{ flowBack }}" style="height:46px;padding:0 22px;border-radius:11px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:14px;font-weight:700;cursor:pointer">Back</button>
+            <button onClick="{{ verifyOtp }}" style="height:46px;padding:0 40px;border-radius:11px;border:none;background:#18181B;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Verify email</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- STEP 1 respondent profile -->
+        <sc-if value="{{ fStep1 }}" hint-placeholder-val="">
+        <div>
+          <h1 style="font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:6px">Respondent profile</h1>
+          <p style="font-size:13.5px;color:#6B7280;margin-bottom:6px">Help us determine which survey applies to your organization.</p>
+          <p style="font-size:12.5px;color:#9CA3AF;margin-bottom:22px">Your answers help us send you the correct survey and ensure the information collected is accurate.</p>
+
+          <span style="font-size:14px;font-weight:700;color:#18181B;display:block;margin-bottom:12px">What kind of organization do you work for?</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">
+            <sc-for list="{{ orgCards }}" as="c" hint-placeholder-count="4">
+              <div onClick="{{ c.onSelect }}" style="{{ c.cardStyle }}">
+                <div style="font-size:26px;line-height:1;margin-bottom:10px">{{ c.icon }}</div>
+                <div style="font-size:13.5px;font-weight:700;color:#18181B;margin-bottom:6px;line-height:1.3">{{ c.title }}</div>
+                <div style="font-size:11.5px;color:#9CA3AF;line-height:1.45">{{ c.ex }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- GOV branch -->
+          <sc-if value="{{ profileGov }}" hint-placeholder-val="">
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:20px;margin-top:14px;display:flex;flex-direction:column;gap:18px">
+            <div><span style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:9px">Which organization do you work for?</span><select value="{{ govOrg }}" onChange="{{ onGovOrg }}" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 11px;font-size:13.5px;background:#fff;outline:none"><option value="">Select…</option><sc-for list="{{ govOrgOptions }}" as="o" hint-placeholder-count="6"><option value="{{ o }}">{{ o }}</option></sc-for></select></div>
+            <div><span style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:9px">What department, office, or unit are you part of?</span><input value="{{ govDept }}" onChange="{{ onGovDept }}" placeholder="e.g. Export Marketing Bureau" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 13px;font-size:13.5px;outline:none" /></div>
+            <div><span style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:9px">Does your organization help businesses grow, improve, export, or access support services?</span><div style="display:flex;flex-direction:column;gap:8px"><sc-for list="{{ govSupportsOpts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.onSelect }}" style="{{ o.style }}"><span style="{{ o.dot }}"></span><span style="flex:1">{{ o.label }}</span></button></sc-for></div></div>
+          </div>
+          </sc-if>
+
+          <!-- TECH branch -->
+          <sc-if value="{{ profileTech }}" hint-placeholder-val="">
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:20px;margin-top:14px;display:flex;flex-direction:column;gap:18px">
+            <div><span style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:9px">Which best describes your organization? <span style="color:#9CA3AF;font-weight:500">(select all that apply)</span></span><div style="display:flex;flex-direction:column;gap:8px"><sc-for list="{{ techTypeOpts }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.onToggle }}" style="{{ o.style }}"><span style="{{ o.box }}">{{ o.mark }}</span><span style="flex:1">{{ o.label }}</span></button></sc-for></div></div>
+            <div><span style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Do you sell products or services to food manufacturers or food processing businesses?</span><div style="font-size:11.5px;color:#9CA3AF;margin-bottom:9px">e.g. equipment, packaging, lab testing, product development, technical support</div><div style="display:flex;flex-direction:column;gap:8px"><sc-for list="{{ techSellsOpts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.onSelect }}" style="{{ o.style }}"><span style="{{ o.dot }}"></span><span style="flex:1">{{ o.label }}</span></button></sc-for></div></div>
+          </div>
+          </sc-if>
+
+          <!-- FOOD branch -->
+          <sc-if value="{{ profileFood }}" hint-placeholder-val="">
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:20px;margin-top:14px;display:flex;flex-direction:column;gap:18px">
+            <div><span style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Does your business make, process, manufacture, or package food products?</span><div style="font-size:11.5px;color:#9CA3AF;margin-bottom:9px">e.g. snacks, sauces, condiments, beverages, frozen foods, baked goods</div><div style="display:flex;flex-direction:column;gap:8px"><sc-for list="{{ foodMakesOpts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.onSelect }}" style="{{ o.style }}"><span style="{{ o.dot }}"></span><span style="flex:1">{{ o.label }}</span></button></sc-for></div></div>
+            <sc-if value="{{ foodMakesYes }}" hint-placeholder-val="">
+            <div><span style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:9px">What products does your business produce?</span><input value="{{ foodProducts }}" onChange="{{ onFoodProducts }}" placeholder="e.g. dried mangoes, banana chips" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 13px;font-size:13.5px;outline:none" /></div>
+            <div><span style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:9px">How many employees does your business have?</span><div style="display:flex;flex-direction:column;gap:8px"><sc-for list="{{ foodEmpOpts }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.onSelect }}" style="{{ o.style }}"><span style="{{ o.dot }}"></span><span style="flex:1">{{ o.label }}</span></button></sc-for></div></div>
+            <div><span style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:9px">What is your role in the organization?</span><div style="display:flex;flex-direction:column;gap:8px"><sc-for list="{{ foodRoleOpts }}" as="o" hint-placeholder-count="6"><button onClick="{{ o.onSelect }}" style="{{ o.style }}"><span style="{{ o.dot }}"></span><span style="flex:1">{{ o.label }}</span></button></sc-for></div></div>
+            </sc-if>
+          </div>
+          </sc-if>
+
+          <!-- referral source (shown once an org type is picked &amp; not blocked) -->
+          <sc-if value="{{ showHearAbout }}" hint-placeholder-val="">
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:20px;margin-top:14px;display:flex;flex-direction:column;gap:18px">
+            <div><span style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:9px">How did you hear about this survey?</span><select value="{{ hearAbout }}" onChange="{{ onHearAbout }}" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 11px;font-size:13.5px;background:#fff;outline:none"><option value="">Select…</option><sc-for list="{{ hearAboutOptions }}" as="o" hint-placeholder-count="6"><option value="{{ o }}">{{ o }}</option></sc-for></select></div>
+            <sc-if value="{{ showRefName }}" hint-placeholder-val="">
+            <div><span style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:9px">Referral code or referrer name</span><input value="{{ refName }}" onChange="{{ onRefName }}" placeholder="Who referred you?" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 13px;font-size:13.5px;outline:none" /></div>
+            </sc-if>
+          </div>
+          </sc-if>
+
+          <!-- blocked / review message -->
+          <sc-if value="{{ profileBlocked }}" hint-placeholder-val="">
+          <div style="border:1px solid {{ profileBlockBorder }};background:{{ profileBlockBg }};border-radius:14px;padding:18px;margin-top:14px;display:flex;gap:12px;align-items:flex-start">
+            <span style="font-size:18px;flex:none">{{ profileBlockIcon }}</span>
+            <span style="font-size:13px;color:{{ profileBlockFg }};line-height:1.55;font-weight:500">{{ profileBlockMsg }}</span>
+          </div>
+          </sc-if>
+
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button onClick="{{ flowBack }}" style="height:46px;padding:0 22px;border-radius:11px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:14px;font-weight:700;cursor:pointer">Back</button>
+            <sc-if value="{{ profileBlocked }}" hint-placeholder-val="">
+            <button onClick="{{ exitFlow }}" style="height:46px;flex:1;border-radius:11px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:14px;font-weight:700;cursor:pointer">Close</button>
+            </sc-if>
+            <sc-if value="{{ profileNotBlocked }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ onProfileNext }}" style="{{ profileNextStyle }}">Continue to registration</button>
+            </sc-if>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- STEP 4 hand-off (enumerator decision) -->
+        <sc-if value="{{ fStep4 }}" hint-placeholder-val="">
+        <div>
+          <div style="text-align:center;margin-bottom:22px">
+            <div style="width:56px;height:56px;border-radius:50%;background:#DCFCE7;margin:0 auto 16px;display:flex;align-items:center;justify-content:center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <h1 style="font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:8px">Email verified</h1>
+            <p style="font-size:13.5px;color:#6B7280;max-width:430px;margin:0 auto">How should <b style="color:#374151">{{ regNameOrResp }}</b> complete the survey?</p>
+          </div>
+
+          <sc-if value="{{ handoffPicking }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div onClick="{{ onHandoffAssisted }}" style="border:1.5px solid #E7E7EA;border-radius:14px;padding:18px;cursor:pointer;display:flex;gap:14px;align-items:flex-start" style-hover="border-color:#E0195F;background:#FFF8FB">
+              <div style="width:42px;height:42px;border-radius:11px;background:#FFF1F6;color:#E0195F;display:flex;align-items:center;justify-content:center;flex:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M17 11l2 2 4-4"/></svg></div>
+              <div style="flex:1"><div style="font-size:14.5px;font-weight:700;margin-bottom:3px">I'll assist them now</div><div style="font-size:12.5px;color:#9CA3AF;line-height:1.5">Stay with the respondent and fill out the survey together in this session (enumerator-assisted).</div></div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C4C4CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:12px"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+            <div onClick="{{ onHandoffSendLink }}" style="border:1.5px solid #E7E7EA;border-radius:14px;padding:18px;cursor:pointer;display:flex;gap:14px;align-items:flex-start" style-hover="border-color:#E0195F;background:#FFF8FB">
+              <div style="width:42px;height:42px;border-radius:11px;background:#EEF2FF;color:#4F46E5;display:flex;align-items:center;justify-content:center;flex:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg></div>
+              <div style="flex:1"><div style="font-size:14.5px;font-weight:700;margin-bottom:3px">Send them a self-service link</div><div style="font-size:12.5px;color:#9CA3AF;line-height:1.5">The respondent completes the survey on their own device. They'll only see the survey — not the profile, registration, or verification steps.</div></div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C4C4CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:12px"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+          </div>
+          </sc-if>
+
+          <sc-if value="{{ handoffLinkSent }}" hint-placeholder-val="">
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:20px">
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:#15803D;background:#DCFCE7;padding:3px 9px;border-radius:6px">LINK READY</span><span style="font-size:12.5px;color:#9CA3AF">Survey-only · expires in 7 days</span></div>
+            <p style="font-size:13px;color:#6B7280;margin:10px 0 12px;line-height:1.55">Share this link with {{ regNameOrResp }}. Opening it shows only the survey — none of the earlier steps.</p>
+            <div style="display:flex;gap:8px;align-items:center;background:#FAFAFA;border:1px solid #EFEFF1;border-radius:9px;padding:11px 13px;margin-bottom:16px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#374151;flex:1;word-break:break-all">{{ surveyLink }}</span>
+              <button onClick="{{ onCopySurveyLink }}" style="font-size:11.5px;font-weight:700;color:#fff;background:#E0195F;border:none;padding:7px 13px;border-radius:7px;cursor:pointer">Copy</button>
+            </div>
+            <button onClick="{{ onPreviewSurveyOnly }}" style="height:46px;width:100%;border-radius:11px;border:none;background:#18181B;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:9px">Preview the respondent's survey-only view</button>
+            <button onClick="{{ onHandoffDone }}" style="height:44px;width:100%;border-radius:11px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:13.5px;font-weight:700;cursor:pointer">Done — back to portal</button>
+          </div>
+          </sc-if>
+
+          <sc-if value="{{ handoffPicking }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top:16px"><button onClick="{{ flowBack }}" style="height:44px;width:100%;border-radius:11px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:13.5px;font-weight:700;cursor:pointer">Back</button></div>
+          </sc-if>
+        </div>
+        </sc-if>
+
+        <!-- STEP 5 survey -->
+        <sc-if value="{{ fStep5 }}" hint-placeholder-val="">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><h1 style="font-size:22px;font-weight:800;letter-spacing:-.5px">Survey</h1><span style="{{ flowTypeStyle }}">{{ flowTypeShort }} path</span></div>
+          <p style="font-size:13.5px;color:#6B7280;margin-bottom:22px">Questions are tailored to your respondent group.</p>
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:18px">
+            <sc-for list="{{ surveyQs }}" as="q" hint-placeholder-count="8">
+              <sc-if value="{{ q.isSection }}" hint-placeholder-val="">
+                <div style="margin-top:4px;padding-bottom:7px;border-bottom:1px solid #EFEFF1"><span style="font-size:12.5px;font-weight:800;color:#E0195F;letter-spacing:.2px">{{ q.title }}</span></div>
+              </sc-if>
+              <sc-if value="{{ q.isQuestion }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <span style="font-size:13.5px;font-weight:700;color:#374151;display:block;margin-bottom:10px;line-height:1.45">{{ q.label }}</span>
+                <sc-if value="{{ q.isRadio }}" hint-placeholder-val="">
+                <div style="display:flex;flex-direction:column;gap:8px"><sc-for list="{{ q.options }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.onSelect }}" style="{{ o.style }}"><span style="{{ o.dotStyle }}"></span><span style="flex:1">{{ o.label }}</span></button></sc-for></div>
+                </sc-if>
+                <sc-if value="{{ q.isMulti }}" hint-placeholder-val="">
+                <div style="display:flex;flex-direction:column;gap:8px"><sc-for list="{{ q.options }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.onToggle }}" style="{{ o.style }}"><span style="{{ o.boxStyle }}">{{ o.mark }}</span><span style="flex:1">{{ o.label }}</span></button></sc-for></div>
+                </sc-if>
+                <sc-if value="{{ q.isSelect }}" hint-placeholder-val="">
+                <select value="{{ q.value }}" onChange="{{ q.onChange }}" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 11px;font-size:13.5px;background:#fff;outline:none"><option value="">Select…</option><sc-for list="{{ q.selOptions }}" as="o" hint-placeholder-count="4"><option value="{{ o }}">{{ o }}</option></sc-for></select>
+                </sc-if>
+                <sc-if value="{{ q.isNumber }}" hint-placeholder-val="">
+                <input value="{{ q.value }}" onChange="{{ q.onChange }}" type="number" placeholder="{{ q.placeholder }}" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 13px;font-size:13.5px;outline:none" />
+                </sc-if>
+                <sc-if value="{{ q.isText }}" hint-placeholder-val="">
+                <textarea value="{{ q.value }}" onChange="{{ q.onChange }}" placeholder="Type your answer…" style="width:100%;min-height:78px;border:1px solid #E2E2E6;border-radius:9px;padding:11px 13px;font-size:13.5px;outline:none;resize:vertical;font-family:inherit"></textarea>
+                </sc-if>
+                <sc-if value="{{ q.isMatrix }}" hint-placeholder-val="">
+                <div style="display:flex;flex-direction:column;gap:9px"><sc-for list="{{ q.matrixRows }}" as="row" hint-placeholder-count="6"><div style="display:flex;align-items:center;gap:12px"><span style="font-size:12.5px;font-weight:600;color:#374151;width:140px;flex:none">{{ row.label }}</span><select value="{{ row.value }}" onChange="{{ row.onChange }}" style="flex:1;height:40px;border:1px solid #E2E2E6;border-radius:9px;padding:0 11px;font-size:13px;background:#fff;outline:none"><option value="">Select…</option><sc-for list="{{ q.scaleOptions }}" as="s" hint-placeholder-count="6"><option value="{{ s }}">{{ s }}</option></sc-for></select></div></sc-for></div>
+                </sc-if>
+              </div>
+              </sc-if>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <sc-if value="{{ showSurveyBack }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ flowBack }}" style="height:46px;padding:0 22px;border-radius:11px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:14px;font-weight:700;cursor:pointer">Back</button>
+            </sc-if>
+            <button onClick="{{ flowNext }}" style="height:46px;flex:1;border-radius:11px;border:none;background:#18181B;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Continue</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- STEP 6 selfie -->
+        <sc-if value="{{ fStep6 }}" hint-placeholder-val="">
+        <div style="text-align:center;padding-top:8px">
+          <h1 style="font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:8px">Identity selfie</h1>
+          <p style="font-size:13.5px;color:#6B7280;margin-bottom:24px;max-width:420px;margin-left:auto;margin-right:auto">A quick selfie confirms a real person completed this survey. Used for audit &amp; quality control only.</p>
+          <div style="{{ selfieBoxStyle }}">
+            <sc-if value="{{ selfieDone }}" hint-placeholder-val="">
+            <div style="text-align:center"><div style="width:58px;height:58px;border-radius:50%;background:#DCFCE7;display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><div style="font-size:14px;font-weight:700;color:#15803D">{{ selfieMethodLabel }}</div><div style="font-size:12px;color:#9CA3AF;margin-top:3px">Identity image attached</div></div>
+            </sc-if>
+            <sc-if value="{{ selfieEmpty }}" hint-placeholder-val="{{ true }}">
+            <div style="text-align:center"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="11" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/><path d="M9 4h6l1 2h2a2 2 0 0 1 2 2"/></svg><div style="font-size:13.5px;font-weight:600;color:#6B7280;margin-top:12px">No image yet</div></div>
+            </sc-if>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;max-width:360px;margin-left:auto;margin-right:auto">
+            <button onClick="{{ onTakeSelfie }}" style="{{ takeBtnStyle }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Take a selfie</button>
+            <button onClick="{{ onUploadSelfie }}" style="{{ uploadBtnStyle }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>Upload an image</button>
+          </div>
+          <div style="font-size:11.5px;color:#9CA3AF;margin:16px 0 0;display:flex;gap:14px;justify-content:center;flex-wrap:wrap"><span>🔒 Timestamp recorded</span><span>IP &amp; device logged</span></div>
+          <div style="display:flex;gap:10px;margin-top:24px">
+            <button onClick="{{ flowBack }}" style="height:46px;padding:0 22px;border-radius:11px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:14px;font-weight:700;cursor:pointer">Back</button>
+            <button onClick="{{ flowNext }}" style="{{ selfieNextStyle }}">Continue</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- STEP 7 payout -->
+        <sc-if value="{{ fStep7 }}" hint-placeholder-val="">
+        <div>
+          <h1 style="font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:6px">Payout details</h1>
+          <p style="font-size:13.5px;color:#6B7280;margin-bottom:22px">Where should we send your <b style="color:#374151">{{ flowTokenLabel }}</b> token once verified?</p>
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:18px">
+            <div>
+              <span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:9px">Payout method</span>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px">
+                <sc-for list="{{ payoutMethods }}" as="m" hint-placeholder-count="4"><button onClick="{{ m.onSelect }}" style="{{ m.style }}">{{ m.label }}</button></sc-for>
+              </div>
+            </div>
+            <sc-if value="{{ payoutIsEwallet }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              <label style="display:block"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Account name</span><input value="{{ payout.acctName }}" onChange="{{ payout.onAcctName }}" placeholder="Registered name" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 13px;font-size:13.5px;outline:none" /></label>
+              <label style="display:block"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Mobile number</span><input value="{{ payout.acctNum }}" onChange="{{ payout.onAcctNum }}" placeholder="09XX XXX XXXX" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 13px;font-size:13.5px;outline:none" /></label>
+            </div>
+            </sc-if>
+            <sc-if value="{{ payoutIsBank }}" hint-placeholder-val="">
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <label style="display:block"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Bank name</span><input value="{{ payout.bank }}" onChange="{{ payout.onBank }}" placeholder="e.g. BDO, BPI" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 13px;font-size:13.5px;outline:none" /></label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                <label style="display:block"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Account name</span><input value="{{ payout.acctName }}" onChange="{{ payout.onAcctName }}" placeholder="Account holder" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 13px;font-size:13.5px;outline:none" /></label>
+                <label style="display:block"><span style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Account number</span><input value="{{ payout.acctNum }}" onChange="{{ payout.onAcctNum }}" placeholder="000000000" style="width:100%;height:42px;border:1px solid #E2E2E6;border-radius:9px;padding:0 13px;font-size:13.5px;outline:none" /></label>
+              </div>
+            </div>
+            </sc-if>
+            <div style="display:flex;align-items:center;gap:9px;background:#FFF8FB;border:1px solid #FBD7E6;border-radius:9px;padding:11px 13px;font-size:12px;color:#9D174D"><span>🔒</span>Payout details are visible only to authorized Prodigitality admins.</div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button onClick="{{ flowBack }}" style="height:46px;padding:0 22px;border-radius:11px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:14px;font-weight:700;cursor:pointer">Back</button>
+            <button onClick="{{ flowNext }}" style="height:46px;flex:1;border-radius:11px;border:none;background:#18181B;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Review &amp; submit</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- STEP 8 review -->
+        <sc-if value="{{ fStep8 }}" hint-placeholder-val="">
+        <div>
+          <h1 style="font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:6px">Review &amp; submit</h1>
+          <p style="font-size:13.5px;color:#6B7280;margin-bottom:22px">Confirm everything looks right. Your submission then goes to QA review.</p>
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;overflow:hidden">
+            <sc-for list="{{ reviewItems }}" as="i" hint-placeholder-count="6"><div style="display:flex;justify-content:space-between;gap:16px;padding:13px 18px;border-bottom:1px solid #F2F2F4"><span style="font-size:13px;color:#9CA3AF;font-weight:600;flex:none">{{ i.label }}</span><span style="font-size:13px;font-weight:600;text-align:right;word-break:break-word">{{ i.value }}</span></div></sc-for>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button onClick="{{ flowBack }}" style="height:46px;padding:0 22px;border-radius:11px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:14px;font-weight:700;cursor:pointer">Back</button>
+            <button onClick="{{ submitFlow }}" style="height:46px;flex:1;border-radius:11px;border:none;background:#15803D;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Submit for verification</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- STEP 9 success -->
+        <sc-if value="{{ fStep9 }}" hint-placeholder-val="">
+        <div style="text-align:center;padding-top:18px">
+          <div style="width:72px;height:72px;border-radius:50%;background:#DCFCE7;margin:0 auto 22px;display:flex;align-items:center;justify-content:center"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+          <h1 style="font-size:26px;font-weight:800;letter-spacing:-.6px;margin-bottom:10px">Submitted!</h1>
+          <p style="font-size:14.5px;color:#6B7280;line-height:1.6;max-width:440px;margin:0 auto 24px">{{ flowThanks }} Your response is now <b style="color:#9A3412">pending QA review</b>. You'll be notified once it has been reviewed and verified.</p>
+          <div style="background:#fff;border:1px solid #E7E7EA;border-radius:14px;padding:20px;text-align:left;margin-bottom:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="font-size:12px;font-weight:700;color:#9CA3AF;letter-spacing:.4px;text-transform:uppercase">Your referral link</div><span style="{{ flowTypeStyle }}">{{ flowTypeShort }} path</span></div>
+            <p style="font-size:13px;color:#6B7280;margin-bottom:12px;line-height:1.55">Refer others in your group and earn a bonus once they're verified.</p>
+            <div style="display:flex;gap:8px;align-items:center;background:#FAFAFA;border:1px solid #EFEFF1;border-radius:9px;padding:10px 13px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#374151;flex:1;text-align:left;word-break:break-all">surveys.prodigitality.net/r/{{ flowNewCode }}</span>
+              <button onClick="{{ copyReferral }}" style="font-size:11.5px;font-weight:700;color:#fff;background:#E0195F;border:none;padding:7px 13px;border-radius:7px;cursor:pointer">Copy</button>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:13px"><span style="color:#9CA3AF;font-weight:600">Your token (after verify)</span><span style="font-weight:700">{{ flowTokenLabel }}</span></div>
+            <div style="display:flex;justify-content:space-between;margin-top:7px;font-size:13px"><span style="color:#9CA3AF;font-weight:600">Referral bonus (per verified)</span><span style="font-weight:700">{{ flowBonusLabel }}</span></div>
+            <div style="font-size:11px;color:#B0B0B8;margin-top:9px">Token &amp; bonus amounts depend on your respondent path.</div>
+          </div>
+          <button onClick="{{ previewReferral }}" style="height:46px;width:100%;border-radius:11px;border:none;background:#18181B;color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>Preview the referral link as a new respondent</button>
+          <p style="font-size:12px;color:#9CA3AF;margin-top:14px">You can now safely close this window.</p>
+        </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- SETTINGS SAVE CONFIRMATION -->
+  <sc-if value="{{ confirmSave }}" hint-placeholder-val="">
+  <div onClick="{{ onCancelSave }}" style="position:fixed;inset:0;background:rgba(15,15,20,.45);z-index:70;display:flex;align-items:center;justify-content:center;padding:24px">
+    <div onClick="{{ stop }}" style="width:440px;max-width:100%;background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.28);padding:24px;animation:pop .22s ease">
+      <div style="width:46px;height:46px;border-radius:12px;background:#FFF7ED;display:flex;align-items:center;justify-content:center;margin-bottom:16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
+      <h3 style="font-size:18px;font-weight:800;letter-spacing:-.4px;margin-bottom:8px">Update targets &amp; incentives?</h3>
+      <p style="font-size:13.5px;color:#6B7280;line-height:1.6;margin-bottom:18px">These numbers drive progress reporting and all payout calculations across the portal. Verified payouts already recorded are not changed, but pending amounts will recalculate. This action is logged in the audit trail.</p>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onClick="{{ onCancelSave }}" style="height:42px;padding:0 18px;border-radius:10px;border:1px solid #E2E2E6;background:#fff;color:#374151;font-size:13.5px;font-weight:700;cursor:pointer">Cancel</button>
+        <button onClick="{{ onConfirmSave }}" style="height:42px;padding:0 22px;border-radius:10px;border:none;background:#15803D;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer">Yes, save changes</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- TOAST -->
+  <sc-if value="{{ toast }}" hint-placeholder-val="">
+  <div style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#18181B;color:#fff;padding:13px 20px;border-radius:11px;font-size:13.5px;font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,.25);z-index:80;animation:pop .25s ease;display:flex;align-items:center;gap:10px">
+    <span style="color:#4ADE80">✓</span>{{ toast }}
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    const data = this.buildData();
+    this.state = {
+      mode:'login', role:'admin', view:'dashboard',
+      loginEmail:'', loginPw:'',
+      targets:{ TSI:4, AgriTech:10, SME:100 },
+      incentives:{ TSI:{token:300,bonus:1000}, AgriTech:{token:300,bonus:1000}, SME:{token:200,bonus:100} },
+      draftTargets:{ TSI:4, AgriTech:10, SME:100 },
+      draftIncentives:{ TSI:{token:300,bonus:1000}, AgriTech:{token:300,bonus:1000}, SME:{token:200,bonus:100} },
+      confirmSave:false,
+      emailSel:'verify',
+      enumerators:[{name:'Maria Santos',email:'maria.santos@prodigitality.net'},{name:'Jun Mercado',email:'jun.mercado@prodigitality.net'},{name:'Liza Domingo',email:'liza.domingo@prodigitality.net'},{name:'Paolo Rivera',email:'paolo.rivera@prodigitality.net'}],
+      showAddEnum:false, newEnumName:'', newEnumEmail:'',
+      manualReferrers:[{name:'DOST',kind:'Partner / TSI'}],
+      showAddRef:false, newRefName:'', newRefKind:'Partner / TSI',
+      referredBy:'', referredCode:'',
+      qual:{ orgType:'', govOrg:'', govDept:'', govSupports:'', techTypes:[], techSells:'', foodMakes:'', foodProducts:'', foodEmployees:'', foodRole:'', hearAbout:'', refName:'' },
+      respondents:data.respondents, audit:data.audit,
+      selectedId:null, search:'', filterType:'all', filterStatus:'all', flaggedOnly:false,
+      paid:{}, toast:null,
+      rStep:0, rType:'SME', reg:{name:'',email:'',mobile:'',org:'',position:'',region:'NCR',type:'SME',code:''},
+      otp:'', survey:{}, selfie:false, selfieMethod:'', payout:{method:'GCash',acctName:'',acctNum:'',bank:''},
+      payoutOn:true, surveyOnly:false, handoffMode:'',
+      newCode:''
+    };
+  }
+
+  /* ---------- data ---------- */
+  buildData(){
+    let seed=987654321; const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff;};
+    const pick=a=>a[Math.floor(rnd()*a.length)];
+    const regions=['NCR','Region III','Region IV-A','Region VII','Region XI','Region VI','CAR','Region X','Region V'];
+    const fnames=['Maria','Jose','Ana','Juan','Liza','Paolo','Grace','Mark','Rhea','Carlo','Divine','Noel','Joy','Ramon','Cherry','Ben','Aileen','Dennis','Mae','Ferdie','Kristine','Allan','Bea','Victor','Nina','Rico','Sheila','Karen','Edwin','Lara','Marco','Tina','Gerald','Faith','Oscar','Daisy','Ronnie','Vina','Hector','Joan'];
+    const lnames=['Santos','Reyes','Cruz','Bautista','Ocampo','Garcia','Mendoza','Torres','Flores','Ramos','Aquino','Castro','Villanueva','del Rosario','Navarro','Domingo','Salazar','Fernandez','Aguilar','Pascual','Lim','Tan','Gonzales','Rivera','Mercado'];
+    const smePre=['Golden','Sunrise','Mountain','Island','Harvest','Pure','Mama','Lola','Bayanihan','Sagada','Davao','Cebu','Laguna','Northern','Tropical','Heritage','Greenfield','Sweet','Crispy','Saba'];
+    const smeSuf=['Foods','Food Products','Delicacies','Kitchen','Pastries','Beverages','Snacks','Goods','Trading','Produce'];
+    const agriNames=['AgriHub PH','FarmLink','CropConnect','SakaTech','HarvestIQ','AniMo Drones','GreenSprout','TaniGo','FieldSense','AgriPay'];
+    const enumNames=['Maria Santos','Jun Mercado','Liza Domingo','Paolo Rivera'];
+    const colors=['#E0195F','#7C3AED','#2563EB','#0891B2','#059669','#D97706','#DB2777','#4F46E5','#0D9488','#CA8A04'];
+    const recs=[]; let id=1;
+    const colorFor=s=>colors[Math.abs(this.hash(s))%colors.length];
+    const make=(type,org,status,opts={})=>{
+      const fn=pick(fnames), ln=pick(lnames); const name=fn+' '+ln;
+      const emailV=!['New','Email Verification Pending'].includes(status);
+      const surveyDone=['Survey Completed','Selfie Submitted','Pending QA','Needs Follow-up','Verified','Rejected'].includes(status);
+      const selfie=['Selfie Submitted','Pending QA','Needs Follow-up','Verified','Rejected'].includes(status);
+      const verified=status==='Verified';
+      const token=type==='SME'?200:300;
+      const referred=rnd()<0.55;
+      const bonus=verified&&referred?(type==='SME'?100:1000):0;
+      const mode=rnd()<0.32?'Self-service':'Enumerator-assisted';
+      const enumr=mode==='Self-service'?'—':pick(enumNames);
+      let payStatus='—';
+      if(verified){ const r=rnd(); payStatus=r<0.35?'Paid':r<0.7?'Approved':r<0.88?'Pending':'On Hold'; }
+      const compMin=opts.fast?Math.floor(rnd()*3)+3:Math.floor(rnd()*16)+8;
+      const days=Math.floor(rnd()*42);
+      const ref=referred?(opts.referrer||pick(['DTI','Philexport','Maria Santos',fn+' '+pick(lnames),'Jun Mercado'])):null;
+      const methods=['GCash','Maya','Bank transfer'];
+      const method=pick(methods);
+      const acct = method==='Bank transfer'?('BDO •••• '+(1000+Math.floor(rnd()*8999))):(method+' •••• '+(100+Math.floor(rnd()*899)));
+      return {id:id++, name, org, type, status, region:pick(regions), position:pick(['Owner','Manager','Director','Officer','Proprietor','VP Ops']),
+        email:(fn+'.'+ln).toLowerCase().replace(/[^a-z.]/g,'')+'@email.com', mobile:'+63 9'+(10+Math.floor(rnd()*89))+' '+(100+Math.floor(rnd()*899))+' '+(1000+Math.floor(rnd()*8999)),
+        emailV, surveyDone, selfie, verified, token, bonus, referred, referrer:ref, mode, enumerator:enumr, payStatus, method, acct,
+        compMin, flags:opts.flags||[], code:'PS-'+this.code(id*7+3), createdDays:days, color:colorFor(name)};
+    };
+    // TSI
+    [['DTI','Verified'],['DTI-CITEM','Verified'],['Philexport','Pending QA'],['DOST','Email Verified']].forEach(([o,s])=>recs.push(make('TSI',o,s)));
+    // AgriTech
+    const agriStatus=['Verified','Verified','Verified','Verified','Verified','Pending QA','Pending QA','Needs Follow-up','Rejected','Survey Completed'];
+    agriStatus.forEach((s,i)=>recs.push(make('AgriTech',agriNames[i],s, i===8?{flags:['Duplicate phone number']}:{})));
+    // SME
+    const smeCounts={'New':14,'Email Verification Pending':6,'Email Verified':5,'Survey Started':5,'Survey Completed':4,'Selfie Submitted':3,'Pending QA':9,'Needs Follow-up':6,'Rejected':4,'Verified':44};
+    let smeIdx=0;
+    Object.entries(smeCounts).forEach(([status,n])=>{
+      for(let k=0;k<n;k++){
+        const org=pick(smePre)+' '+pick(smeSuf);
+        let opts={};
+        if(status==='Pending QA'&&k===0)opts={flags:['Suspiciously fast completion'],fast:true};
+        if(status==='Pending QA'&&k===1)opts={flags:['Same device used for 6 submissions']};
+        if(status==='Rejected'&&k===0)opts={flags:['Duplicate payout account']};
+        if(status==='Rejected'&&k===1)opts={flags:['Duplicate email']};
+        if(status==='Needs Follow-up'&&k===0)opts={flags:['Missing selfie']};
+        if(status==='Verified'&&k%9===0)opts={referrer:'Maria Santos'};
+        recs.push(make('SME',org,status,opts));
+        smeIdx++;
+      }
+    });
+    // audit log seed
+    const audit=this.seedAudit(recs);
+    return {respondents:recs, audit};
+  }
+  hash(s){let h=0;for(let i=0;i<s.length;i++){h=(h<<5)-h+s.charCodeAt(i);h|=0;}return h;}
+  code(n){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r='';let x=Math.abs(n*2654435761%100000);for(let i=0;i<4;i++){r+=c[x%c.length];x=Math.floor(x/3)+i*7;}return r;}
+  seedAudit(recs){
+    const acts=[
+      ['Payout marked paid','— DTI-CITEM','M. Reyes (Admin)','9m ago','#DCFCE7','#166534','payout'],
+      ['QA approved','— Golden Harvest Foods','A. Cruz (QA)','24m ago','#DCFCE7','#166534','qa'],
+      ['Submission flagged','— Sunrise Snacks (fast completion)','System','38m ago','#FEE2E2','#991B1B','flag'],
+      ['Survey completed','— Mama Lola Delicacies','Self-service','1h ago','#DBEAFE','#1E40AF','survey'],
+      ['Referral verified','— FarmLink → 3 SMEs','System','2h ago','#FCE7F3','#9D174D','ref'],
+      ['Selfie uploaded','— Island Beverages','Enumerator (J. Mercado)','2h ago','#E0F2FE','#075985','selfie'],
+      ['QA rejected','— Tropical Trading (duplicate email)','A. Cruz (QA)','3h ago','#FEE2E2','#991B1B','qa'],
+      ['Data exported','— Verified respondents (CSV)','M. Reyes (Admin)','4h ago','#F3F4F6','#4B5563','export'],
+      ['Email verified','— Davao Food Products','Self-service','5h ago','#DBEAFE','#1E40AF','email'],
+      ['Respondent registered','— Heritage Kitchen','Enumerator (L. Domingo)','6h ago','#F3F4F6','#4B5563','user'],
+      ['Payout approved','— Philexport','M. Reyes (Admin)','7h ago','#DCFCE7','#166534','payout'],
+      ['Referral created','— DTI → AgriHub PH','Partner portal','8h ago','#FCE7F3','#9D174D','ref'],
+    ];
+    return acts;
+  }
+
+  /* ---------- icons ---------- */
+  icon(name,size){
+    size=size||18;
+    const R=React.createElement; const p=d=>R('path',{key:d,d});
+    const m={
+      dashboard:[R('rect',{key:1,x:3,y:3,width:7,height:7,rx:1.6}),R('rect',{key:2,x:14,y:3,width:7,height:7,rx:1.6}),R('rect',{key:3,x:14,y:14,width:7,height:7,rx:1.6}),R('rect',{key:4,x:3,y:14,width:7,height:7,rx:1.6})],
+      respondents:[R('circle',{key:1,cx:12,cy:8,r:4}),p('M4 20a8 8 0 0 1 16 0')],
+      surveys:[R('rect',{key:1,x:5,y:3,width:14,height:18,rx:2}),p('M9 8h6'),p('M9 12h6'),p('M9 16h4')],
+      referrals:[R('circle',{key:1,cx:6,cy:12,r:2.5}),R('circle',{key:2,cx:18,cy:6,r:2.5}),R('circle',{key:3,cx:18,cy:18,r:2.5}),p('M8.4 10.8l7.2-3.5'),p('M8.4 13.2l7.2 3.5')],
+      qa:[p('M12 3l8 3v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z'),p('M9 12l2 2 4-4')],
+      payouts:[R('rect',{key:1,x:3,y:6,width:18,height:13,rx:2}),p('M3 10h18'),p('M16 14.5h2')],
+      enumerators:[R('circle',{key:1,cx:10,cy:8,r:4}),p('M3 20a7 7 0 0 1 11-5.6'),p('M16 11l2 2 4-4')],
+      reports:[p('M14 3v4a1 1 0 0 0 1 1h4'),p('M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z'),p('M12 11v6'),p('M9 14l3 3 3-3')],
+      audit:[p('M8 5h12'),p('M8 10h12'),p('M8 15h12'),p('M8 20h12'),R('circle',{key:1,cx:3.5,cy:5,r:1}),R('circle',{key:2,cx:3.5,cy:10,r:1}),R('circle',{key:3,cx:3.5,cy:15,r:1}),R('circle',{key:4,cx:3.5,cy:20,r:1})],
+      settings:[p('M4 8h9'),p('M17 8h3'),p('M4 16h3'),p('M11 16h9'),R('circle',{key:1,cx:15,cy:8,r:2}),R('circle',{key:2,cx:7,cy:16,r:2})],
+      csv:[p('M14 3v4a1 1 0 0 0 1 1h4'),p('M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z')],
+      emails:[R('rect',{key:1,x:3,y:5,width:18,height:14,rx:2}),p('M3 7l9 6 9-6')],
+      flag:[p('M4 21V4'),p('M4 4h13l-2 4 2 4H4')],
+      
+    };
+    return R('svg',{viewBox:'0 0 24 24',width:size,height:size,fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'},m[name]||m.dashboard);
+  }
+
+  /* ---------- helpers ---------- */
+  peso(n){return '\u20B1'+Number(n).toLocaleString('en-PH');}
+  initials(n){const p=n.trim().split(/\s+/);return ((p[0]||'')[0]||'')+((p[1]||'')[0]||'');}
+  typeShort(t){return t==='AgriTech'?'Agri-Tech':t;}
+  statusStyleObj(s){
+    const map={'New':['#F3F4F6','#4B5563'],'Email Verification Pending':['#FEF3C7','#92400E'],'Email Verified':['#DBEAFE','#1E40AF'],'Survey Started':['#E0E7FF','#3730A3'],'Survey Completed':['#E0F2FE','#075985'],'Selfie Submitted':['#CFFAFE','#155E63'],'Pending QA':['#FEF3C7','#92400E'],'Needs Follow-up':['#FFEDD5','#9A3412'],'Verified':['#DCFCE7','#166534'],'Rejected':['#FEE2E2','#991B1B']};
+    const c=map[s]||['#F3F4F6','#4B5563'];
+    return {background:c[0],color:c[1],fontSize:'11px',fontWeight:700,padding:'3px 9px',borderRadius:'6px',whiteSpace:'nowrap',display:'inline-block'};
+  }
+  payStyleObj(s){
+    const map={'Pending':['#FEF3C7','#92400E'],'Approved':['#DBEAFE','#1E40AF'],'Paid':['#DCFCE7','#166534'],'Failed':['#FEE2E2','#991B1B'],'On Hold':['#F3F4F6','#4B5563'],'—':['#F3F4F6','#9CA3AF']};
+    const c=map[s]||['#F3F4F6','#4B5563'];
+    return {background:c[0],color:c[1],fontSize:'11px',fontWeight:700,padding:'3px 9px',borderRadius:'6px',whiteSpace:'nowrap',display:'inline-block'};
+  }
+  typeStyleObj(t){
+    const map={'TSI':['#EDE9FE','#5B21B6'],'AgriTech':['#DCFCE7','#166534'],'SME':['#FFE4E6','#9F1239']};
+    const c=map[t]||['#F3F4F6','#4B5563'];
+    return {background:c[0],color:c[1],fontSize:'10.5px',fontWeight:700,padding:'2px 8px',borderRadius:'5px',whiteSpace:'nowrap',display:'inline-block'};
+  }
+
+  toast(msg){this.setState({toast:msg}); clearTimeout(this._t); this._t=setTimeout(()=>this.setState({toast:null}),2600);}
+  log(action,target,by){const a=[[action,target,by||this.userName(),'just now','#EDE9FE','#5B21B6','user'],...this.state.audit]; this.setState({audit:a});}
+  userName(){return {admin:'Augusto Teleg',enumerator:'Maria Santos',stakeholder:'Arianne'}[this.state.role];}
+
+  setTarget(path,val){const n=Math.max(0,parseInt(val,10)||0);this.setState({draftTargets:{...this.state.draftTargets,[path]:n}});}
+  setIncentive(path,field,val){const n=Math.max(0,parseInt(val,10)||0);const inc={...this.state.draftIncentives,[path]:{...this.state.draftIncentives[path],[field]:n}};this.setState({draftIncentives:inc});}
+  settingsDirty(){return JSON.stringify(this.state.draftTargets)!==JSON.stringify(this.state.targets)||JSON.stringify(this.state.draftIncentives)!==JSON.stringify(this.state.incentives);}
+  askSaveSettings(){if(this.settingsDirty())this.setState({confirmSave:true});}
+  cancelSaveSettings(){this.setState({confirmSave:false});}
+  confirmSaveSettings(){this.setState({targets:{...this.state.draftTargets},incentives:JSON.parse(JSON.stringify(this.state.draftIncentives)),confirmSave:false});this.log('Settings updated','— targets & incentive structure',this.userName());this.toast('Settings saved');}
+  discardSettings(){this.setState({draftTargets:{...this.state.targets},draftIncentives:JSON.parse(JSON.stringify(this.state.incentives))});this.toast('Changes discarded');}
+  addEnumerator(){const name=(this.state.newEnumName||'').trim();if(!name)return;const list=[...this.state.enumerators,{name,email:(this.state.newEnumEmail||'').trim()}];this.setState({enumerators:list,newEnumName:'',newEnumEmail:'',showAddEnum:false});this.log('Enumerator added','— '+name,this.userName());this.toast('Enumerator added · '+name);}
+  renameEnumerator(i,newName){const list=this.state.enumerators.map((e,j)=>j===i?{...e,name:newName}:e);const old=this.state.enumerators[i].name;const recs=this.state.respondents.map(r=>r.enumerator===old?{...r,enumerator:newName}:r);this.setState({enumerators:list,respondents:recs});}
+  setEnumEmail(i,val){const list=this.state.enumerators.map((e,j)=>j===i?{...e,email:val}:e);this.setState({enumerators:list});}
+  removeEnumerator(i){const e=this.state.enumerators[i];const recs=this.state.respondents.map(r=>r.enumerator===e.name?{...r,enumerator:'—',mode:'Self-service'}:r);const list=this.state.enumerators.filter((_,j)=>j!==i);this.setState({enumerators:list,respondents:recs});this.toast('Enumerator removed · '+e.name);}
+  addReferrer(){const name=(this.state.newRefName||'').trim();if(!name)return;const list=[...this.state.manualReferrers,{name,kind:this.state.newRefKind}];const code='PS-'+this.code(this.hash(name));this.setState({manualReferrers:list,newRefName:'',newRefKind:'Partner / TSI',showAddRef:false});this.log('Referrer added','— '+name+' ('+code+')',this.userName());this.toast('Referrer added · '+name+' · '+code);}
+  login(role){const r=role||this.state.role||'admin';this.setState({mode:'portal',role:r,view:'dashboard',selectedId:null});this.log('Admin login','— '+({admin:'Augusto Teleg',enumerator:'Maria Santos',stakeholder:'Arianne'}[r]),({admin:'Augusto Teleg',enumerator:'Maria Santos',stakeholder:'Arianne'}[r]));}
+  logout(){this.setState({mode:'login',loginPw:''});}
+  setEmail(id){this.setState({emailSel:id});}
+  setView(v){this.setState({view:v,selectedId:null});}
+  setRole(r){const def=r==='stakeholder'?'dashboard':'dashboard'; this.setState({role:r,view:def,selectedId:null});}
+  openProfile(id){this.setState({selectedId:id});}
+  closeProfile(){this.setState({selectedId:null});}
+
+  qaAct(id,action){
+    const map={approve:'Verified',reject:'Rejected',follow:'Needs Follow-up'};
+    const recs=this.state.respondents.map(r=>{
+      if(r.id!==id)return r;
+      const ns=map[action];
+      const verified=ns==='Verified';
+      return {...r, status:ns, verified, payStatus:verified?'Pending':'—', bonus:verified&&r.referred?(r.type==='SME'?100:1000):0};
+    });
+    const rec=this.state.respondents.find(r=>r.id===id);
+    this.setState({respondents:recs, selectedId:null});
+    const verb={approve:'Verified',reject:'Rejected',follow:'Marked follow-up'}[action];
+    this.log('QA '+(action==='approve'?'approved':action==='reject'?'rejected':'flagged follow-up'),'— '+rec.name,this.userName());
+    this.toast(verb+' · '+rec.name);
+  }
+  markPaid(id){
+    const recs=this.state.respondents.map(r=>r.id===id?{...r,payStatus:'Paid'}:r);
+    const paid={...this.state.paid,[id]:new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric'})};
+    const rec=this.state.respondents.find(r=>r.id===id);
+    this.setState({respondents:recs,paid});
+    this.log('Payout marked paid','— '+rec.name,this.userName());
+    this.toast('Payout marked paid · '+rec.name);
+  }
+  doExport(name,fmt){this.log('Data exported','— '+name+' ('+fmt+')',this.userName()); this.toast('Exporting '+name+' as '+fmt+'…');}
+
+  /* flow */
+  launchFlow(){this.setState({mode:'flow',rStep:0,referredBy:'',referredCode:'',qual:this.blankQual(),payoutOn:true,surveyOnly:false,handoffMode:'',selfie:false,selfieMethod:''});}
+  exitFlow(){this.setState({mode:'portal',rStep:0,otp:'',survey:{},selfie:false,selfieMethod:'',payoutOn:true,surveyOnly:false,handoffMode:'',referredBy:'',referredCode:'',qual:this.blankQual(),reg:{name:'',email:'',mobile:'',org:'',position:'',region:'NCR',type:'SME',code:''},payout:{method:'GCash',acctName:'',acctNum:'',bank:''}});}
+  copyReferral(){const link='surveys.prodigitality.net/r/'+(this.state.newCode||'');try{navigator.clipboard&&navigator.clipboard.writeText('https://'+link);}catch(e){}this.toast('Referral link copied · '+link);}
+  previewReferral(){const code=this.state.newCode;const name=(this.state.reg.name||'').trim()||'A Prodi-Surveys respondent';this.setState({mode:'flow',rStep:0,referredBy:name,referredCode:code,rType:'SME',otp:'',survey:{},selfie:false,selfieMethod:'',payoutOn:true,surveyOnly:false,handoffMode:'',qual:this.blankQual(),reg:{name:'',email:'',mobile:'',org:'',position:'',region:'NCR',type:'SME',code},payout:{method:'GCash',acctName:'',acctNum:'',bank:''}});}
+  blankQual(){return { orgType:'', govOrg:'', govDept:'', govSupports:'', techTypes:[], techSells:'', foodMakes:'', foodProducts:'', foodEmployees:'', foodRole:'', hearAbout:'', refName:'' };}
+  setOrg(t){const map={gov:'TSI',tech:'AgriTech',food:'SME',other:''};this.setState({qual:{...this.state.qual,orgType:t},rType:map[t]||this.state.rType});}
+  setQual(f,v){this.setState({qual:{...this.state.qual,[f]:v}});}
+  toggleTech(opt){const arr=[...(this.state.qual.techTypes||[])];const i=arr.indexOf(opt);if(i>=0)arr.splice(i,1);else arr.push(opt);this.setState({qual:{...this.state.qual,techTypes:arr}});}
+  classify(q){const map={gov:'TSI',tech:'AgriTech',food:'SME',other:''};const surveyType=map[q.orgType]||'';let assignedType='Needs Review',status='Needs Review',flags=[];
+    if(q.orgType==='gov'){if(q.govSupports==='Yes'){assignedType='TSI';status='Qualified';}else{assignedType='Needs Review';status='Needs Review';if(q.govSupports==='No')flags.push('Does not support SMEs');}}
+    else if(q.orgType==='tech'){if(q.techSells==='Yes'){assignedType='Agri-Tech Provider';status='Qualified';}else{assignedType='Needs Review';status='Needs Review';if(q.techSells==='No')flags.push('Does not serve food processing businesses');}}
+    else if(q.orgType==='food'){if(q.foodMakes==='Yes'){assignedType='Food Processing SME';status='Qualified';}else if(q.foodMakes==='No'){assignedType='Not Qualified';status='Not Qualified';flags.push('Food business does not process food products');}if(q.foodRole==='Other')flags.push('Role unclear');}
+    else if(q.orgType==='other'){assignedType='Needs Review';status='Needs Review';flags.push('Respondent selected Other');}
+    return {assignedType,status,flags,surveyType};}
+  flowNext(){const S=this.state;let n=S.rStep;
+    if(n===6){if(!S.selfie)return; n=S.payoutOn?7:8;}
+    else if(n===8){n=9;}
+    else {n=Math.min(9,n+1);}
+    this.setState({rStep:n});}
+  flowBack(){const S=this.state;let n=S.rStep;
+    if(n===8){n=S.payoutOn?7:6;}
+    else if(n===5){n=S.surveyOnly?5:4;}
+    else {n=Math.max(0,n-1);}
+    if(S.surveyOnly&&n<5)n=5;
+    this.setState({rStep:n});}
+  verifyOtp(){this.setState({rStep:4});}
+  setPayoutOn(v){this.setState({payoutOn:v});}
+  takeSelfie(){this.setState({selfie:true,selfieMethod:'camera'});}
+  uploadSelfie(){this.setState({selfie:true,selfieMethod:'upload'});}
+  handoffAssisted(){this.setState({rStep:5,surveyOnly:false,handoffMode:''});}
+  handoffSendLink(){this.setState({handoffMode:'link'});this.log('Survey link sent','— '+((this.state.reg.name||'').trim()||'respondent')+' (self-service)',this.userName());}
+  previewSurveyOnly(){this.setState({rStep:5,surveyOnly:true,handoffMode:''});}
+  handoffDone(){this.toast('Self-service survey link sent');this.exitFlow();}
+  copySurveyLink(){const link='surveys.prodigitality.net/s/'+(this.state.newCode||this.code(Date.now()%99999));try{navigator.clipboard&&navigator.clipboard.writeText('https://'+link);}catch(e){}this.toast('Survey link copied');}
+  setReg(k,v){const reg={...this.state.reg,[k]:v}; if(k==='type')this.setState({reg,rType:v}); else this.setState({reg});}
+  setAnswer(id,v){this.setState({survey:{...this.state.survey,[id]:v}});}
+  toggleMulti(id,opt){const arr=Array.isArray(this.state.survey[id])?[...this.state.survey[id]]:[];const i=arr.indexOf(opt);if(i>=0)arr.splice(i,1);else arr.push(opt);this.setState({survey:{...this.state.survey,[id]:arr}});}
+  setMatrix(id,row,v){const obj={...(this.state.survey[id]&&typeof this.state.survey[id]==='object'?this.state.survey[id]:{})};obj[row]=v;this.setState({survey:{...this.state.survey,[id]:obj}});}
+  setPayout(k,v){this.setState({payout:{...this.state.payout,[k]:v}});}
+  submitFlow(){
+    const r=this.state.reg; const q=this.state.qual; const code='PS-'+this.code(this.state.respondents.length*13+99);
+    const cls=this.classify(q);
+    const surveyType=cls.surveyType||'SME';
+    const payoutOn=this.state.payoutOn;
+    const token=payoutOn?((this.state.incentives[surveyType]&&this.state.incentives[surveyType].token)||0):0;
+    const assisted=!this.state.surveyOnly;
+    const mode=assisted?'Enumerator-assisted':'Self-service';
+    const enumName=assisted?((this.state.enumerators[0]&&this.state.enumerators[0].name)||'—'):'—';
+    const referrer=(q.refName&&q.refName.trim())||this.state.referredBy||((r.code||'').trim()?'Referral code':null)||null;
+    const org=q.govOrg||(q.foodProducts?('Food: '+q.foodProducts):'')||(q.techTypes&&q.techTypes[0])||'Self-registered';
+    const rec={id:9000+this.state.respondents.length, name:r.name||'New Respondent', org, type:surveyType, status:'Pending QA',
+      region:'NCR', position:q.foodRole||'—', email:r.email||'—', mobile:r.mobile||'—', emailV:true, surveyDone:true, selfie:true, selfieMethod:this.state.selfieMethod||'camera', verified:false,
+      assignedType:cls.assignedType, qualStatus:cls.status, hearAbout:q.hearAbout, payoutOn, token,
+      referred:!!referrer, referrer, mode, enumerator:enumName, payStatus:'—', method:payoutOn?this.state.payout.method:'—',
+      acct:payoutOn?(this.state.payout.method+' •••• '+(this.state.payout.acctNum||'').slice(-3)):'No payout', compMin:12, flags:cls.flags.slice(), code, createdDays:0, color:'#E0195F', _new:true};
+    this.log('Respondent registered','— '+rec.name+' ('+cls.assignedType+')',mode);
+    this.log('Respondent profile completed','— '+rec.name+' · '+cls.status,'System');
+    this.log('Survey completed','— '+rec.name,mode);
+    if(cls.flags.length)this.log('Submission flagged','— '+rec.name+' ('+cls.flags[0]+')','System');
+    this.setState({respondents:[rec,...this.state.respondents], newCode:code, rStep:9});
+  }
+
+  /* ---------- survey definitions (baseline instruments) ---------- */
+  surveyDef(type){
+    const scale5=['Very low','Low','Moderate','High','Very high'];
+    const country=['Indonesia','The Philippines','Other'];
+    const gender=['Woman','Man','Non-binary','Prefer not to say','Other'];
+    const age=['18–24 years','25–34 years','35–44 years','45–54 years','55+ years'];
+    const barriers=['Capacity','Geography','Access to finance','Digital access','Other'];
+    if(type==='SME')return [
+      {kind:'section',title:'Section A · Respondent information'},
+      {id:'a_country',label:'What country do you work in?',kind:'radio',opts:country},
+      {id:'a_sector',label:'What is the primary sector of your business?',kind:'radio',opts:['Processed Food / Agri-food sector','Primary Agriculture','Agri-technology','Other']},
+      {id:'a_position',label:'What is your current position?',kind:'radio',opts:['SME staff','SME manager','SME Board member','Other']},
+      {id:'a_gender',label:'Which gender do you identify with?',kind:'radio',opts:gender},
+      {id:'a_age',label:'What age group do you belong to?',kind:'radio',opts:age},
+      {id:'a_underrep',label:'Do you consider yourself a member of an underrepresented group? (e.g. Women, PWDs, Indigenous people, Youth)',kind:'radio',opts:['Yes','No']},
+      {id:'a_own',label:'Is this SME owned, led, or managed by individuals from any under-represented groups? (Select all that apply)',kind:'multi',opts:['Youth (under 35 years old)','Indigenous peoples / Ethnic minorities','Persons with disabilities','Rural / remote communities','None of the above','Prefer not to say']},
+      {kind:'section',title:'Section B · Economic growth'},
+      {id:'b1_growth',label:'To what extent has your business experienced growth in each of the following areas?',kind:'matrix',rows:['Export sales','Employment','Client base','Market intervention','Product innovation','Process innovation'],scale:['No growth at all','Stayed the same','Slight growth','Moderate growth','Significant growth','Not applicable']},
+      {id:'b2_emp',label:'Please specify the nature of your employment growth (Select all that apply)',kind:'multi',opts:['Increased total number of employees','Maintained staff levels despite economic challenges','Improved employment conditions (wages, safety, training)']},
+      {kind:'section',title:'Section C · International market access'},
+      {id:'c1_export',label:'Does your business currently sell or export processed food products to international markets?',kind:'radio',opts:['Yes, we currently export directly or indirectly','No, but we are actively trying to enter international markets','No, we only focus on the domestic market']},
+      {id:'c2_countries',label:'To which countries or regions do you currently export? (Select all that apply)',kind:'multi',opts:['Canada','Indonesia','Philippines','Other ASEAN countries','Other global markets']},
+      {kind:'section',title:'Section D · Staff capacity — export readiness'},
+      {id:'d2_identify',label:'How would you rate your capacity to identify market demands in the processed food sector?',kind:'radio',opts:scale5},
+      {id:'d3_respond',label:'How would you rate your capacity to respond to those market demands?',kind:'radio',opts:scale5},
+      {id:'d4_agree',label:'"Our SME has the necessary tools, skills, and market intelligence to successfully compete in regional/international processed food markets."',kind:'radio',opts:['Strongly Agree','Agree','Neutral','Disagree','Strongly Disagree']},
+      {id:'d5_meet',label:'How often have you engaged in strategic partnership development meetings with Canadian agri-business associations?',kind:'radio',opts:['Never','Rarely','Sometimes','Often','Always']},
+      {kind:'section',title:'Section E · Staff capacity — climate resilience'},
+      {id:'e2_climate',label:'How would you rate your capacity to integrate climate resilience measures into your operations?',kind:'radio',opts:scale5},
+      {kind:'section',title:'Section F · Open-ended (optional)'},
+      {id:'f1_chal',label:'What challenges does your business face in delivering gender-responsive or climate-resilient services?',kind:'text'},
+      {id:'f2_supp',label:'What support or training would most improve your capacity?',kind:'text'},
+      {id:'f3_bar',label:'What are the main barriers SMEs face in accessing international markets? (Select all that apply)',kind:'multi',opts:barriers},
+    ];
+    if(type==='AgriTech')return [
+      {kind:'section',title:'Section A · Respondent information'},
+      {id:'a_country',label:'What country do you work in?',kind:'radio',opts:country},
+      {id:'a_position',label:'What is your current position?',kind:'radio',opts:['ATP staff','ATP manager','ATP Board member','Organizational leader','Other']},
+      {id:'a_gender',label:'Which gender do you identify with?',kind:'radio',opts:gender},
+      {id:'a_age',label:'What age group do you belong to?',kind:'radio',opts:age},
+      {id:'a_underrep',label:'Do you consider yourself a member of an underrepresented group?',kind:'radio',opts:['Yes','No']},
+      {kind:'section',title:'Section B · ATP module — tools, approaches & services'},
+      {id:'b1_has',label:'Does your institution currently have any tools, approaches, or services to support SMEs in the processed food sector?',kind:'radio',opts:['Yes','No']},
+      {id:'b1_types',label:'Which types were implemented? (Select all that apply)',kind:'multi',opts:['Climate-resilient testing protocols','Gender-responsive service delivery tools','Environmental sustainability strategies','Climate change resilience strategies','Climate Change Action Plans','Gender Action Plans (GAPs)','Digital diagnostic tools','Training modules','Other']},
+      {id:'b1_count',label:'How many tools/approaches or services do you currently have?',kind:'radio',opts:['0','1','2','3','Other']},
+      {id:'b1_desc',label:'Please briefly describe each tool/service implemented.',kind:'text'},
+      {kind:'section',title:'Section C · Staff capacity — GESI & climate resilience'},
+      {id:'c21',label:"How would you rate your capacity to integrate GESI into your institution's structure and services?",kind:'radio',opts:scale5},
+      {id:'c22',label:'How would you rate your capacity to integrate climate resilience measures?',kind:'radio',opts:scale5},
+      {id:'c23',label:'How would you rate your ability to support SMEs in adopting climate-resilient practices?',kind:'radio',opts:scale5},
+      {id:'c24',label:'How would you rate your ability to design and implement inclusive, gender-responsive approaches in your service delivery?',kind:'radio',opts:scale5},
+      {kind:'section',title:'Section D · Open-ended (optional)'},
+      {id:'d1',label:'What challenges does your institution face in delivering gender-responsive or climate-resilient services?',kind:'text'},
+      {id:'d2',label:'What support or training would most improve your capacity?',kind:'text'},
+      {id:'d3',label:"What are the main barriers SMEs face in accessing your institution's services? (Select all that apply)",kind:'multi',opts:barriers},
+    ];
+    return [
+      {kind:'section',title:'Section A · Respondent information'},
+      {id:'a_country',label:'What country do you work in?',kind:'radio',opts:country},
+      {id:'a_position',label:'What is your current position?',kind:'radio',opts:['TSI staff','TSI manager','TSI Board member','Organizational leader','Other']},
+      {id:'a_gender',label:'Which gender do you identify with?',kind:'radio',opts:gender},
+      {id:'a_age',label:'What age group do you belong to?',kind:'radio',opts:age},
+      {id:'a_underrep',label:'Do you consider yourself a member of an underrepresented group?',kind:'radio',opts:['Yes','No']},
+      {kind:'section',title:'Section B · TSI module — tools, approaches & services'},
+      {id:'b1_has',label:'Does your institution currently have any tools, approaches, or services to support SMEs in the processed food sector?',kind:'radio',opts:['Yes','No']},
+      {id:'b1_types',label:'Which tools/approaches/services were implemented? (Select all that apply)',kind:'multi',opts:['Export readiness assessment tools','Market intelligence tools','Digital advisory platforms','Environmental sustainability strategies','Climate change resilience strategies','Climate Change Action Plans','Gender Action Plans (GAPs)','Gender-responsive service delivery tools','Climate-resilient business advisory tools','Other']},
+      {id:'b1_count',label:'How many tools/approaches or services do you currently have?',kind:'radio',opts:['0','1','2','3','Other']},
+      {id:'b1_desc',label:'Please briefly describe each tool/service implemented.',kind:'text'},
+      {id:'b21',label:'How would you rate your current capacity to deliver inclusive, gender-responsive, and sustainable export readiness services to SMEs?',kind:'radio',opts:scale5},
+      {id:'b31',label:'How would you rate your capacity to support SMEs in adopting climate-resilient practices?',kind:'radio',opts:scale5},
+      {id:'b41',label:"How would you rate your understanding of how to mainstream GESI into your institution's structure and service delivery?",kind:'radio',opts:scale5},
+      {kind:'section',title:'Section D · Open-ended (optional)'},
+      {id:'d1',label:'What challenges does your institution face in delivering gender-responsive or climate-resilient services?',kind:'text'},
+      {id:'d2',label:'What support or training would most improve your capacity?',kind:'text'},
+      {id:'d3',label:"What are the main barriers SMEs face in accessing your institution's services? (Select all that apply)",kind:'multi',opts:barriers},
+    ];
+  }
+  qCount(t){return this.surveyDef(t).filter(q=>q.kind!=='section').length;}
+
+  /* ---------- email templates ---------- */
+  emailDefs(){
+    const link='surveys.prodigitality.net';
+    return [
+      {id:'verify',audience:'Respondent',name:'Verify your email',subject:'Your Prodi-Surveys verification code',from:'Prodi-Surveys <no-reply@prodigitality.net>',to:'respondent',preheader:'Enter this code to verify your email and continue.',accent:'#4F46E5',blocks:[
+        {type:'h',text:'Verify your email address'},
+        {type:'p',text:'Thanks for registering for the Prodigitality baseline survey. Enter the code below to verify your email and continue to your survey.'},
+        {type:'code',text:'418 902'},
+        {type:'note',text:'This code expires in 15 minutes. If you didn\u2019t request it, you can safely ignore this email.'},
+      ]},
+      {id:'invite',audience:'Respondent',name:'Survey invitation',subject:'You\u2019re invited to the Prodigitality baseline survey',from:'Prodi-Surveys <no-reply@prodigitality.net>',to:'respondent',preheader:'Takes about 5\u201310 minutes. Earn a token once verified.',accent:'#E0195F',blocks:[
+        {type:'h',text:'You\u2019ve been invited to take part'},
+        {type:'p',text:'Hi Maria, you\u2019ve been invited to participate in a baseline data collection study for food processing businesses and partners. The survey takes about 5\u201310 minutes.'},
+        {type:'btn',text:'Start the survey'},
+        {type:'p',text:'Or paste this link into your browser:'},
+        {type:'linkbox',text:link+'/s/INVITE-7F3K'},
+        {type:'note',text:'You\u2019ll receive a token once your response is verified by our team.'},
+      ]},
+      {id:'verified',audience:'Respondent',name:'You\u2019re verified',subject:'Your response is verified \u2713',from:'Prodi-Surveys <no-reply@prodigitality.net>',to:'respondent',preheader:'Your token is now being processed.',accent:'#15803D',blocks:[
+        {type:'h',text:'Your response has been verified \ud83c\udf89'},
+        {type:'p',text:'Thank you, Maria. Our QA team has reviewed and verified your submission. Your respondent token is now being processed for payout.'},
+        {type:'kv',rows:[['Reference no.','PS-7F3K'],['Respondent token','\u20b1200'],['Payout method','GCash \u2022\u2022\u2022\u2022 412'],['Status','Processing']]},
+        {type:'p',text:'You\u2019ll receive another email once your token has been sent.'},
+      ]},
+      {id:'followup',audience:'Respondent',name:'Needs follow-up',subject:'We need a bit more information',from:'Prodi-Surveys <no-reply@prodigitality.net>',to:'respondent',preheader:'A quick clarification is needed on your submission.',accent:'#9A3412',blocks:[
+        {type:'h',text:'We need a little more information'},
+        {type:'p',text:'Thanks for your submission. Before we can verify it, our team needs to clarify one item:'},
+        {type:'bullets',items:['Please re-take your verification selfie in better lighting.']},
+        {type:'btn',text:'Update my submission'},
+        {type:'note',text:'No need to redo the full survey \u2014 your answers are saved.'},
+      ]},
+      {id:'rejected',audience:'Respondent',name:'Submission not approved',subject:'Update on your survey submission',from:'Prodi-Surveys <no-reply@prodigitality.net>',to:'respondent',preheader:'Your submission could not be verified.',accent:'#B91C1C',blocks:[
+        {type:'h',text:'Your submission could not be verified'},
+        {type:'p',text:'Thank you for your interest in the study. After review, we were unable to verify your submission and it will not proceed to payout.'},
+        {type:'p',text:'If you believe this was a mistake, you may reply to this email and our team will take another look.'},
+      ]},
+      {id:'paid',audience:'Respondent',name:'Token sent',subject:'Your token has been sent',from:'Prodi-Surveys <no-reply@prodigitality.net>',to:'respondent',preheader:'Your respondent token has been released.',accent:'#15803D',blocks:[
+        {type:'h',text:'Your token is on its way \ud83d\udcb8'},
+        {type:'p',text:'Your respondent token has been released to your chosen payout account.'},
+        {type:'kv',rows:[['Amount','\u20b1200'],['Method','GCash \u2022\u2022\u2022\u2022 412'],['Reference','PAY-20461'],['Date sent','Jun 20, 2026']]},
+        {type:'note',text:'Please allow 1\u20133 business days for the amount to reflect.'},
+      ]},
+      {id:'enuminvite',audience:'Enumerator',name:'Enumerator account invite',subject:'You\u2019ve been added as a Prodi-Surveys enumerator',from:'Prodi-Surveys <no-reply@prodigitality.net>',to:'enumerator',accent:'#E0195F',preheader:'Set up your account to start collecting responses.',blocks:[
+        {type:'h',text:'Welcome to the field team'},
+        {type:'p',text:'Hi Grace, you\u2019ve been added as an enumerator on the Prodigitality baseline survey project. Set up your account to start adding and assisting respondents.'},
+        {type:'btn',text:'Set up my account'},
+        {type:'kv',rows:[['Role','Enumerator'],['Assigned region','Region VII'],['Portal','surveys.prodigitality.net']]},
+      ]},
+      {id:'refbonus',audience:'Referrer',name:'Referral bonus eligible',subject:'Your referral was verified \u2014 bonus eligible',from:'Prodi-Surveys <no-reply@prodigitality.net>',to:'referrer',accent:'#7C3AED',preheader:'Someone you referred is now verified.',blocks:[
+        {type:'h',text:'Good news \u2014 your referral was verified'},
+        {type:'p',text:'A respondent you referred has completed and passed verification. Your referral bonus is now eligible for payout.'},
+        {type:'kv',rows:[['Referred respondent','Island Beverages'],['Your referral code','PS-9K2D'],['Referral bonus','\u20b11,000'],['Status','Eligible']]},
+        {type:'note',text:'Bonuses are paid out after each referred respondent is verified.'},
+      ]},
+      {id:'stakeholder',audience:'Stakeholder',name:'Weekly progress report',subject:'Prodi-Surveys \u2014 weekly progress report',from:'Prodi-Surveys <reports@prodigitality.net>',to:'stakeholder',accent:'#1F1147',preheader:'This week\u2019s verified counts and pipeline.',blocks:[
+        {type:'h',text:'Weekly progress report'},
+        {type:'p',text:'Here\u2019s the latest snapshot of the baseline data collection. Full read-only dashboard available in the portal.'},
+        {type:'kv',rows:[['Verified to date','51 / 114'],['Pending QA','11'],['Registered this week','+14'],['On track','Yes']]},
+        {type:'btn',text:'Open the dashboard'},
+        {type:'note',text:'Finance and personal details are excluded from stakeholder reports.'},
+      ]},
+    ];
+  }
+
+  /* ---------- render ---------- */
+  renderVals(){
+    const S=this.state; const role=S.role;
+    const isAdmin=role==='admin', isEnum=role==='enumerator', isStake=role==='stakeholder';
+    const all=S.respondents;
+    const Q=S.qual;
+    const cls=this.classify(Q);
+    // counts
+    const cnt=st=>all.filter(r=>r.status===st).length;
+    const reached=stages=>all.filter(r=>stages.includes(r.status)).length;
+    const verified=cnt('Verified');
+    const emailV=all.filter(r=>r.emailV).length;
+    const surveyDone=all.filter(r=>r.surveyDone).length;
+    const selfieN=all.filter(r=>r.selfie).length;
+    const registered=all.length;
+    const rejected=cnt('Rejected');
+    const pendingQa=cnt('Pending QA');
+    const followup=cnt('Needs Follow-up');
+    const flagged=all.filter(r=>r.flags.length>0).length;
+    const T=S.targets;
+    const totalTarget=T.TSI+T.AgriTech+T.SME;
+    const INC=S.incentives;
+    const tok=t=>(INC[t]&&INC[t].token)||0;
+    const bon=t=>(INC[t]&&INC[t].bonus)||0;
+    const bonusOf=r=>(r.verified&&r.referred)?bon(r.type):0;
+    const remaining=Math.max(0,totalTarget-verified);
+    const overallPct=totalTarget?Math.round(verified/totalTarget*100):0;
+
+    // group progress
+    const grp=(type,target,color,label)=>{
+      const g=all.filter(r=>r.type===type);
+      const v=g.filter(r=>r.verified).length;
+      const pq=g.filter(r=>r.status==='Pending QA').length;
+      const ip=g.filter(r=>['Survey Started','Survey Completed','Selfie Submitted','Email Verified'].includes(r.status)).length;
+      return {label,target,color,verified:v,pendingQa:pq,inProgress:ip,barStyle:{width:Math.min(100,v/target*100)+'%',height:'100%',background:color,borderRadius:'6px'}};
+    };
+    const groups=[grp('TSI',T.TSI,'#7C3AED','Trade Support Institutions'),grp('AgriTech',T.AgriTech,'#059669','Agri-Tech Providers'),grp('SME',T.SME,'#E0195F','Food Processing SMEs')];
+
+    // nav
+    const navDef=[
+      {key:'dashboard',label:'Dashboard',roles:['admin','enumerator','stakeholder']},
+      {key:'respondents',label:'Respondents',roles:['admin','enumerator']},
+      {key:'referrals',label:'Referrals',roles:['admin','enumerator']},
+      {key:'qa',label:'QA Review',roles:['admin'],badge:pendingQa},
+      {key:'payouts',label:'Payouts',roles:['admin']},
+      {key:'enumerators',label:'Enumerators',roles:['admin']},
+      {key:'reports',label:'Reports / Export',roles:['admin','stakeholder']},
+      {key:'emails',label:'Emails',roles:['admin']},
+      {key:'audit',label:'Audit Logs',roles:['admin']},
+      {key:'settings',label:'Settings',roles:['admin']},
+    ];
+    const navItems=navDef.filter(n=>n.roles.includes(role)).map(n=>{
+      const active=S.view===n.key;
+      return {label:n.label, iconEl:this.icon(n.key), iconColor:active?'#E0195F':'#9CA3AF',
+        onClick:()=>this.setView(n.key),
+        style:{display:'flex',alignItems:'center',gap:'11px',width:'100%',padding:'9px 11px',borderRadius:'9px',border:'none',cursor:'pointer',fontSize:'13.5px',fontWeight:600,textAlign:'left',background:active?'#FFF1F6':'transparent',color:active?'#9D174D':'#52525B'},
+        badge:n.badge?String(n.badge):'', badgeStyle:{fontSize:'10.5px',fontWeight:800,background:'#E0195F',color:'#fff',borderRadius:'10px',padding:'1px 7px',minWidth:'18px',textAlign:'center'}};
+    });
+
+    // role switcher
+    const roleOptions=[['admin','Admin'],['enumerator','Enumerator'],['stakeholder','Stakeholder']].map(([k,l])=>({
+      label:l, onSelect:()=>this.setRole(k),
+      style:{height:'30px',padding:'0 12px',border:'none',borderRadius:'8px',fontSize:'12px',fontWeight:700,cursor:'pointer',background:role===k?'#fff':'transparent',color:role===k?'#18181B':'#71717A',boxShadow:role===k?'0 1px 3px rgba(0,0,0,.12)':'none'}
+    }));
+
+    // stat cards
+    const statCards=[
+      {label:'Registered',value:registered,sub:'',color:'#18181B'},
+      {label:'Email verified',value:emailV,sub:'',color:'#18181B'},
+      {label:'Survey done',value:surveyDone,sub:'',color:'#18181B'},
+      {label:'Selfie',value:selfieN,sub:'',color:'#18181B'},
+      {label:'Verified',value:verified,sub:'/'+totalTarget,color:'#15803D'},
+      {label:'Remaining',value:remaining,sub:'to target',color:'#E0195F'},
+    ];
+    const profileStages=['Survey Started','Survey Completed','Selfie Submitted','Pending QA','Needs Follow-up','Verified','Rejected'];
+    const profileDone=all.filter(r=>profileStages.includes(r.status)).length;
+    const flaggedProfile=all.filter(r=>profileStages.includes(r.status)&&((r.flags&&r.flags.length)||r.qualStatus==='Needs Review'||r.qualStatus==='Not Qualified')).length;
+    const qualifiedN=profileDone-flaggedProfile;
+    const paidN=all.filter(r=>r.payStatus==='Paid').length;
+    const funnel=[
+      ['Registered',registered],['Email verified',emailV],['Profile completed',profileDone],['Qualified',qualifiedN],['Survey completed',surveyDone],['Selfie submitted',selfieN],['Pending QA',pendingQa],['Verified',verified],['Paid',paidN],
+    ].map(([label,value])=>({label,value,barStyle:{width:Math.round(value/registered*100)+'%',height:'100%',background:'linear-gradient(90deg,#F0246A,#FB923C)',borderRadius:'6px'}}));
+
+    const qaTiles=[{label:'Pending review',value:pendingQa,bg:'#FFFBEB',fg:'#B45309'},{label:'Verified',value:verified,bg:'#F0FDF4',fg:'#15803D'},{label:'Needs follow-up',value:followup,bg:'#FFF7ED',fg:'#9A3412'},{label:'Flagged',value:flagged,bg:'#FEF2F2',fg:'#B91C1C'}];
+
+    // referrals aggregation
+    const refMap={};
+    (S.manualReferrers||[]).forEach(m=>{refMap[m.name]={name:m.name,referred:0,verified:0,bonus:0,kind:m.kind||'Partner / TSI',manual:true};});
+    all.forEach(r=>{if(r.referrer){const k=r.referrer; refMap[k]=refMap[k]||{name:k,referred:0,verified:0,bonus:0,kind:['DTI','Philexport','DOST'].includes(k)?'Partner / TSI':'Respondent'}; refMap[k].referred++; if(r.verified){refMap[k].verified++; refMap[k].bonus+=bon(r.type);}}});
+    const referrers=Object.values(refMap).sort((a,b)=>b.verified-a.verified||b.referred-a.referred).slice(0,12).map(r=>({
+      ...r, initials:this.initials(r.name).toUpperCase(), avatarBg:colorPick(r.name),
+      code:'PS-'+this.code(this.hash(r.name)),
+      bonusLabel:this.peso(r.bonus), convLabel:r.referred?Math.round(r.verified/r.referred*100)+'%':'—'
+    }));
+    const totalReferrals=all.filter(r=>r.referrer).length;
+    const verifiedRef=all.filter(r=>r.referrer&&r.verified).length;
+    const pendingBonus=all.filter(r=>r.verified&&r.referred).reduce((s,r)=>s+bon(r.type),0);
+    const refTiles=[{label:'Total referrals',value:totalReferrals},{label:'Verified referrals',value:verifiedRef},{label:'Conversion rate',value:totalReferrals?Math.round(verifiedRef/totalReferrals*100)+'%':'0%'},{label:'Pending bonuses',value:this.peso(pendingBonus)}];
+
+    // payout tiles
+    const tokensPending=all.filter(r=>r.verified&&r.payStatus!=='Paid').reduce((s,r)=>s+tok(r.type),0);
+    const bonusPending=all.filter(r=>r.verified&&r.referred&&r.payStatus!=='Paid').reduce((s,r)=>s+bon(r.type),0);
+    const paidTotal=all.filter(r=>r.payStatus==='Paid').reduce((s,r)=>s+tok(r.type)+(r.referred?bon(r.type):0),0);
+    const onHold=all.filter(r=>r.payStatus==='On Hold').length;
+    const payTiles=[{label:'Tokens pending',value:this.peso(tokensPending)},{label:'Bonuses pending',value:this.peso(bonusPending)},{label:'Paid out',value:this.peso(paidTotal)},{label:'On hold',value:onHold}];
+
+    function colorPick(s){const cs=['#E0195F','#7C3AED','#2563EB','#0891B2','#059669','#D97706','#DB2777','#4F46E5'];let h=0;for(let i=0;i<s.length;i++)h=(h<<5)-h+s.charCodeAt(i);return cs[Math.abs(h)%cs.length];}
+
+    // respondents table
+    let rows=all;
+    if(isEnum)rows=rows.filter(r=>r.enumerator==='Maria Santos');
+    if(S.filterType!=='all')rows=rows.filter(r=>r.type===S.filterType);
+    if(S.filterStatus!=='all')rows=rows.filter(r=>r.status===S.filterStatus);
+    if(S.flaggedOnly)rows=rows.filter(r=>r.flags.length>0);
+    if(S.search.trim()){const q=S.search.toLowerCase(); rows=rows.filter(r=>r.name.toLowerCase().includes(q)||r.org.toLowerCase().includes(q)||r.code.toLowerCase().includes(q));}
+    const rowVMs=rows.map(r=>({
+      ...r, initials:this.initials(r.name).toUpperCase(), avatarBg:r.color, typeShort:this.typeShort(r.type),
+      typeStyle:this.typeStyleObj(r.type), statusStyle:this.statusStyleObj(r.status), modeStyle:{fontSize:'11px',fontWeight:600,color:r.mode==='Self-service'?'#0891B2':'#7C3AED'},
+      tokenLabel:this.peso(tok(r.type)),
+      flagsEl: r.flags.length? React.createElement('span',{style:{fontSize:'11px',fontWeight:700,color:'#B91C1C',background:'#FEE2E2',padding:'2px 7px',borderRadius:'5px'}},'⚠ '+r.flags.length) : React.createElement('span',{style:{color:'#D4D4D8'}},'—'),
+      onOpen:()=>this.openProfile(r.id)
+    }));
+
+    const typeFilters=[['all','All'],['TSI','TSI'],['AgriTech','Agri-Tech'],['SME','SME']].map(([k,l])=>({label:l,onClick:()=>this.setState({filterType:k}),
+      style:{height:'34px',padding:'0 14px',borderRadius:'8px',border:'1px solid '+(S.filterType===k?'#E0195F':'#E7E7EA'),background:S.filterType===k?'#FFF1F6':'#fff',color:S.filterType===k?'#9D174D':'#52525B',fontSize:'12.5px',fontWeight:700,cursor:'pointer'}}));
+    const statusFilterOptions=[['all','All statuses'],...['New','Email Verified','Survey Completed','Selfie Submitted','Pending QA','Needs Follow-up','Verified','Rejected'].map(s=>[s,s])].map(([value,label])=>({value,label}));
+    const tableCols=isAdmin?'2fr .9fr .9fr 1fr 1.1fr 1.2fr .7fr .8fr':'2.2fr .9fr 1fr 1fr 1.3fr .7fr';
+    const showEnumCol=isAdmin;
+
+    // profile
+    let profile=null;
+    if(S.selectedId){
+      const r=all.find(x=>x.id===S.selectedId);
+      if(r){
+        const showFinance=isAdmin; const showSelfie=!isStake&&r.selfie; const showSurvey=r.surveyDone;
+        const check=(label,done,detail)=>({label,detail:detail||'',mark:done?'✓':(done===false?'○':'—'),iconStyle:{width:'20px',height:'20px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:800,flex:'none',background:done?'#DCFCE7':'#F3F4F6',color:done?'#15803D':'#9CA3AF'},textColor:done?'#374151':'#9CA3AF'});
+        const sampleSurvey={SME:[['Primary sector','Processed Food / Agri-food sector'],['Currently exports internationally?','No, but actively trying to enter'],['Capacity to identify market demands','Moderate'],['Climate resilience capacity','Low']],AgriTech:[['Has tools/services for SMEs','Yes'],['Tools implemented','Digital diagnostic tools, Training modules'],['Capacity to integrate GESI','High'],['Support SMEs in climate practices','Moderate']],TSI:[['Has tools/services for SMEs','Yes'],['Capacity to deliver export readiness services','High'],['Support SMEs in climate practices','Moderate'],['Understanding of GESI mainstreaming','High']]}[r.type];
+        const fields=[['Email',r.email],['Mobile',r.mobile],['Region',r.region],['Position',r.position],['Mode',r.mode],['Enumerator',r.enumerator],['Referral code',r.code],['Referred by',r.referrer||'—']];
+        profile={...r, initials:this.initials(r.name).toUpperCase(), avatarBg:r.color, typeShort:this.typeShort(r.type), typeStyle:this.typeStyleObj(r.type),
+          statusStyle:this.statusStyleObj(r.status), createdAt:r.createdDays===0?'today':r.createdDays+'d ago',
+          checklist:[check('Email verified',r.emailV),check('Survey completed',r.surveyDone),check('Selfie submitted',r.selfie),check('Email unique',true,'no match'),check('Mobile unique',!r.flags.includes('Duplicate phone number'),r.flags.includes('Duplicate phone number')?'DUPLICATE':'no match'),check('Payout not duplicated',!r.flags.includes('Duplicate payout account'),r.flags.includes('Duplicate payout account')?'DUPLICATE':'ok')],
+          fields:fields.map(([label,value])=>({label,value})),
+          showSelfie, selfieTime:r.createdDays===0?'today 14:22':(r.createdDays+'d ago'), ip:'124.6.'+(20+r.id%200)+'.'+(r.id*7%240), device:'Chrome · Android 13',
+          showSurvey, survey:sampleSurvey.map(([q,a])=>({q,a})),
+          showFinance, tokenLabel:this.peso(tok(r.type)), bonusLabel:bonusOf(r)?this.peso(bonusOf(r)):'Not eligible', payoutAcct:r.acct, payStatus:r.payStatus, payStyle:this.payStyleObj(r.payStatus),
+          showQaActions:isAdmin&&['Pending QA','Needs Follow-up'].includes(r.status),
+          onApprove:()=>this.qaAct(r.id,'approve'), onReject:()=>this.qaAct(r.id,'reject'), onFollow:()=>this.qaAct(r.id,'follow')};
+      }
+    }
+
+    // QA queue
+    const qaQueue=all.filter(r=>r.status==='Pending QA'||(r.status==='Needs Follow-up')).map(r=>{
+      const hasFlags=r.flags.length>0;
+      const chk=(label,done)=>({label,icon:done?'✓':'○',style:{fontSize:'11.5px',fontWeight:700,padding:'5px 10px',borderRadius:'7px',background:done?'#F0FDF4':'#FEF2F2',color:done?'#15803D':'#B91C1C'}});
+      return {...r, initials:this.initials(r.name).toUpperCase(), avatarBg:r.color, typeShort:this.typeShort(r.type), typeStyle:this.typeStyleObj(r.type),
+        modeLabel:r.mode, borderColor:hasFlags?'#FECACA':'#E7E7EA', accent:hasFlags?'#DC2626':'#E0195F',
+        checks:[chk('Email',r.emailV),chk('Survey',r.surveyDone),chk('Selfie',r.selfie),chk('Unique',!hasFlags)],
+        hasFlags, flagList:r.flags,
+        onOpen:()=>this.openProfile(r.id), onApprove:()=>this.qaAct(r.id,'approve'), onReject:()=>this.qaAct(r.id,'reject'), onFollow:()=>this.qaAct(r.id,'follow')};
+    });
+
+    // payouts
+    const payRows=all.filter(r=>r.verified).map(r=>{
+      const paidDone=r.payStatus==='Paid';
+      const b=bonusOf(r);
+      return {...r, name:r.name, typeShort:this.typeShort(r.type), tokenLabel:this.peso(tok(r.type)), payoutAcct:r.acct,
+        bonusLabel:b?this.peso(b):'—', bonusColor:b?'#15803D':'#9CA3AF',
+        payStatus:r.payStatus, payStyle:this.payStyleObj(r.payStatus), canPay:!paidDone, paidDone, paidDate:S.paid[r.id]||'',
+        onPay:()=>this.markPaid(r.id)};
+    });
+    const payTotals=[{label:'Tokens pending',value:this.peso(tokensPending),color:'#B45309'},{label:'Bonuses pending',value:this.peso(bonusPending),color:'#B45309'},{label:'Paid out',value:this.peso(paidTotal),color:'#15803D'},{label:'On hold',value:onHold,color:'#4B5563'},{label:'Total verified',value:verified,color:'#18181B'}];
+
+    // enumerators
+    const enumCards=S.enumerators.map((en,i)=>{
+      const name=en.name;
+      const assigned=all.filter(r=>r.enumerator===name);
+      const completed=assigned.filter(r=>r.surveyDone).length;
+      const fu=assigned.filter(r=>r.status==='Needs Follow-up').length;
+      const rate=assigned.length?Math.round(completed/assigned.length*100):0;
+      return {name,email:en.email||'',initials:(this.initials(name).toUpperCase()||'·'),avatarBg:colorPick(name||'x'),assigned:assigned.length,completed,followups:fu,rate:rate+'%',barStyle:{width:rate+'%',height:'100%',background:'#E0195F',borderRadius:'6px'},
+        onRename:e=>this.renameEnumerator(i,e.target.value),onEmail:e=>this.setEnumEmail(i,e.target.value),onRemove:()=>this.removeEnumerator(i)};
+    });
+
+    // audit
+    const auditRows=S.audit.map(a=>({action:a[0],target:a[1],by:a[2],time:a[3],bg:a[4],fg:a[5],iconEl:this.icon(a[6]==='flag'?'flag':a[6]==='export'?'csv':a[6]==='payout'?'payouts':a[6]==='qa'?'qa':a[6]==='ref'?'referrals':a[6]==='survey'?'surveys':a[6]==='selfie'?'respondents':a[6]==='email'?'reports':'respondents',15)}));
+
+    // emails
+    const emailDefs=this.emailDefs();
+    const toMap={respondent:'maria.delacruz@email.com',enumerator:'grace.tan@prodigitality.net',referrer:'partner@dti.gov.ph',stakeholder:'arianne@prodigitality.net'};
+    const audienceColor={Respondent:'#E0195F',Enumerator:'#7C3AED',Referrer:'#0891B2',Stakeholder:'#1F1147'};
+    const emailGroupOrder=['Respondent','Enumerator','Referrer','Stakeholder'];
+    const emailGroups=emailGroupOrder.map(aud=>({
+      audience:aud, color:audienceColor[aud],
+      items:emailDefs.filter(e=>e.audience===aud).map(e=>({name:e.name,active:e.id===S.emailSel,onSelect:()=>this.setEmail(e.id),
+        style:{display:'flex',alignItems:'center',gap:'9px',width:'100%',textAlign:'left',padding:'9px 11px',borderRadius:'9px',border:'none',cursor:'pointer',fontSize:'13px',fontWeight:600,background:e.id===S.emailSel?'#FFF1F6':'transparent',color:e.id===S.emailSel?'#9D174D':'#52525B'},
+        dotStyle:{width:'6px',height:'6px',borderRadius:'50%',background:e.id===S.emailSel?'#E0195F':'#CBCBD2',flex:'none'}}))
+    }));
+    const sel=emailDefs.find(e=>e.id===S.emailSel)||emailDefs[0];
+    const blockVM=(sel.blocks||[]).map(b=>({
+      isH:b.type==='h', isP:b.type==='p', isBtn:b.type==='btn', isCode:b.type==='code', isNote:b.type==='note',
+      isLink:b.type==='linkbox', isKv:b.type==='kv', isBullets:b.type==='bullets', isDivider:b.type==='divider',
+      text:b.text||'', btnStyle:{display:'inline-block',background:sel.accent,color:'#fff',fontSize:'14px',fontWeight:700,padding:'13px 26px',borderRadius:'9px',textDecoration:'none'},
+      kvRows:(b.rows||[]).map(r=>({k:r[0],v:r[1]})), items:b.items||[]
+    }));
+    const emailVM={
+      emailGroups,
+      email:{ name:sel.name, subject:sel.subject, from:sel.from, to:toMap[sel.to]||sel.to, audience:sel.audience,
+        audienceColor:audienceColor[sel.audience], preheader:sel.preheader||'', accent:sel.accent,
+        blocks:blockVM }
+    };
+
+    // exports
+    const mkFmt=(name,labels)=>labels.map(l=>({label:l,onClick:()=>this.doExport(name,l)}));
+    const exportItems=[
+      {label:'Full respondent list',desc:'All '+all.length+' records',bg:'#FFE4E6',fg:'#9F1239',key:'reports',formats:mkFmt('Full respondent list',['CSV','Excel'])},
+      {label:'Verified respondents',desc:'Verified only',bg:'#DCFCE7',fg:'#166534',key:'respondents',formats:mkFmt('Verified respondents',['CSV','Excel'])},
+      {label:'Survey answers',desc:'KoboToolbox-compatible',bg:'#EDE9FE',fg:'#5B21B6',key:'surveys',formats:mkFmt('Survey answers',['CSV','Kobo'])},
+      {label:'Referral report',desc:'Referrers & conversions',bg:'#FCE7F3',fg:'#9D174D',key:'referrals',formats:mkFmt('Referral report',['CSV','Excel'])},
+      {label:'Payout report',desc:'Admin only',bg:'#FEF3C7',fg:'#92400E',key:'payouts',formats:mkFmt('Payout report',['CSV','Excel'])},
+      {label:'Audit log',desc:'Full action history',bg:'#F3F4F6',fg:'#4B5563',key:'audit',formats:mkFmt('Audit log',['CSV'])},
+    ].filter(x=>isAdmin?true:['Full respondent list','Verified respondents','Survey answers'].includes(x.label)).map(x=>({...x,iconEl:this.icon(x.key,20)}));
+
+    // dashboard titles
+    const dashTitle=isStake?'Project progress':isEnum?'My fieldwork':'Operations dashboard';
+    const dashSubtitle=isStake?'Read-only view · Prodigitality baseline data collection':isEnum?'Maria Santos · assigned respondents':totalTarget+' verified respondents target · mid-project';
+
+    // ---- respondent flow ----
+    const reg=S.reg;
+    const flowTypeShort=this.typeShort(S.rType);
+    const typeOptions=[['SME','Food SME','Food processing business'],['AgriTech','Agri-Tech','Tech for agriculture'],['TSI','TSI','Support institution']].map(([k,l,d])=>({
+      label:l,desc:d,onSelect:()=>this.setReg('type',k),
+      cardStyle:{border:'1.5px solid '+(reg.type===k?'#E0195F':'#E2E2E6'),background:reg.type===k?'#FFF1F6':'#fff',borderRadius:'11px',padding:'13px',cursor:'pointer'}
+    }));
+    const regHandlers={name:'onName',email:'onEmail',mobile:'onMobile',org:'onOrg',position:'onPosition',region:'onRegion',code:'onCode'};
+    const regVM={...reg};
+    Object.entries(regHandlers).forEach(([f,h])=>{regVM[h]=e=>this.setReg(f,e.target.value);});
+
+    const surveyDefs=this.surveyDef(S.rType);
+    const radioStyle=sel=>({display:'flex',alignItems:'center',gap:'10px',width:'100%',textAlign:'left',padding:'11px 14px',borderRadius:'10px',border:'1.5px solid '+(sel?'#E0195F':'#E2E2E6'),background:sel?'#FFF1F6':'#fff',color:sel?'#9D174D':'#374151',fontSize:'13px',fontWeight:600,cursor:'pointer'});
+    const dotStyle=sel=>({width:'16px',height:'16px',borderRadius:'50%',border:'2px solid '+(sel?'#E0195F':'#CBCBD2'),background:sel?'#E0195F':'#fff',flex:'none',boxShadow:sel?'inset 0 0 0 2.5px #fff':'none'});
+    const boxStyle=sel=>({width:'17px',height:'17px',borderRadius:'5px',border:'2px solid '+(sel?'#E0195F':'#CBCBD2'),background:sel?'#E0195F':'#fff',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:800,flex:'none'});
+    const surveyQs=surveyDefs.map(q=>{
+      if(q.kind==='section')return {isSection:true,isQuestion:false,title:q.title};
+      const cur=S.survey[q.id];
+      const vm={label:q.label,isSection:false,isQuestion:true,value:cur||'',placeholder:q.ph||'',
+        isRadio:q.kind==='radio',isMulti:q.kind==='multi',isSelect:q.kind==='select',isNumber:q.kind==='number',isText:q.kind==='text',isMatrix:q.kind==='matrix',
+        onChange:e=>this.setAnswer(q.id,e.target.value), selOptions:q.opts||[]};
+      if(q.kind==='radio')vm.options=(q.opts||[]).map(o=>({label:o,onSelect:()=>this.setAnswer(q.id,o),style:radioStyle(cur===o),dotStyle:dotStyle(cur===o)}));
+      if(q.kind==='multi'){const arr=Array.isArray(cur)?cur:[];vm.options=(q.opts||[]).map(o=>({label:o,onToggle:()=>this.toggleMulti(q.id,o),style:radioStyle(arr.includes(o)),boxStyle:boxStyle(arr.includes(o)),mark:arr.includes(o)?'✓':''}));}
+      if(q.kind==='matrix'){const obj=cur&&typeof cur==='object'?cur:{};vm.matrixRows=q.rows.map(r=>({label:r,value:obj[r]||'',onChange:e=>this.setMatrix(q.id,r,e.target.value)}));vm.scaleOptions=q.scale;}
+      return vm;
+    });
+
+    const payoutMethods=['GCash','Maya','Bank transfer','Other'].map(m=>({label:m,onSelect:()=>this.setPayout('method',m),
+      style:{height:'40px',borderRadius:'9px',border:'1.5px solid '+(S.payout.method===m?'#E0195F':'#E2E2E6'),background:S.payout.method===m?'#FFF1F6':'#fff',color:S.payout.method===m?'#9D174D':'#52525B',fontSize:'12.5px',fontWeight:700,cursor:'pointer'}}));
+    const payoutVM={...S.payout, onAcctName:e=>this.setPayout('acctName',e.target.value),onAcctNum:e=>this.setPayout('acctNum',e.target.value),onBank:e=>this.setPayout('bank',e.target.value)};
+    const payoutIsBank=S.payout.method==='Bank transfer';
+    const payoutIsEwallet=S.payout.method==='GCash'||S.payout.method==='Maya';
+
+    const flowToken=tok(S.rType);
+    const flowBonus=bon(S.rType);
+    const qIds=surveyDefs.filter(q=>q.kind!=='section');
+    const qTotal=qIds.length;
+    const answered=qIds.filter(q=>{const v=S.survey[q.id];if(v==null||v==='')return false;if(Array.isArray(v))return v.length>0;if(typeof v==='object')return Object.keys(v).length>0;return true;}).length;
+    const reviewItems=[
+      {label:'Name',value:reg.name||'—'},{label:'Email',value:reg.email||'—'},{label:'Mobile',value:reg.mobile||'—'},
+      {label:'Survey path',value:flowTypeShort},{label:'Qualification',value:cls.status},
+      {label:'Referral source',value:Q.hearAbout||'—'},
+      {label:'Survey',value:answered+' of '+qTotal+' answered'},
+      {label:'Selfie',value:S.selfie?('✓ '+(S.selfieMethod==='upload'?'Image uploaded':'Selfie taken')):'Not yet'},
+      {label:'Mode',value:S.surveyOnly?'Self-service link':'Enumerator-assisted'},
+    ].concat(S.payoutOn?[{label:'Payout method',value:S.payout.method},{label:'Token',value:this.peso(flowToken)}]:[{label:'Token / payout',value:'Not offered'}]);
+
+    const stepDefs = S.surveyOnly
+      ? [['Survey',5],['Selfie',6]].concat(S.payoutOn?[['Payout',7]]:[]).concat([['Submit',8]])
+      : [['Profile',1],['Register',2],['Verify',3],['Survey',5],['Selfie',6]].concat(S.payoutOn?[['Payout',7]]:[]).concat([['Submit',8]]);
+    const curStep=S.rStep;
+    const flowSteps=stepDefs.map((d,i)=>{
+      const label=d[0], t=d[1]; const done=curStep>t; const active=curStep===t;
+      return {label, mark:done?'✓':String(i+1),
+        dotStyle:{width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11.5px',fontWeight:800,flex:'none',background:done?'#15803D':active?'#E0195F':'#E7E7EA',color:done||active?'#fff':'#9CA3AF'},
+        labelColor:active?'#18181B':done?'#15803D':'#9CA3AF', showLine:i<stepDefs.length-1, lineColor:curStep>t?'#15803D':'#E7E7EA'};
+    });
+
+    // ---- respondent profile / classification ----
+    const pillSel=sel=>({display:'flex',alignItems:'center',gap:'10px',width:'100%',textAlign:'left',padding:'11px 14px',borderRadius:'10px',border:'1.5px solid '+(sel?'#E0195F':'#E2E2E6'),background:sel?'#FFF1F6':'#fff',color:sel?'#9D174D':'#374151',fontSize:'13px',fontWeight:600,cursor:'pointer'});
+    const pillDot=sel=>({width:'16px',height:'16px',borderRadius:'50%',border:'2px solid '+(sel?'#E0195F':'#CBCBD2'),background:sel?'#E0195F':'#fff',flex:'none',boxShadow:sel?'inset 0 0 0 2.5px #fff':'none'});
+    const pillBox=sel=>({width:'17px',height:'17px',borderRadius:'5px',border:'2px solid '+(sel?'#E0195F':'#CBCBD2'),background:sel?'#E0195F':'#fff',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:800,flex:'none'});
+    const radioVM=(val,opts,field)=>opts.map(o=>({label:o,onSelect:()=>this.setQual(field,o),style:pillSel(val===o),dot:pillDot(val===o)}));
+    const orgDefs=[
+      {key:'gov',icon:'🏛️',title:'Government or Business Support Organization',ex:'DTI · DOST · Philexport · Chambers of Commerce · Industry Associations'},
+      {key:'tech',icon:'⚙️',title:'Technology, Equipment, or Service Provider',ex:'Machinery suppliers · Packaging · Testing labs · Food innovation centers'},
+      {key:'food',icon:'🍪',title:'Food Processing Business',ex:'Food manufacturers · Beverages · Snacks · Bakeries · Packaged foods'},
+      {key:'other',icon:'❓',title:'Other',ex:'My organization does not fit the categories above.'},
+    ];
+    const orgCards=orgDefs.map(o=>({icon:o.icon,title:o.title,ex:o.ex,onSelect:()=>this.setOrg(o.key),
+      cardStyle:{border:'1.5px solid '+(Q.orgType===o.key?'#E0195F':'#E7E7EA'),background:Q.orgType===o.key?'#FFF1F6':'#fff',borderRadius:'14px',padding:'16px',cursor:'pointer',minHeight:'120px'}}));
+    const techDefs=['Machinery & Equipment Supplier','Packaging Company','Laboratory Testing Services','Food Innovation Center','Product Development Services','Agriculture Technology Provider','Technical Consulting Services','Other'];
+    const techArr=Q.techTypes||[];
+    const techTypeOpts=techDefs.map(o=>({label:o,onToggle:()=>this.toggleTech(o),style:pillSel(techArr.includes(o)),box:pillBox(techArr.includes(o)),mark:techArr.includes(o)?'✓':''}));
+    const cls2=this.classify(Q);
+    const profileBlocked=(Q.orgType==='other')||(Q.orgType==='food'&&Q.foodMakes==='No');
+    let profileReady=false;
+    if(Q.orgType==='gov')profileReady=!!Q.govOrg&&!!Q.govSupports;
+    else if(Q.orgType==='tech')profileReady=techArr.length>0&&!!Q.techSells;
+    else if(Q.orgType==='food')profileReady=Q.foodMakes==='Yes'&&!!Q.foodRole;
+    profileReady=profileReady&&!!Q.hearAbout&&!profileBlocked;
+    const isFood=Q.orgType==='food';
+    const blockTone=(Q.orgType==='food'&&Q.foodMakes==='No');
+    const profileVM={
+      orgCards, profileGov:Q.orgType==='gov', profileTech:Q.orgType==='tech', profileFood:isFood, profileOther:Q.orgType==='other',
+      govOrgOptions:['DTI','DTI-CITEM','DOST','Philexport','Chamber of Commerce','Industry Association','Other'], govOrg:Q.govOrg, onGovOrg:e=>this.setQual('govOrg',e.target.value),
+      govDept:Q.govDept, onGovDept:e=>this.setQual('govDept',e.target.value),
+      govSupportsOpts:radioVM(Q.govSupports,['Yes','No'],'govSupports'),
+      techTypeOpts, techSellsOpts:radioVM(Q.techSells,['Yes','No'],'techSells'),
+      foodMakesOpts:radioVM(Q.foodMakes,['Yes','No'],'foodMakes'), foodMakesYes:Q.foodMakes==='Yes',
+      foodProducts:Q.foodProducts, onFoodProducts:e=>this.setQual('foodProducts',e.target.value),
+      foodEmpOpts:radioVM(Q.foodEmployees,['1–9 employees','10–99 employees','100–199 employees','200+ employees'],'foodEmployees'),
+      foodRoleOpts:radioVM(Q.foodRole,['Owner','Manager','Department Head','Technical Staff','Administrative Staff','Other'],'foodRole'),
+      showHearAbout:(Q.orgType==='gov'||Q.orgType==='tech'||isFood)&&!blockTone,
+      hearAboutOptions:['DTI','DOST','Philexport','Food Innovation Center','Enumerator','Friend or Referral','Facebook','Other'], hearAbout:Q.hearAbout, onHearAbout:e=>this.setQual('hearAbout',e.target.value),
+      showRefName:Q.hearAbout==='Friend or Referral', refName:Q.refName, onRefName:e=>this.setQual('refName',e.target.value),
+      profileBlocked, profileNotBlocked:!profileBlocked,
+      profileBlockMsg: Q.orgType==='other' ? 'Thank you. Our team will review your information and determine whether this survey applies to your organization.' : 'This baseline survey is for businesses that make or process food products. Based on your answer, it may not apply — but our team can review your details if you believe this is a mistake.',
+      profileBlockIcon: blockTone?'⚠️':'📋', profileBlockBg: blockTone?'#FFF7ED':'#F5F3FF', profileBlockBorder: blockTone?'#FED7AA':'#DDD6FE', profileBlockFg: blockTone?'#9A3412':'#5B21B6',
+      profileNextStyle:{height:'46px',flex:1,borderRadius:'11px',border:'none',background:profileReady?'#18181B':'#D4D4D8',color:'#fff',fontSize:'14px',fontWeight:700,cursor:profileReady?'pointer':'not-allowed'},
+      onProfileNext: profileReady?(()=>this.flowNext()):(()=>{}),
+    };
+
+    return {
+      isPortal:S.mode==='portal', isFlow:S.mode==='flow', isLogin:S.mode==='login',
+      loginEmail:S.loginEmail, loginPw:S.loginPw,
+      onLoginEmail:e=>this.setState({loginEmail:e.target.value}), onLoginPw:e=>this.setState({loginPw:e.target.value}),
+      onSignIn:()=>this.login('admin'), onLogout:()=>this.logout(),
+      loginRoles:[{role:'admin',label:'Super Admin',sub:'Augusto Teleg',bg:'#18181B'},{role:'enumerator',label:'Enumerator',sub:'Maria Santos',bg:'#E0195F'},{role:'stakeholder',label:'Stakeholder',sub:'Arianne · read-only',bg:'#7C3AED'}].map(o=>({label:o.label,sub:o.sub,initials:this.initials(o.sub).toUpperCase(),avatarBg:o.bg,onSelect:()=>this.login(o.role)})),
+      isAdmin, isEnum, isStake, notAdmin:!isAdmin, role, roleLabel:{admin:'Super Admin',enumerator:'Enumerator',stakeholder:'Stakeholder (read-only)'}[role],
+      roleOptions, userName:this.userName(), userInitials:this.initials(this.userName()).toUpperCase(), userAvatarBg:isAdmin?'#18181B':isEnum?'#E0195F':'#7C3AED',
+      search:S.search, onSearch:e=>this.setState({search:e.target.value}), onLaunchFlow:()=>this.launchFlow(),
+      navItems, view:S.view,
+      isDashboard:S.view==='dashboard', isRespondents:S.view==='respondents', isQa:S.view==='qa', isPayouts:S.view==='payouts',
+      isReferrals:S.view==='referrals', isEnumerators:S.view==='enumerators', isReports:S.view==='reports', isAudit:S.view==='audit', isSettings:S.view==='settings', isEmails:S.view==='emails',
+      stats:{verified}, totalTarget, overallBarStyle:{width:overallPct+'%',height:'100%',background:'linear-gradient(90deg,#F0246A,#FB923C)',borderRadius:'5px'}, overallPctLabel:overallPct+'%', overallPct,
+      dashTitle, dashSubtitle, statCards, groups, funnel, qaTiles, refTiles, payTiles, showQaCard:isAdmin||isEnum,
+      onExportProgress:()=>this.doExport('Progress report','CSV'), onGoQa:()=>this.setView('qa'), onGoRef:()=>this.setView('referrals'), onGoPay:()=>this.setView('payouts'),
+      // respondents
+      respTitle:isEnum?'My respondents':'Respondents', rows:rowVMs, noRows:rowVMs.length===0, totalRespondents:isEnum?all.filter(r=>r.enumerator==='Maria Santos').length:all.length,
+      typeFilters, statusFilterOptions, filterStatus:S.filterStatus, onStatusFilter:e=>this.setState({filterStatus:e.target.value}),
+      flaggedOnly:S.flaggedOnly, onToggleFlagged:()=>this.setState({flaggedOnly:!S.flaggedOnly}), tableCols, showEnumCol,
+      onExportRespondents:()=>this.doExport('Respondent list','CSV'),
+      // profile
+      profile, closeProfile:()=>this.closeProfile(), stop:e=>e.stopPropagation(),
+      // qa
+      qaQueue, qaEmpty:qaQueue.length===0,
+      // payouts
+      payRows, payTotals, onExportPayouts:()=>this.doExport('Payout report','Excel'),
+      // referrals
+      referrers, refTilesFull:refTiles,
+      showAddRef:S.showAddRef, newRefName:S.newRefName, newRefKind:S.newRefKind,
+      onShowAddRef:()=>this.setState({showAddRef:true}), onCancelAddRef:()=>this.setState({showAddRef:false,newRefName:''}),
+      onNewRefName:e=>this.setState({newRefName:e.target.value}), onNewRefKind:e=>this.setState({newRefKind:e.target.value}), onAddRef:()=>this.addReferrer(),
+      refKindOptions:['Partner / TSI','Respondent','Enumerator','Other'],
+      // enumerators
+      enumCards,
+      showAddEnum:S.showAddEnum, newEnumName:S.newEnumName, newEnumEmail:S.newEnumEmail,
+      onShowAddEnum:()=>this.setState({showAddEnum:true}), onCancelAddEnum:()=>this.setState({showAddEnum:false,newEnumName:'',newEnumEmail:''}),
+      onNewEnumName:e=>this.setState({newEnumName:e.target.value}), onNewEnumEmail:e=>this.setState({newEnumEmail:e.target.value}), onAddEnum:()=>this.addEnumerator(),
+      // reports
+      exportItems,
+      // audit
+      auditRows,
+      ...emailVM,
+      // settings
+      incentiveEditors:[{key:'TSI',label:'Trade Support Institutions',color:'#7C3AED'},{key:'AgriTech',label:'Agri-Tech Providers (AFTP)',color:'#059669'},{key:'SME',label:'Food Processing SMEs',color:'#E0195F'}].map(g=>({label:g.label,color:g.color,token:S.draftIncentives[g.key].token,bonus:S.draftIncentives[g.key].bonus,totalLabel:this.peso(S.draftIncentives[g.key].token+S.draftIncentives[g.key].bonus),onToken:e=>this.setIncentive(g.key,'token',e.target.value),onBonus:e=>this.setIncentive(g.key,'bonus',e.target.value)})),
+      surveyPaths:[{label:'TSI survey',count:this.qCount('TSI')},{label:'Agri-Tech (AFTP) survey',count:this.qCount('AgriTech')},{label:'SME survey',count:this.qCount('SME')}],
+      targetEditors:[{key:'TSI',label:'Trade Support Institutions (TSI)',color:'#7C3AED',value:S.draftTargets.TSI,onChange:e=>this.setTarget('TSI',e.target.value)},{key:'AgriTech',label:'Agri-Tech Providers (AFTP)',color:'#059669',value:S.draftTargets.AgriTech,onChange:e=>this.setTarget('AgriTech',e.target.value)},{key:'SME',label:'Food Processing SMEs',color:'#E0195F',value:S.draftTargets.SME,onChange:e=>this.setTarget('SME',e.target.value)}],
+      totalTargetSettings:S.draftTargets.TSI+S.draftTargets.AgriTech+S.draftTargets.SME,
+      settingsDirty:this.settingsDirty(), confirmSave:S.confirmSave,
+      saveBarMsg:this.settingsDirty()?'You have unsaved changes to targets or incentives.':'All changes saved.',
+      saveBarFg:this.settingsDirty()?'#9A3412':'#15803D', saveBarBorder:this.settingsDirty()?'#FED7AA':'#E7E7EA',
+      onSaveSettings:()=>this.askSaveSettings(), onConfirmSave:()=>this.confirmSaveSettings(), onCancelSave:()=>this.cancelSaveSettings(), onDiscardSettings:()=>this.discardSettings(),
+      saveBtnStyle:{height:'40px',padding:'0 20px',borderRadius:'10px',border:'none',background:this.settingsDirty()?'#15803D':'#D4D4D8',color:'#fff',fontSize:'13.5px',fontWeight:700,cursor:this.settingsDirty()?'pointer':'not-allowed'},
+      // flow
+      rStep:S.rStep, flowShowSteps:S.surveyOnly?(S.rStep>=5&&S.rStep<=8):(S.rStep>=1&&S.rStep<=8), flowSteps,
+      fStep0:S.rStep===0,fStep1:S.rStep===1,fStep2:S.rStep===2,fStep3:S.rStep===3,fStep4:S.rStep===4,fStep5:S.rStep===5,fStep6:S.rStep===6,fStep7:S.rStep===7,fStep8:S.rStep===8,fStep9:S.rStep===9,
+      ...profileVM,
+      flowReferredBy:S.referredBy, flowRefCode:S.referredCode,
+      flowThanks:(reg.name&&reg.name.trim())?('Thanks, '+reg.name.trim()+'.'):'Thanks!',
+      copyReferral:()=>this.copyReferral(), previewReferral:()=>this.previewReferral(),
+      reg:regVM, regionOptions:['NCR','Region III','Region IV-A','Region VII','Region XI','Region VI','CAR','Region X','Region V'], typeOptions,
+      payoutToggleOpts:[['Yes',true],['No',false]].map(d=>({label:d[0],onSelect:()=>this.setPayoutOn(d[1]),style:{height:'30px',padding:'0 15px',border:'none',borderRadius:'7px',fontSize:'12.5px',fontWeight:700,cursor:'pointer',background:S.payoutOn===d[1]?'#fff':'transparent',color:S.payoutOn===d[1]?(d[1]?'#15803D':'#B91C1C'):'#71717A',boxShadow:S.payoutOn===d[1]?'0 1px 2px rgba(0,0,0,.12)':'none'}})),
+      otp:S.otp, onOtp:e=>this.setState({otp:e.target.value.replace(/\D/g,'').slice(0,6)}), verifyOtp:()=>this.verifyOtp(),
+      handoffPicking:S.handoffMode!=='link', handoffLinkSent:S.handoffMode==='link',
+      regNameOrResp:(reg.name&&reg.name.trim())||'the respondent',
+      surveyLink:'surveys.prodigitality.net/s/PS-'+this.code(this.hash(reg.email||reg.name||'survey')),
+      onHandoffAssisted:()=>this.handoffAssisted(), onHandoffSendLink:()=>this.handoffSendLink(),
+      onPreviewSurveyOnly:()=>this.previewSurveyOnly(), onHandoffDone:()=>this.handoffDone(), onCopySurveyLink:()=>this.copySurveyLink(),
+      showSurveyBack:!S.surveyOnly,
+      flowTypeShort, flowTypeStyle:this.typeStyleObj(S.rType), surveyQs,
+      selfieDone:S.selfie, selfieEmpty:!S.selfie, selfieMethodLabel:S.selfieMethod==='upload'?'Image uploaded':'Selfie captured',
+      onTakeSelfie:()=>this.takeSelfie(), onUploadSelfie:()=>this.uploadSelfie(),
+      selfieBoxStyle:{width:'100%',maxWidth:'320px',height:'180px',margin:'0 auto',borderRadius:'16px',border:'2px dashed '+(S.selfie?'#86EFAC':'#D4D4D8'),background:S.selfie?'#F0FDF4':'#FAFAFA',display:'flex',alignItems:'center',justifyContent:'center'},
+      takeBtnStyle:{height:'46px',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',borderRadius:'11px',border:'1.5px solid '+(S.selfieMethod==='camera'?'#E0195F':'#E2E2E6'),background:S.selfieMethod==='camera'?'#FFF1F6':'#fff',color:S.selfieMethod==='camera'?'#9D174D':'#374151',fontSize:'13.5px',fontWeight:700,cursor:'pointer'},
+      uploadBtnStyle:{height:'46px',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',borderRadius:'11px',border:'1.5px solid '+(S.selfieMethod==='upload'?'#E0195F':'#E2E2E6'),background:S.selfieMethod==='upload'?'#FFF1F6':'#fff',color:S.selfieMethod==='upload'?'#9D174D':'#374151',fontSize:'13.5px',fontWeight:700,cursor:'pointer'},
+      selfieNextStyle:{height:'46px',flex:1,borderRadius:'11px',border:'none',background:S.selfie?'#18181B':'#D4D4D8',color:'#fff',fontSize:'14px',fontWeight:700,cursor:S.selfie?'pointer':'not-allowed'},
+      payoutMethods, payout:payoutVM, payoutIsBank, payoutIsEwallet, flowTokenLabel:S.payoutOn?this.peso(flowToken):'No token', flowBonusLabel:this.peso(flowBonus),
+      reviewItems, flowNewCode:S.newCode,
+      flowNext:()=>this.flowNext(), flowBack:()=>this.flowBack(), submitFlow:()=>this.submitFlow(), exitFlow:()=>this.exitFlow(),
+      toast:S.toast
+    };
+  }
+}
+</script>
+</body>
+</html>
