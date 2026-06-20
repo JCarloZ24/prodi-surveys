@@ -76,6 +76,7 @@ export interface PortalState {
   survey: SurveyAnswers;
   selfie: boolean;
   selfieMethod: string;
+  selfieUrl: string;
   payoutOn: boolean;
   surveyOnly: boolean;
   handoffMode: string;
@@ -159,6 +160,7 @@ function initialState(): PortalState {
     survey: {},
     selfie: false,
     selfieMethod: "",
+    selfieUrl: "",
     payoutOn: true,
     surveyOnly: false,
     handoffMode: "",
@@ -217,6 +219,7 @@ export interface PortalActions {
   setMatrix(id: string, row: string, v: string): void;
   takeSelfie(): void;
   uploadSelfie(): void;
+  setSelfieUrl(url: string): void;
   setPayoutOn(v: boolean): void;
   handoffAssisted(): void;
   handoffSendLink(): void;
@@ -287,12 +290,13 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
     const prependLog = (action: string, target: string, by?: string) =>
       [logEntry(action, target, by || userName()), ...stateRef.current.audit];
     const resetFlow = (): Partial<PortalState> => ({
-      mode: "portal",
+      mode: "flow",
       rStep: 0,
       otp: "",
       survey: {},
       selfie: false,
       selfieMethod: "",
+      selfieUrl: "",
       payoutOn: true,
       surveyOnly: false,
       handoffMode: "",
@@ -541,8 +545,9 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
           return { survey: { ...s.survey, [id]: obj } };
         });
       },
-      takeSelfie: () => set({ selfie: true, selfieMethod: "camera" }),
-      uploadSelfie: () => set({ selfie: true, selfieMethod: "upload" }),
+      takeSelfie: () => set({ selfieMethod: "camera" }),
+      uploadSelfie: () => set({ selfieMethod: "upload" }),
+      setSelfieUrl: (url) => set({ selfieUrl: url, selfie: true }),
       setPayoutOn: (v) => set({ payoutOn: v }),
       handoffAssisted: () => set({ rStep: 5, surveyOnly: false, handoffMode: "" }),
       handoffSendLink: () => {

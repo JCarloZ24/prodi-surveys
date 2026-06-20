@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import { usePortal } from "@/lib/store";
 import { classify } from "@/lib/classify";
 import { surveyDef, qCount } from "@/lib/survey";
@@ -238,6 +239,61 @@ function Register() {
 
 function Otp() {
   const { state, actions } = usePortal();
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [otpError, setOtpError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setSending(true);
+    fetch("/api/otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: state.reg.email }),
+    })
+      .then(() => { if (!cancelled) setSent(true); })
+      .catch(() => { if (!cancelled) setOtpError("Failed to send code. Check your connection and try again."); })
+      .finally(() => { if (!cancelled) setSending(false); });
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleResend = () => {
+    setSent(false);
+    setOtpError("");
+    setSending(true);
+    fetch("/api/otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: state.reg.email }),
+    })
+      .then(() => setSent(true))
+      .catch(() => setOtpError("Failed to resend code."))
+      .finally(() => setSending(false));
+  };
+
+  const handleVerify = async () => {
+    setVerifying(true);
+    setOtpError("");
+    try {
+      const res = await fetch("/api/otp", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: state.reg.email, code: state.otp }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        actions.verifyOtp();
+      } else {
+        setOtpError("Incorrect or expired code. Please try again.");
+      }
+    } catch {
+      setOtpError("Verification failed. Please try again.");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   return (
     <div className="pt-3.5 text-center">
       <div className="mx-auto mb-5 flex h-[60px] w-[60px] items-center justify-center rounded-2xl bg-indigo-50">
@@ -250,7 +306,9 @@ function Otp() {
       <p className="mb-1.5 text-[13.5px] text-gray-500">
         We sent a 6-digit code to <b className="text-gray-700">{state.reg.email || "your email"}</b>
       </p>
-      <p className="mb-[22px] text-[12px] text-[#C084A6]">Demo: enter any 6 digits (e.g. 000000)</p>
+      {sending && <p className="mb-4 text-[12px] text-gray-400">Sending code…</p>}
+      {sent && !sending && <p className="mb-4 text-[12px] text-green-600">Code sent — check your inbox.</p>}
+      {otpError && <p className="mb-3 text-[12px] text-red-500">{otpError}</p>}
       <input
         value={state.otp}
         onChange={(e) => actions.setOtp(e.target.value)}
@@ -266,12 +324,22 @@ function Otp() {
           Back
         </button>
         <button
-          onClick={actions.verifyOtp}
-          className="h-[46px] rounded-[11px] bg-brand-ink px-10 text-sm font-bold text-white"
+          onClick={handleVerify}
+          disabled={state.otp.length < 6 || verifying}
+          className="h-[46px] rounded-[11px] bg-brand-ink px-10 text-sm font-bold text-white disabled:opacity-60"
         >
-          Verify email
+          {verifying ? "Verifying…" : "Verify email"}
         </button>
       </div>
+      {sent && (
+        <button
+          onClick={handleResend}
+          disabled={sending}
+          className="mt-4 text-[12.5px] font-semibold text-gray-400 underline disabled:opacity-50"
+        >
+          Resend code
+        </button>
+      )}
     </div>
   );
 }
@@ -396,6 +464,27 @@ function Selfie() {
   const { state, actions } = usePortal();
   const done = state.selfie;
   const methodLabel = state.selfieMethod === "upload" ? "Image uploaded" : "Selfie captured";
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (file: File) => {
+    setUploading(true);
+    setUploadError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/selfie", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || "Upload failed");
+      actions.setSelfieUrl(data.url);
+    } catch (e: unknown) {
+      setUploadError(e instanceof Error ? e.message : "Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const methodBtn = (active: boolean) =>
     cx(
@@ -417,7 +506,11 @@ function Selfie() {
           background: done ? "#F0FDF4" : "#FAFAFA",
         }}
       >
-        {done ? (
+        {uploading ? (
+          <div className="text-center">
+            <div className="text-[13.5px] font-semibold text-gray-400">Uploading…</div>
+          </div>
+        ) : done ? (
           <div className="text-center">
             <div className="mx-auto mb-3 flex h-[58px] w-[58px] items-center justify-center rounded-full bg-green-100">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#15803D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -438,15 +531,24 @@ function Selfie() {
           </div>
         )}
       </div>
+      {uploadError && <p className="mt-2 text-[12px] text-red-500">{uploadError}</p>}
       <div className="mx-auto mt-4 grid max-w-[360px] grid-cols-2 gap-2.5">
-        <button onClick={actions.takeSelfie} className={methodBtn(state.selfieMethod === "camera")}>
+        <button
+          onClick={() => { actions.takeSelfie(); cameraRef.current?.click(); }}
+          disabled={uploading}
+          className={methodBtn(state.selfieMethod === "camera")}
+        >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
             <circle cx="12" cy="13" r="4" />
           </svg>
           Take a selfie
         </button>
-        <button onClick={actions.uploadSelfie} className={methodBtn(state.selfieMethod === "upload")}>
+        <button
+          onClick={() => { actions.uploadSelfie(); uploadRef.current?.click(); }}
+          disabled={uploading}
+          className={methodBtn(state.selfieMethod === "upload")}
+        >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <path d="M17 8l-5-5-5 5" />
@@ -455,12 +557,28 @@ function Selfie() {
           Upload an image
         </button>
       </div>
+      {/* Hidden file inputs — camera uses capture="user" for front-facing on mobile */}
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="user"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
+      />
+      <input
+        ref={uploadRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
+      />
       <div className="mt-4 flex flex-wrap justify-center gap-3.5 text-[11.5px] text-gray-400">
         <span>🔒 Timestamp recorded</span>
         <span>IP &amp; device logged</span>
       </div>
       <div className="mt-6">
-        <FlowNav disabled={!done} />
+        <FlowNav disabled={!done || uploading} />
       </div>
     </div>
   );
@@ -530,6 +648,8 @@ function Payout() {
 
 function Review() {
   const { state, actions } = usePortal();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const cls = classify(state.qual);
   const defs = surveyDef(state.rType).filter((q) => q.kind !== "section");
   const answered = defs.filter((q) => {
@@ -562,6 +682,30 @@ function Review() {
     items.push(["Token / payout", "Not offered"]);
   }
 
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          registration: state.reg,
+          qualification: state.qual,
+          survey_type: state.rType,
+          answers: state.survey,
+          selfie_url: state.selfieUrl || null,
+          payout_details: state.payoutOn ? state.payout : null,
+          referrer_code: state.reg.code || null,
+        }),
+      });
+      actions.submitFlow();
+    } catch {
+      setSubmitError("Submission failed. Please check your connection and try again.");
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div>
       <h1 className="mb-1.5 text-[22px] font-extrabold tracking-[-.5px]">Review &amp; submit</h1>
@@ -576,7 +720,12 @@ function Review() {
           </div>
         ))}
       </div>
-      <FlowNav nextLabel="Submit for verification" onNext={actions.submitFlow} />
+      {submitError && <p className="mt-3 text-[12px] text-red-500">{submitError}</p>}
+      <FlowNav
+        nextLabel={submitting ? "Submitting…" : "Submit for verification"}
+        onNext={handleSubmit}
+        disabled={submitting}
+      />
     </div>
   );
 }
