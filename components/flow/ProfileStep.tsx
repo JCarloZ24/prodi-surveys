@@ -48,6 +48,9 @@ const HEAR_ABOUT = ["DTI", "DOST", "Philexport", "Food Innovation Center", "Enum
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="mb-2 block text-[13px] font-bold text-gray-700">{children}</span>;
 }
+function Req() {
+  return <span className="text-brand-pink"> *</span>;
+}
 function Branch({ children }: { children: React.ReactNode }) {
   return (
     <div className="mt-3.5 flex flex-col gap-[18px] rounded-2xl border border-line bg-white p-5">
@@ -64,9 +67,10 @@ export function ProfileStep() {
   const profileBlocked = q.orgType === "other" || (q.orgType === "food" && q.foodMakes === "No");
   const blockTone = q.orgType === "food" && q.foodMakes === "No";
   let ready = false;
-  if (q.orgType === "gov") ready = !!q.govOrg && !!q.govSupports;
+  if (q.orgType === "gov") ready = !!q.govOrg && !!q.govDept && !!q.govSupports;
   else if (q.orgType === "tech") ready = techArr.length > 0 && !!q.techSells;
-  else if (q.orgType === "food") ready = q.foodMakes === "Yes" && !!q.foodRole;
+  else if (q.orgType === "food")
+    ready = q.foodMakes === "Yes" && !!q.foodProducts && !!q.foodEmployees && !!q.foodRole;
   ready = ready && !!q.hearAbout && !profileBlocked;
   const showHearAbout = (q.orgType === "gov" || q.orgType === "tech" || q.orgType === "food") && !blockTone;
 
@@ -86,16 +90,34 @@ export function ProfileStep() {
         <h1 className="mb-2.5 text-[22px] font-extrabold tracking-[-.5px]">
           {isOther ? "Thanks for your interest" : "This survey may not apply to you"}
         </h1>
-        <p className="mx-auto mb-7 max-w-[460px] text-[14px] leading-[1.6] text-gray-500">
+        <p className="mx-auto mb-6 max-w-[460px] text-[14px] leading-[1.6] text-gray-500">
           {isOther
-            ? "Our team will review your information and determine whether this survey applies to your organization. We'll reach out if it does."
+            ? "Tell us your organization's name and our team will review whether this survey applies to you. We'll reach out if it does."
             : "This baseline survey is for businesses that make or process food products. Based on your answer it may not apply — but our team can review your details if you believe this is a mistake."}
         </p>
+        {isOther && (
+          <div className="mx-auto mb-6 max-w-[360px] text-left">
+            <FieldLabel>
+              Organization / business name<Req />
+            </FieldLabel>
+            <input
+              value={q.orgName}
+              onChange={(e) => actions.setQual("orgName", e.target.value)}
+              placeholder="Your organization or business name"
+              className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] px-3 text-[13.5px] outline-none"
+            />
+          </div>
+        )}
         <button
           onClick={actions.exitFlow}
-          className="mx-auto h-12 w-full max-w-[360px] rounded-[11px] bg-brand-ink text-[15px] font-bold text-white"
+          disabled={isOther && !q.orgName.trim()}
+          className="mx-auto h-12 w-full max-w-[360px] rounded-[11px] text-[15px] font-bold text-white"
+          style={{
+            background: isOther && !q.orgName.trim() ? "#D4D4D8" : "#18181B",
+            cursor: isOther && !q.orgName.trim() ? "not-allowed" : "pointer",
+          }}
         >
-          Return to start
+          Done — return to start
         </button>
         <div className="mt-3.5">
           <button
@@ -164,7 +186,7 @@ export function ProfileStep() {
       {q.orgType === "gov" && (
         <Branch>
           <div>
-            <FieldLabel>Which organization do you work for?</FieldLabel>
+            <FieldLabel>Which organization do you work for?<Req /></FieldLabel>
             <select
               value={q.govOrg}
               onChange={(e) => actions.setQual("govOrg", e.target.value)}
@@ -177,7 +199,7 @@ export function ProfileStep() {
             </select>
           </div>
           <div>
-            <FieldLabel>What department, office, or unit are you part of?</FieldLabel>
+            <FieldLabel>What department, office, or unit are you part of?<Req /></FieldLabel>
             <input
               value={q.govDept}
               onChange={(e) => actions.setQual("govDept", e.target.value)}
@@ -188,7 +210,7 @@ export function ProfileStep() {
           <div>
             <FieldLabel>
               Does your organization help businesses grow, improve, export, or access support
-              services?
+              services?<Req />
             </FieldLabel>
             {yesNo("govSupports")}
           </div>
@@ -199,7 +221,7 @@ export function ProfileStep() {
         <Branch>
           <div>
             <FieldLabel>
-              Which best describes your organization?{" "}
+              Which best describes your organization?<Req />{" "}
               <span className="font-medium text-gray-400">(select all that apply)</span>
             </FieldLabel>
             <div className="flex flex-col gap-2">
@@ -216,6 +238,7 @@ export function ProfileStep() {
           <div>
             <span className="mb-1 block text-[13px] font-bold text-gray-700">
               Do you sell products or services to food manufacturers or food processing businesses?
+              <Req />
             </span>
             <div className="mb-2 text-[11.5px] text-gray-400">
               e.g. equipment, packaging, lab testing, product development, technical support
@@ -229,7 +252,7 @@ export function ProfileStep() {
         <Branch>
           <div>
             <span className="mb-1 block text-[13px] font-bold text-gray-700">
-              Does your business make, process, manufacture, or package food products?
+              Does your business make, process, manufacture, or package food products?<Req />
             </span>
             <div className="mb-2 text-[11.5px] text-gray-400">
               e.g. snacks, sauces, condiments, beverages, frozen foods, baked goods
@@ -239,7 +262,7 @@ export function ProfileStep() {
           {q.foodMakes === "Yes" && (
             <>
               <div>
-                <FieldLabel>What products does your business produce?</FieldLabel>
+                <FieldLabel>What products does your business produce?<Req /></FieldLabel>
                 <input
                   value={q.foodProducts}
                   onChange={(e) => actions.setQual("foodProducts", e.target.value)}
@@ -248,7 +271,7 @@ export function ProfileStep() {
                 />
               </div>
               <div>
-                <FieldLabel>How many employees does your business have?</FieldLabel>
+                <FieldLabel>How many employees does your business have?<Req /></FieldLabel>
                 <div className="flex flex-col gap-2">
                   {FOOD_EMP.map((o) => (
                     <RadioOption key={o} label={o} selected={q.foodEmployees === o} onClick={() => actions.setQual("foodEmployees", o)} />
@@ -256,7 +279,7 @@ export function ProfileStep() {
                 </div>
               </div>
               <div>
-                <FieldLabel>What is your role in the organization?</FieldLabel>
+                <FieldLabel>What is your role in the organization?<Req /></FieldLabel>
                 <div className="flex flex-col gap-2">
                   {FOOD_ROLE.map((o) => (
                     <RadioOption key={o} label={o} selected={q.foodRole === o} onClick={() => actions.setQual("foodRole", o)} />
@@ -271,7 +294,7 @@ export function ProfileStep() {
       {showHearAbout && (
         <Branch>
           <div>
-            <FieldLabel>How did you hear about this survey?</FieldLabel>
+            <FieldLabel>How did you hear about this survey?<Req /></FieldLabel>
             <select
               value={q.hearAbout}
               onChange={(e) => actions.setQual("hearAbout", e.target.value)}

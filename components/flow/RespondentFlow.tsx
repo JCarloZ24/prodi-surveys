@@ -101,8 +101,8 @@ export function RespondentFlow() {
         </div>
       )}
 
-      <div className="flex flex-1 justify-center overflow-y-auto px-[22px] pb-[60px] pt-[34px]">
-        <div className="w-full max-w-[620px]">
+      <div className="flex-1 overflow-y-auto px-[22px] pt-[34px]">
+        <div className="mx-auto w-full max-w-[620px] pb-[120px]">
           {step === 0 && <Welcome />}
           {step === 1 && <ProfileStep />}
           {step === 2 && <Register />}
@@ -294,6 +294,10 @@ function Field({
   placeholder,
   mono,
   hint,
+  type,
+  inputMode,
+  error,
+  onBlur,
 }: {
   label: React.ReactNode;
   value: string;
@@ -301,6 +305,10 @@ function Field({
   placeholder?: string;
   mono?: boolean;
   hint?: string;
+  type?: string;
+  inputMode?: "text" | "email" | "tel" | "numeric";
+  error?: string;
+  onBlur?: () => void;
 }) {
   return (
     <label className="block">
@@ -308,13 +316,21 @@ function Field({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        type={type}
+        inputMode={inputMode}
         placeholder={placeholder}
         className={cx(
-          "h-[42px] w-full rounded-[9px] border border-[#E2E2E6] px-[13px] text-[13.5px] outline-none",
+          "h-[42px] w-full rounded-[9px] border px-[13px] text-[13.5px] outline-none",
+          error ? "border-red-400" : "border-[#E2E2E6]",
           mono && "font-mono",
         )}
       />
-      {hint && <span className="mt-1 block text-[11.5px] text-gray-400">{hint}</span>}
+      {error ? (
+        <span className="mt-1 block text-[11.5px] text-red-500">{error}</span>
+      ) : hint ? (
+        <span className="mt-1 block text-[11.5px] text-gray-400">{hint}</span>
+      ) : null}
     </label>
   );
 }
@@ -322,6 +338,17 @@ function Field({
 function Register() {
   const { state, actions } = usePortal();
   const reg = state.reg;
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
+
+  // Mobile is stored as "+63" + the local digits the user types (leading 0
+  // stripped); the +63 prefix is shown as a fixed addon.
+  const mobileLocal = reg.mobile.replace(/^\+63/, "");
+  const nameOk = reg.name.trim().length > 0;
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reg.email.trim());
+  const mobileOk = mobileLocal.replace(/\D/g, "").length >= 10;
+  const canContinue = nameOk && emailOk && mobileOk;
+
   return (
     <div>
       <h1 className="mb-1.5 text-[22px] font-extrabold tracking-[-.5px]">Register your details</h1>
@@ -329,10 +356,53 @@ function Register() {
         Register your details to participate in the Prodigitality baseline survey.
       </p>
       <div className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-[22px]">
-        <Field label="Full name" value={reg.name} onChange={(v) => actions.setReg("name", v)} placeholder="Juan Dela Cruz" />
+        <Field
+          label="Full name"
+          value={reg.name}
+          onChange={(v) => actions.setReg("name", v)}
+          onBlur={() => touch("name")}
+          error={touched.name && !nameOk ? "Please enter your full name." : ""}
+          placeholder="Juan Dela Cruz"
+        />
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <Field label="Email address" value={reg.email} onChange={(v) => actions.setReg("email", v)} placeholder="you@email.com" />
-          <Field label="Mobile number" value={reg.mobile} onChange={(v) => actions.setReg("mobile", v)} placeholder="+63 9XX XXX XXXX" />
+          <Field
+            label="Email address"
+            value={reg.email}
+            onChange={(v) => actions.setReg("email", v)}
+            onBlur={() => touch("email")}
+            error={touched.email && !emailOk ? "Enter a valid email address." : ""}
+            type="email"
+            inputMode="email"
+            placeholder="you@email.com"
+          />
+          <label className="block">
+            <span className="mb-1.5 block text-[12px] font-bold text-gray-700">Mobile number</span>
+            <div
+              className={cx(
+                "flex h-[42px] w-full overflow-hidden rounded-[9px] border",
+                touched.mobile && !mobileOk ? "border-red-400" : "border-[#E2E2E6]",
+              )}
+            >
+              <span className="flex flex-none items-center border-r border-[#E2E2E6] bg-gray-50 px-3 text-[13.5px] font-semibold text-gray-500">
+                +63
+              </span>
+              <input
+                value={mobileLocal}
+                onChange={(e) =>
+                  actions.setReg("mobile", "+63" + e.target.value.replace(/\D/g, "").replace(/^0/, ""))
+                }
+                onBlur={() => touch("mobile")}
+                type="tel"
+                inputMode="tel"
+                maxLength={11}
+                placeholder="9XX XXX XXXX"
+                className="h-full flex-1 px-3 text-[13.5px] outline-none"
+              />
+            </div>
+            {touched.mobile && !mobileOk && (
+              <span className="mt-1 block text-[11.5px] text-red-500">Enter a valid mobile number.</span>
+            )}
+          </label>
         </div>
         <Field
           label={<>Referral code <span className="font-medium text-gray-400">· optional</span></>}
@@ -374,7 +444,7 @@ function Register() {
           </div>
         </div>
       </div>
-      <FlowNav nextLabel="Continue" />
+      <FlowNav nextLabel="Continue" disabled={!canContinue} />
     </div>
   );
 }
@@ -747,6 +817,17 @@ function Payout() {
   const p = state.payout;
   const isBank = p.method === "Bank transfer";
   const isEwallet = p.method === "GCash" || p.method === "Maya";
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
+
+  const nameOk = p.acctName.trim().length > 0;
+  const numOk = p.acctNum.trim().length > 0;
+  const bankOk = p.bank.trim().length > 0;
+  // Every method needs an account name + number; bank transfer also needs the bank name.
+  const canSubmit = (isBank ? bankOk : true) && nameOk && numOk;
+  const numLabel = isEwallet ? "Mobile number" : isBank ? "Account number" : "Account / reference number";
+  const numPh = isEwallet ? "09XX XXX XXXX" : "Account or reference no.";
+
   return (
     <div>
       <h1 className="mb-1.5 text-[22px] font-extrabold tracking-[-.5px]">Payout details</h1>
@@ -776,28 +857,43 @@ function Payout() {
           </div>
         </div>
 
-        {isEwallet && (
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-            <Field label="Account name" value={p.acctName} onChange={(v) => actions.setPayout("acctName", v)} placeholder="Registered name" />
-            <Field label="Mobile number" value={p.acctNum} onChange={(v) => actions.setPayout("acctNum", v)} placeholder="09XX XXX XXXX" />
-          </div>
-        )}
         {isBank && (
-          <div className="flex flex-col gap-3.5">
-            <Field label="Bank name" value={p.bank} onChange={(v) => actions.setPayout("bank", v)} placeholder="e.g. BDO, BPI" />
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-              <Field label="Account name" value={p.acctName} onChange={(v) => actions.setPayout("acctName", v)} placeholder="Account holder" />
-              <Field label="Account number" value={p.acctNum} onChange={(v) => actions.setPayout("acctNum", v)} placeholder="000000000" />
-            </div>
-          </div>
+          <Field
+            label="Bank name"
+            value={p.bank}
+            onChange={(v) => actions.setPayout("bank", v)}
+            onBlur={() => touch("bank")}
+            error={touched.bank && !bankOk ? "Required." : ""}
+            placeholder="e.g. BDO, BPI"
+          />
         )}
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <Field
+            label="Account name"
+            value={p.acctName}
+            onChange={(v) => actions.setPayout("acctName", v)}
+            onBlur={() => touch("acctName")}
+            error={touched.acctName && !nameOk ? "Required." : ""}
+            placeholder={isEwallet ? "Registered name" : "Account holder"}
+          />
+          <Field
+            label={numLabel}
+            value={p.acctNum}
+            onChange={(v) => actions.setPayout("acctNum", v)}
+            onBlur={() => touch("acctNum")}
+            error={touched.acctNum && !numOk ? "Required." : ""}
+            type={isEwallet ? "tel" : "text"}
+            inputMode={isEwallet ? "tel" : "text"}
+            placeholder={numPh}
+          />
+        </div>
 
         <div className="flex items-center gap-[9px] rounded-[9px] border border-brand-pinkLine bg-brand-pinkSoft2 px-[13px] py-[11px] text-[12px] text-[#9D174D]">
           <span>🔒</span>
           Payout details are visible only to authorized Prodigitality admins.
         </div>
       </div>
-      <FlowNav nextLabel="Review & submit" />
+      <FlowNav nextLabel="Review & submit" disabled={!canSubmit} />
     </div>
   );
 }

@@ -68,5 +68,6 @@ export function blankQual(): Qual {
     foodRole: "",
     hearAbout: "",
     refName: "",
+    orgName: "",
   };
 }

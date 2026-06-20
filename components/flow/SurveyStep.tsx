@@ -1,14 +1,61 @@
 "use client";
 
+import { useState } from "react";
 import { usePortal } from "@/lib/store";
 import { surveyDef } from "@/lib/survey";
 import { typePillClass, typeShort } from "@/lib/format";
+import type { SurveyQuestion } from "@/lib/types";
 import { RadioOption, MultiOption } from "./Options";
 import { FlowNav } from "./FlowNav";
+
+// A question counts as answered when it has a value. For a matrix, every row
+// must have a selection (each row offers a "Not applicable" escape).
+function isAnswered(q: SurveyQuestion, v: unknown): boolean {
+  if (q.kind === "matrix") {
+    const obj = v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, string>) : {};
+    return (q.rows || []).every((r) => !!obj[r]);
+  }
+  if (v == null || v === "") return false;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === "object") return Object.keys(v).length > 0;
+  return true;
+}
 
 export function SurveyStep() {
   const { state, actions } = usePortal();
   const qs = surveyDef(state.rType);
+  const [attempted, setAttempted] = useState(false);
+
+  // Required = single-answer questions (radio/select/number/matrix) outside any
+  // section flagged "(optional)". Open-ended text and "select all that apply"
+  // multis stay optional, so respondents are never trapped by a question that
+  // may legitimately have no answer.
+  let optionalSection = false;
+  const required = qs.map((q) => {
+    if (q.kind === "section") {
+      optionalSection = /optional/i.test(q.title || "");
+      return false;
+    }
+    return (
+      !optionalSection &&
+      (q.kind === "radio" || q.kind === "select" || q.kind === "number" || q.kind === "matrix")
+    );
+  });
+
+  const firstMissing = qs.findIndex(
+    (q, i) => required[i] && !isAnswered(q, state.survey[q.id as string]),
+  );
+  const complete = firstMissing === -1;
+
+  const handleNext = () => {
+    if (complete) {
+      actions.flowNext();
+      return;
+    }
+    setAttempted(true);
+    const el = document.getElementById("q-" + (qs[firstMissing].id as string));
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   return (
     <div>
@@ -17,7 +64,8 @@ export function SurveyStep() {
         <span className={typePillClass(state.rType)}>{typeShort(state.rType)} path</span>
       </div>
       <p className="mb-[22px] text-[13.5px] text-gray-500">
-        Questions are tailored to your respondent group.
+        Questions are tailored to your respondent group. Required questions are marked
+        <span className="font-bold text-brand-pink"> *</span>.
       </p>
 
       <div className="flex flex-col gap-[18px] rounded-2xl border border-line bg-white p-[22px]">
@@ -33,10 +81,12 @@ export function SurveyStep() {
           }
           const id = q.id as string;
           const cur = state.survey[id];
+          const missing = attempted && required[idx] && !isAnswered(q, cur);
           return (
-            <div key={idx}>
+            <div key={idx} id={"q-" + id}>
               <span className="mb-2.5 block text-[13.5px] font-bold leading-[1.45] text-gray-700">
                 {q.label}
+                {required[idx] && <span className="text-brand-pink"> *</span>}
               </span>
 
               {q.kind === "radio" && (
@@ -128,12 +178,23 @@ export function SurveyStep() {
                   })}
                 </div>
               )}
+
+              {missing && (
+                <span className="mt-1.5 block text-[11.5px] text-red-500">
+                  Please answer this question.
+                </span>
+              )}
             </div>
           );
         })}
       </div>
 
-      <FlowNav nextLabel="Continue" hideBack={state.surveyOnly} />
+      {attempted && !complete && (
+        <p className="mt-3.5 text-[12.5px] font-semibold text-red-500">
+          Please answer all required questions (marked *) before continuing.
+        </p>
+      )}
+      <FlowNav nextLabel="Continue" onNext={handleNext} hideBack={state.surveyOnly} />
     </div>
   );
 }

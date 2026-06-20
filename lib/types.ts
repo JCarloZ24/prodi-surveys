@@ -122,6 +122,7 @@ export interface Qual {
   foodRole: string;
   hearAbout: string;
   refName: string;
+  orgName: string;
 }
 
 export interface Registration {
