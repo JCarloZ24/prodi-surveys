@@ -1,0 +1,621 @@
+"use client";
+
+// Central client-side store for the portal. Mirrors the design prototype's
+// `Component` class: one state object plus action methods. A `stateRef` gives
+// actions synchronous access to the latest state (the prototype read
+// `this.state` directly), so chained updates and toasts stay consistent.
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { blankQual, classify } from "./classify";
+import { buildData } from "./mockData";
+import { code as codeOf, hash } from "./format";
+import type {
+  AppMode,
+  AuditEntry,
+  Enumerator,
+  Incentives,
+  ManualReferrer,
+  PayoutDetails,
+  Qual,
+  Registration,
+  Respondent,
+  Role,
+  Targets,
+  ViewKey,
+} from "./types";
+
+type SurveyAnswers = Record<
+  string,
+  string | string[] | Record<string, string>
+>;
+
+export interface PortalState {
+  mode: AppMode;
+  role: Role;
+  view: ViewKey;
+  loginEmail: string;
+  loginPw: string;
+  targets: Targets;
+  incentives: Incentives;
+  draftTargets: Targets;
+  draftIncentives: Incentives;
+  confirmSave: boolean;
+  emailSel: string;
+  enumerators: Enumerator[];
+  showAddEnum: boolean;
+  newEnumName: string;
+  newEnumEmail: string;
+  manualReferrers: ManualReferrer[];
+  showAddRef: boolean;
+  newRefName: string;
+  newRefKind: string;
+  referredBy: string;
+  referredCode: string;
+  qual: Qual;
+  respondents: Respondent[];
+  audit: AuditEntry[];
+  selectedId: number | null;
+  search: string;
+  filterType: string;
+  filterStatus: string;
+  flaggedOnly: boolean;
+  paid: Record<number, string>;
+  toast: string | null;
+  rStep: number;
+  rType: Respondent["type"];
+  reg: Registration;
+  otp: string;
+  survey: SurveyAnswers;
+  selfie: boolean;
+  payout: PayoutDetails;
+  newCode: string;
+}
+
+const USER_NAMES: Record<Role, string> = {
+  admin: "Augusto Teleg",
+  enumerator: "Maria Santos",
+  stakeholder: "Arianne",
+};
+
+function blankReg(): Registration {
+  return {
+    name: "",
+    email: "",
+    mobile: "",
+    org: "",
+    position: "",
+    region: "NCR",
+    type: "SME",
+    code: "",
+  };
+}
+function blankPayout(): PayoutDetails {
+  return { method: "GCash", acctName: "", acctNum: "", bank: "" };
+}
+
+function initialState(): PortalState {
+  const data = buildData();
+  return {
+    mode: "login",
+    role: "admin",
+    view: "dashboard",
+    loginEmail: "",
+    loginPw: "",
+    targets: { TSI: 4, AgriTech: 10, SME: 100 },
+    incentives: {
+      TSI: { token: 300, bonus: 1000 },
+      AgriTech: { token: 300, bonus: 1000 },
+      SME: { token: 200, bonus: 100 },
+    },
+    draftTargets: { TSI: 4, AgriTech: 10, SME: 100 },
+    draftIncentives: {
+      TSI: { token: 300, bonus: 1000 },
+      AgriTech: { token: 300, bonus: 1000 },
+      SME: { token: 200, bonus: 100 },
+    },
+    confirmSave: false,
+    emailSel: "verify",
+    enumerators: [
+      { name: "Maria Santos", email: "maria.santos@prodigitality.net" },
+      { name: "Jun Mercado", email: "jun.mercado@prodigitality.net" },
+      { name: "Liza Domingo", email: "liza.domingo@prodigitality.net" },
+      { name: "Paolo Rivera", email: "paolo.rivera@prodigitality.net" },
+    ],
+    showAddEnum: false,
+    newEnumName: "",
+    newEnumEmail: "",
+    manualReferrers: [{ name: "DOST", kind: "Partner / TSI" }],
+    showAddRef: false,
+    newRefName: "",
+    newRefKind: "Partner / TSI",
+    referredBy: "",
+    referredCode: "",
+    qual: blankQual(),
+    respondents: data.respondents,
+    audit: data.audit,
+    selectedId: null,
+    search: "",
+    filterType: "all",
+    filterStatus: "all",
+    flaggedOnly: false,
+    paid: {},
+    toast: null,
+    rStep: 0,
+    rType: "SME",
+    reg: blankReg(),
+    otp: "",
+    survey: {},
+    selfie: false,
+    payout: blankPayout(),
+    newCode: "",
+  };
+}
+
+function logEntry(action: string, target: string, by: string): AuditEntry {
+  return [action, target, by, "just now", "#EDE9FE", "#5B21B6", "user"];
+}
+
+export interface PortalActions {
+  setLoginEmail(v: string): void;
+  setLoginPw(v: string): void;
+  login(role?: Role): void;
+  logout(): void;
+  setView(v: ViewKey): void;
+  setRole(r: Role): void;
+  setSearch(v: string): void;
+  openProfile(id: number): void;
+  closeProfile(): void;
+  setFilterType(v: string): void;
+  setFilterStatus(v: string): void;
+  toggleFlagged(): void;
+  qaAct(id: number, action: "approve" | "reject" | "follow"): void;
+  markPaid(id: number): void;
+  doExport(name: string, fmt: string): void;
+  setTarget(path: keyof Targets, val: string): void;
+  setIncentive(path: keyof Incentives, field: "token" | "bonus", val: string): void;
+  askSaveSettings(): void;
+  cancelSaveSettings(): void;
+  confirmSaveSettings(): void;
+  discardSettings(): void;
+  setShowAddEnum(b: boolean): void;
+  setNewEnumName(v: string): void;
+  setNewEnumEmail(v: string): void;
+  addEnumerator(): void;
+  renameEnumerator(i: number, v: string): void;
+  setEnumEmail(i: number, v: string): void;
+  removeEnumerator(i: number): void;
+  setShowAddRef(b: boolean): void;
+  setNewRefName(v: string): void;
+  setNewRefKind(v: string): void;
+  addReferrer(): void;
+  setEmail(id: string): void;
+  launchFlow(): void;
+  exitFlow(): void;
+  flowNext(): void;
+  flowBack(): void;
+  verifyOtp(): void;
+  setReg(k: keyof Registration, v: string): void;
+  setOtp(v: string): void;
+  setAnswer(id: string, v: string): void;
+  toggleMulti(id: string, opt: string): void;
+  setMatrix(id: string, row: string, v: string): void;
+  toggleSelfie(): void;
+  setPayout(k: keyof PayoutDetails, v: string): void;
+  setOrg(t: Qual["orgType"]): void;
+  setQual(f: keyof Qual, v: string): void;
+  toggleTech(opt: string): void;
+  submitFlow(): void;
+  copyReferral(): void;
+  previewReferral(): void;
+}
+
+interface PortalContextValue {
+  state: PortalState;
+  actions: PortalActions;
+}
+
+const PortalContext = createContext<PortalContextValue | null>(null);
+
+// React 18/19 export the hooks under these names; alias for terseness.
+const useCb = useCallback as typeof useCallback;
+
+export function PortalProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<PortalState>(initialState);
+  // Mirror the latest state into a ref so action handlers (which always run
+  // after commit) can read it synchronously, like the prototype's `this.state`.
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  });
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const set = useCb(
+    (u: Partial<PortalState> | ((s: PortalState) => Partial<PortalState>)) => {
+      setState((prev) => ({
+        ...prev,
+        ...(typeof u === "function" ? u(prev) : u),
+      }));
+    },
+    [],
+  );
+
+  const toast = useCb((msg: string) => {
+    set({ toast: msg });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => set({ toast: null }), 2600);
+  }, [set]);
+
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    },
+    [],
+  );
+
+  const settingsDirty = useCb((s: PortalState) => {
+    return (
+      JSON.stringify(s.draftTargets) !== JSON.stringify(s.targets) ||
+      JSON.stringify(s.draftIncentives) !== JSON.stringify(s.incentives)
+    );
+  }, []);
+
+  const actions: PortalActions = useMemo(() => {
+    const userName = () => USER_NAMES[stateRef.current.role];
+    const prependLog = (action: string, target: string, by?: string) =>
+      [logEntry(action, target, by || userName()), ...stateRef.current.audit];
+
+    return {
+      setLoginEmail: (v) => set({ loginEmail: v }),
+      setLoginPw: (v) => set({ loginPw: v }),
+      login: (role) => {
+        const r = role || stateRef.current.role || "admin";
+        set({ mode: "portal", role: r, view: "dashboard", selectedId: null });
+        set({
+          audit: [logEntry("Admin login", "· " + USER_NAMES[r], USER_NAMES[r]), ...stateRef.current.audit],
+        });
+      },
+      logout: () => set({ mode: "login", loginPw: "" }),
+      setView: (v) => set({ view: v, selectedId: null }),
+      setRole: (r) => set({ role: r, view: "dashboard", selectedId: null }),
+      setSearch: (v) => set({ search: v }),
+      openProfile: (id) => set({ selectedId: id }),
+      closeProfile: () => set({ selectedId: null }),
+      setFilterType: (v) => set({ filterType: v }),
+      setFilterStatus: (v) => set({ filterStatus: v }),
+      toggleFlagged: () => set({ flaggedOnly: !stateRef.current.flaggedOnly }),
+
+      qaAct: (id, action) => {
+        const s = stateRef.current;
+        const map = { approve: "Verified", reject: "Rejected", follow: "Needs Follow-up" } as const;
+        const ns = map[action];
+        const recs = s.respondents.map((r) => {
+          if (r.id !== id) return r;
+          const verified = ns === "Verified";
+          return {
+            ...r,
+            status: ns,
+            verified,
+            payStatus: verified ? "Pending" : "—",
+            bonus: verified && r.referred ? (r.type === "SME" ? 100 : 1000) : 0,
+          };
+        });
+        const rec = s.respondents.find((r) => r.id === id);
+        const verb = { approve: "Verified", reject: "Rejected", follow: "Marked follow-up" }[action];
+        const word = action === "approve" ? "approved" : action === "reject" ? "rejected" : "flagged follow-up";
+        set({
+          respondents: recs,
+          selectedId: null,
+          audit: [logEntry("QA " + word, "· " + (rec?.name ?? ""), userName()), ...s.audit],
+        });
+        toast(verb + " · " + (rec?.name ?? ""));
+      },
+
+      markPaid: (id) => {
+        const s = stateRef.current;
+        const recs = s.respondents.map((r) => (r.id === id ? { ...r, payStatus: "Paid" } : r));
+        const paid = {
+          ...s.paid,
+          [id]: new Date().toLocaleDateString("en-PH", { month: "short", day: "numeric" }),
+        };
+        const rec = s.respondents.find((r) => r.id === id);
+        set({
+          respondents: recs,
+          paid,
+          audit: [logEntry("Payout marked paid", "· " + (rec?.name ?? ""), userName()), ...s.audit],
+        });
+        toast("Payout marked paid · " + (rec?.name ?? ""));
+      },
+
+      doExport: (name, fmt) => {
+        set({ audit: prependLog("Data exported", "· " + name + " (" + fmt + ")") });
+        toast("Exporting " + name + " as " + fmt + "…");
+      },
+
+      setTarget: (path, val) => {
+        const n = Math.max(0, parseInt(val, 10) || 0);
+        set((s) => ({ draftTargets: { ...s.draftTargets, [path]: n } }));
+      },
+      setIncentive: (path, field, val) => {
+        const n = Math.max(0, parseInt(val, 10) || 0);
+        set((s) => ({
+          draftIncentives: {
+            ...s.draftIncentives,
+            [path]: { ...s.draftIncentives[path], [field]: n },
+          },
+        }));
+      },
+      askSaveSettings: () => {
+        if (settingsDirty(stateRef.current)) set({ confirmSave: true });
+      },
+      cancelSaveSettings: () => set({ confirmSave: false }),
+      confirmSaveSettings: () => {
+        const s = stateRef.current;
+        set({
+          targets: { ...s.draftTargets },
+          incentives: JSON.parse(JSON.stringify(s.draftIncentives)),
+          confirmSave: false,
+          audit: [logEntry("Settings updated", "· targets & incentive structure", userName()), ...s.audit],
+        });
+        toast("Settings saved");
+      },
+      discardSettings: () => {
+        const s = stateRef.current;
+        set({
+          draftTargets: { ...s.targets },
+          draftIncentives: JSON.parse(JSON.stringify(s.incentives)),
+        });
+        toast("Changes discarded");
+      },
+
+      setShowAddEnum: (b) =>
+        set(b ? { showAddEnum: true } : { showAddEnum: false, newEnumName: "", newEnumEmail: "" }),
+      setNewEnumName: (v) => set({ newEnumName: v }),
+      setNewEnumEmail: (v) => set({ newEnumEmail: v }),
+      addEnumerator: () => {
+        const s = stateRef.current;
+        const name = (s.newEnumName || "").trim();
+        if (!name) return;
+        const list = [...s.enumerators, { name, email: (s.newEnumEmail || "").trim() }];
+        set({
+          enumerators: list,
+          newEnumName: "",
+          newEnumEmail: "",
+          showAddEnum: false,
+          audit: [logEntry("Enumerator added", "· " + name, userName()), ...s.audit],
+        });
+        toast("Enumerator added · " + name);
+      },
+      renameEnumerator: (i, newName) => {
+        const s = stateRef.current;
+        const old = s.enumerators[i].name;
+        const list = s.enumerators.map((e, j) => (j === i ? { ...e, name: newName } : e));
+        const recs = s.respondents.map((r) =>
+          r.enumerator === old ? { ...r, enumerator: newName } : r,
+        );
+        set({ enumerators: list, respondents: recs });
+      },
+      setEnumEmail: (i, val) => {
+        set((s) => ({
+          enumerators: s.enumerators.map((e, j) => (j === i ? { ...e, email: val } : e)),
+        }));
+      },
+      removeEnumerator: (i) => {
+        const s = stateRef.current;
+        const e = s.enumerators[i];
+        const recs = s.respondents.map((r) =>
+          r.enumerator === e.name
+            ? { ...r, enumerator: "—", mode: "Self-service" as const }
+            : r,
+        );
+        const list = s.enumerators.filter((_, j) => j !== i);
+        set({ enumerators: list, respondents: recs });
+        toast("Enumerator removed · " + e.name);
+      },
+
+      setShowAddRef: (b) =>
+        set(b ? { showAddRef: true } : { showAddRef: false, newRefName: "" }),
+      setNewRefName: (v) => set({ newRefName: v }),
+      setNewRefKind: (v) => set({ newRefKind: v }),
+      addReferrer: () => {
+        const s = stateRef.current;
+        const name = (s.newRefName || "").trim();
+        if (!name) return;
+        const list = [...s.manualReferrers, { name, kind: s.newRefKind }];
+        const c = "PS-" + codeOf(hash(name));
+        set({
+          manualReferrers: list,
+          newRefName: "",
+          newRefKind: "Partner / TSI",
+          showAddRef: false,
+          audit: [logEntry("Referrer added", "· " + name + " (" + c + ")", userName()), ...s.audit],
+        });
+        toast("Referrer added · " + name + " · " + c);
+      },
+
+      setEmail: (id) => set({ emailSel: id }),
+
+      launchFlow: () =>
+        set({ mode: "flow", rStep: 0, referredBy: "", referredCode: "", qual: blankQual() }),
+      exitFlow: () =>
+        set({
+          mode: "portal",
+          rStep: 0,
+          otp: "",
+          survey: {},
+          selfie: false,
+          referredBy: "",
+          referredCode: "",
+          qual: blankQual(),
+          reg: blankReg(),
+          payout: blankPayout(),
+        }),
+      flowNext: () => {
+        const s = stateRef.current;
+        if (s.rStep === 5 && !s.selfie) return;
+        set({ rStep: Math.min(8, s.rStep + 1) });
+      },
+      flowBack: () => set((s) => ({ rStep: Math.max(0, s.rStep - 1) })),
+      verifyOtp: () => set({ rStep: 3 }),
+      setReg: (k, v) => {
+        if (k === "type") set((s) => ({ reg: { ...s.reg, type: v as Respondent["type"] }, rType: v as Respondent["type"] }));
+        else set((s) => ({ reg: { ...s.reg, [k]: v } }));
+      },
+      setOtp: (v) => set({ otp: v.replace(/\D/g, "").slice(0, 6) }),
+      setAnswer: (id, v) => set((s) => ({ survey: { ...s.survey, [id]: v } })),
+      toggleMulti: (id, opt) => {
+        set((s) => {
+          const cur = s.survey[id];
+          const arr = Array.isArray(cur) ? [...cur] : [];
+          const i = arr.indexOf(opt);
+          if (i >= 0) arr.splice(i, 1);
+          else arr.push(opt);
+          return { survey: { ...s.survey, [id]: arr } };
+        });
+      },
+      setMatrix: (id, row, v) => {
+        set((s) => {
+          const prev = s.survey[id];
+          const obj =
+            prev && typeof prev === "object" && !Array.isArray(prev)
+              ? { ...(prev as Record<string, string>) }
+              : {};
+          obj[row] = v;
+          return { survey: { ...s.survey, [id]: obj } };
+        });
+      },
+      toggleSelfie: () => set((s) => ({ selfie: !s.selfie })),
+      setPayout: (k, v) => set((s) => ({ payout: { ...s.payout, [k]: v } })),
+
+      setOrg: (t) => {
+        const map: Record<string, Respondent["type"] | ""> = { gov: "TSI", tech: "AgriTech", food: "SME", other: "" };
+        set((s) => ({
+          qual: { ...s.qual, orgType: t },
+          rType: (map[t] || s.rType) as Respondent["type"],
+        }));
+      },
+      setQual: (f, v) => set((s) => ({ qual: { ...s.qual, [f]: v } })),
+      toggleTech: (opt) => {
+        set((s) => {
+          const arr = [...(s.qual.techTypes || [])];
+          const i = arr.indexOf(opt);
+          if (i >= 0) arr.splice(i, 1);
+          else arr.push(opt);
+          return { qual: { ...s.qual, techTypes: arr } };
+        });
+      },
+
+      submitFlow: () => {
+        const s = stateRef.current;
+        const r = s.reg;
+        const q = s.qual;
+        const c = "PS-" + codeOf(s.respondents.length * 13 + 99);
+        const cls = classify(q);
+        const surveyType = cls.surveyType || "SME";
+        const referrer =
+          (q.refName && q.refName.trim()) ||
+          s.referredBy ||
+          ((r.code || "").trim() ? "Referral code" : null) ||
+          null;
+        const org =
+          q.govOrg ||
+          (q.foodProducts ? "Food: " + q.foodProducts : "") ||
+          (q.techTypes && q.techTypes[0]) ||
+          "Self-registered";
+        const rec: Respondent = {
+          id: 9000 + s.respondents.length,
+          name: r.name || "New Respondent",
+          org,
+          type: surveyType as Respondent["type"],
+          status: "Pending QA",
+          region: "NCR",
+          position: q.foodRole || "—",
+          email: r.email || "—",
+          mobile: r.mobile || "—",
+          emailV: true,
+          surveyDone: true,
+          selfie: true,
+          verified: false,
+          token: surveyType === "SME" ? 200 : 300,
+          assignedType: cls.assignedType,
+          qualStatus: cls.status,
+          hearAbout: q.hearAbout,
+          referred: !!referrer,
+          referrer,
+          mode: "Self-service",
+          enumerator: "—",
+          payStatus: "—",
+          method: s.payout.method,
+          acct: s.payout.method + " •••• " + (s.payout.acctNum || "").slice(-3),
+          compMin: 12,
+          bonus: 0,
+          flags: cls.flags.slice(),
+          code: c,
+          createdDays: 0,
+          color: "#E0195F",
+          _new: true,
+        };
+        // Chained logs: most recent ends up first, matching the prototype.
+        const logs: AuditEntry[] = [
+          logEntry("Respondent registered", "· " + rec.name + " (" + cls.assignedType + ")", "Self-service"),
+          logEntry("Respondent profile completed", "· " + rec.name + " · " + cls.status, "System"),
+          logEntry("Survey completed", "· " + rec.name, "Self-service"),
+        ];
+        if (cls.flags.length)
+          logs.push(logEntry("Submission flagged", "· " + rec.name + " (" + cls.flags[0] + ")", "System"));
+        set({
+          respondents: [rec, ...s.respondents],
+          newCode: c,
+          rStep: 8,
+          audit: [...logs.reverse(), ...s.audit],
+        });
+      },
+
+      copyReferral: () => {
+        const link = "surveys.prodigitality.net/r/" + (stateRef.current.newCode || "");
+        try {
+          if (navigator.clipboard) navigator.clipboard.writeText("https://" + link);
+        } catch {
+          /* clipboard unavailable */
+        }
+        toast("Referral link copied · " + link);
+      },
+      previewReferral: () => {
+        const s = stateRef.current;
+        const c = s.newCode;
+        const name = (s.reg.name || "").trim() || "A Prodi-Surveys respondent";
+        set({
+          mode: "flow",
+          rStep: 0,
+          referredBy: name,
+          referredCode: c,
+          rType: "SME",
+          otp: "",
+          survey: {},
+          selfie: false,
+          qual: blankQual(),
+          reg: { ...blankReg(), code: c },
+          payout: blankPayout(),
+        });
+      },
+    };
+  }, [set, toast, settingsDirty]);
+
+  const value = useMemo(() => ({ state, actions }), [state, actions]);
+  return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
+}
+
+export function usePortal(): PortalContextValue {
+  const ctx = useContext(PortalContext);
+  if (!ctx) throw new Error("usePortal must be used within PortalProvider");
+  return ctx;
+}
+
+export { USER_NAMES };
