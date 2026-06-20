@@ -200,6 +200,11 @@ function initialState(): PortalState {
     consentPrivacy: false,
     consentAt: "",
   };
+
+  return base;
+}
+
+function hydrateDraft(base: PortalState): PortalState {
   if (typeof window === "undefined") return base;
 
   try {
@@ -310,6 +315,12 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     stateRef.current = state;
   });
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setState((current) => hydrateDraft(current));
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (state.mode !== "flow") {
