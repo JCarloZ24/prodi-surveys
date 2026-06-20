@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Design prototype artifacts (generated dc-runtime + exported HTML) — not app source.
+    "drafts/**",
   ]),
 ]);
 

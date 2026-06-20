@@ -74,6 +74,8 @@ export interface Respondent {
   assignedType?: string;
   qualStatus?: string;
   hearAbout?: string;
+  selfieMethod?: string;
+  payoutOn?: boolean;
   _new?: boolean;
 }
 

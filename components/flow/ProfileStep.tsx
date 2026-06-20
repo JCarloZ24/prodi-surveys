@@ -229,7 +229,7 @@ export function ProfileStep() {
             borderColor: blockTone ? "#FED7AA" : "#DDD6FE",
           }}
         >
-          <span className="flex-none text-[18px]">{blockTone ? "⚠️" : "🕓"}</span>
+          <span className="flex-none text-[18px]">{blockTone ? "⚠️" : "📋"}</span>
           <span
             className="text-[13px] font-medium leading-[1.55]"
             style={{ color: blockTone ? "#9A3412" : "#5B21B6" }}
@@ -262,7 +262,7 @@ export function ProfileStep() {
             className="h-[46px] flex-1 rounded-[11px] text-sm font-bold text-white"
             style={{ background: ready ? "#18181B" : "#D4D4D8", cursor: ready ? "pointer" : "not-allowed" }}
           >
-            Continue to survey
+            Continue to registration
           </button>
         )}
       </div>

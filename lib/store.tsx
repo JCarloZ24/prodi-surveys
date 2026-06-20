@@ -75,6 +75,10 @@ export interface PortalState {
   otp: string;
   survey: SurveyAnswers;
   selfie: boolean;
+  selfieMethod: string;
+  payoutOn: boolean;
+  surveyOnly: boolean;
+  handoffMode: string;
   payout: PayoutDetails;
   newCode: string;
 }
@@ -154,6 +158,10 @@ function initialState(): PortalState {
     otp: "",
     survey: {},
     selfie: false,
+    selfieMethod: "",
+    payoutOn: true,
+    surveyOnly: false,
+    handoffMode: "",
     payout: blankPayout(),
     newCode: "",
   };
@@ -207,7 +215,14 @@ export interface PortalActions {
   setAnswer(id: string, v: string): void;
   toggleMulti(id: string, opt: string): void;
   setMatrix(id: string, row: string, v: string): void;
-  toggleSelfie(): void;
+  takeSelfie(): void;
+  uploadSelfie(): void;
+  setPayoutOn(v: boolean): void;
+  handoffAssisted(): void;
+  handoffSendLink(): void;
+  previewSurveyOnly(): void;
+  handoffDone(): void;
+  copySurveyLink(): void;
   setPayout(k: keyof PayoutDetails, v: string): void;
   setOrg(t: Qual["orgType"]): void;
   setQual(f: keyof Qual, v: string): void;
@@ -271,6 +286,22 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
     const userName = () => USER_NAMES[stateRef.current.role];
     const prependLog = (action: string, target: string, by?: string) =>
       [logEntry(action, target, by || userName()), ...stateRef.current.audit];
+    const resetFlow = (): Partial<PortalState> => ({
+      mode: "portal",
+      rStep: 0,
+      otp: "",
+      survey: {},
+      selfie: false,
+      selfieMethod: "",
+      payoutOn: true,
+      surveyOnly: false,
+      handoffMode: "",
+      referredBy: "",
+      referredCode: "",
+      qual: blankQual(),
+      reg: blankReg(),
+      payout: blankPayout(),
+    });
 
     return {
       setLoginEmail: (v) => set({ loginEmail: v }),
@@ -443,27 +474,46 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
       setEmail: (id) => set({ emailSel: id }),
 
       launchFlow: () =>
-        set({ mode: "flow", rStep: 0, referredBy: "", referredCode: "", qual: blankQual() }),
-      exitFlow: () =>
         set({
-          mode: "portal",
+          mode: "flow",
           rStep: 0,
-          otp: "",
-          survey: {},
-          selfie: false,
           referredBy: "",
           referredCode: "",
           qual: blankQual(),
-          reg: blankReg(),
-          payout: blankPayout(),
+          payoutOn: true,
+          surveyOnly: false,
+          handoffMode: "",
+          selfie: false,
+          selfieMethod: "",
         }),
+      exitFlow: () => set(resetFlow()),
+      // Branching wizard: Welcome(0) → Profile(1) → Register(2) → Verify(3) →
+      // Handoff(4) → Survey(5) → Selfie(6) → Payout(7) → Review(8) → Success(9).
+      // The payout step is skipped when payoutOn is off.
       flowNext: () => {
         const s = stateRef.current;
-        if (s.rStep === 5 && !s.selfie) return;
-        set({ rStep: Math.min(8, s.rStep + 1) });
+        let n = s.rStep;
+        if (n === 6) {
+          if (!s.selfie) return;
+          n = s.payoutOn ? 7 : 8;
+        } else if (n === 8) {
+          n = 9;
+        } else {
+          n = Math.min(9, n + 1);
+        }
+        set({ rStep: n });
       },
-      flowBack: () => set((s) => ({ rStep: Math.max(0, s.rStep - 1) })),
-      verifyOtp: () => set({ rStep: 3 }),
+      flowBack: () => {
+        const s = stateRef.current;
+        let n = s.rStep;
+        if (n === 8) n = s.payoutOn ? 7 : 6;
+        else if (n === 5) n = s.surveyOnly ? 5 : 4;
+        else n = Math.max(0, n - 1);
+        // Survey-only respondents never see steps before the survey.
+        if (s.surveyOnly && n < 5) n = 5;
+        set({ rStep: n });
+      },
+      verifyOtp: () => set({ rStep: 4 }),
       setReg: (k, v) => {
         if (k === "type") set((s) => ({ reg: { ...s.reg, type: v as Respondent["type"] }, rType: v as Respondent["type"] }));
         else set((s) => ({ reg: { ...s.reg, [k]: v } }));
@@ -491,7 +541,34 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
           return { survey: { ...s.survey, [id]: obj } };
         });
       },
-      toggleSelfie: () => set((s) => ({ selfie: !s.selfie })),
+      takeSelfie: () => set({ selfie: true, selfieMethod: "camera" }),
+      uploadSelfie: () => set({ selfie: true, selfieMethod: "upload" }),
+      setPayoutOn: (v) => set({ payoutOn: v }),
+      handoffAssisted: () => set({ rStep: 5, surveyOnly: false, handoffMode: "" }),
+      handoffSendLink: () => {
+        const s = stateRef.current;
+        const who = (s.reg.name || "").trim() || "respondent";
+        set({
+          handoffMode: "link",
+          audit: [logEntry("Survey link sent", "· " + who + " (self-service)", userName()), ...s.audit],
+        });
+      },
+      previewSurveyOnly: () => set({ rStep: 5, surveyOnly: true, handoffMode: "" }),
+      handoffDone: () => {
+        set(resetFlow());
+        toast("Self-service survey link sent");
+      },
+      copySurveyLink: () => {
+        const s = stateRef.current;
+        const link =
+          "surveys.prodigitality.net/s/" + (s.newCode || codeOf(Date.now() % 99999));
+        try {
+          if (navigator.clipboard) navigator.clipboard.writeText("https://" + link);
+        } catch {
+          /* clipboard unavailable */
+        }
+        toast("Survey link copied");
+      },
       setPayout: (k, v) => set((s) => ({ payout: { ...s.payout, [k]: v } })),
 
       setOrg: (t) => {
@@ -518,7 +595,14 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
         const q = s.qual;
         const c = "PS-" + codeOf(s.respondents.length * 13 + 99);
         const cls = classify(q);
-        const surveyType = cls.surveyType || "SME";
+        const surveyType = (cls.surveyType || "SME") as Respondent["type"];
+        const payoutOn = s.payoutOn;
+        const token = payoutOn ? s.incentives[surveyType]?.token ?? 0 : 0;
+        // Survey-only respondents self-served via link; otherwise an enumerator
+        // assisted and is credited as the first enumerator on file.
+        const assisted = !s.surveyOnly;
+        const mode: Respondent["mode"] = assisted ? "Enumerator-assisted" : "Self-service";
+        const enumName = assisted ? s.enumerators[0]?.name ?? "—" : "—";
         const referrer =
           (q.refName && q.refName.trim()) ||
           s.referredBy ||
@@ -533,7 +617,7 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
           id: 9000 + s.respondents.length,
           name: r.name || "New Respondent",
           org,
-          type: surveyType as Respondent["type"],
+          type: surveyType,
           status: "Pending QA",
           region: "NCR",
           position: q.foodRole || "—",
@@ -542,18 +626,22 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
           emailV: true,
           surveyDone: true,
           selfie: true,
+          selfieMethod: s.selfieMethod || "camera",
           verified: false,
-          token: surveyType === "SME" ? 200 : 300,
+          token,
+          payoutOn,
           assignedType: cls.assignedType,
           qualStatus: cls.status,
           hearAbout: q.hearAbout,
           referred: !!referrer,
           referrer,
-          mode: "Self-service",
-          enumerator: "—",
+          mode,
+          enumerator: enumName,
           payStatus: "—",
-          method: s.payout.method,
-          acct: s.payout.method + " •••• " + (s.payout.acctNum || "").slice(-3),
+          method: payoutOn ? s.payout.method : "—",
+          acct: payoutOn
+            ? s.payout.method + " •••• " + (s.payout.acctNum || "").slice(-3)
+            : "No payout",
           compMin: 12,
           bonus: 0,
           flags: cls.flags.slice(),
@@ -564,16 +652,16 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
         };
         // Chained logs: most recent ends up first, matching the prototype.
         const logs: AuditEntry[] = [
-          logEntry("Respondent registered", "· " + rec.name + " (" + cls.assignedType + ")", "Self-service"),
+          logEntry("Respondent registered", "· " + rec.name + " (" + cls.assignedType + ")", mode),
           logEntry("Respondent profile completed", "· " + rec.name + " · " + cls.status, "System"),
-          logEntry("Survey completed", "· " + rec.name, "Self-service"),
+          logEntry("Survey completed", "· " + rec.name, mode),
         ];
         if (cls.flags.length)
           logs.push(logEntry("Submission flagged", "· " + rec.name + " (" + cls.flags[0] + ")", "System"));
         set({
           respondents: [rec, ...s.respondents],
           newCode: c,
-          rStep: 8,
+          rStep: 9,
           audit: [...logs.reverse(), ...s.audit],
         });
       },
@@ -600,6 +688,10 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
           otp: "",
           survey: {},
           selfie: false,
+          selfieMethod: "",
+          payoutOn: true,
+          surveyOnly: false,
+          handoffMode: "",
           qual: blankQual(),
           reg: { ...blankReg(), code: c },
           payout: blankPayout(),

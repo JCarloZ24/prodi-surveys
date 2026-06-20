@@ -133,7 +133,7 @@ export function SurveyStep() {
         })}
       </div>
 
-      <FlowNav nextLabel="Continue to verification" />
+      <FlowNav nextLabel="Continue" hideBack={state.surveyOnly} />
     </div>
   );
 }
