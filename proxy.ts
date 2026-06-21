@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const SESSION_COOKIE = "prodi_portal_session";
 
-// Middleware runs in Edge Runtime (no Node.js crypto).
+// Proxy runs in Edge Runtime (no Node.js crypto).
 // We do a lightweight format check here; the server component (app/portal/page.tsx)
 // performs the full HMAC-SHA256 verification and redirects if the token is invalid.
 function hasCookiePresent(req: NextRequest): boolean {
@@ -12,7 +12,7 @@ function hasCookiePresent(req: NextRequest): boolean {
   return dot > 0 && dot < value.length - 1;
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get("host") ?? "";
 

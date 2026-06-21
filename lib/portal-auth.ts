@@ -93,3 +93,11 @@ export const ROLE_PASSWORDS: Record<Role, string> = {
   enumerator: process.env.ENUMERATOR_PASSWORD ?? "",
   stakeholder: process.env.STAKEHOLDER_PASSWORD ?? "",
 };
+
+// Email → role mapping for email-based sign-in
+export const ROLE_EMAILS: Record<string, Role> = {
+  "admin@prodigitality.net": "admin",
+  "augusto.teleg@prodigitality.net": "admin",
+  "maria.santos@prodigitality.net": "enumerator",
+  "arianne@prodigitality.net": "stakeholder",
+};

@@ -249,6 +249,8 @@ export interface PortalActions {
   setFilterStatus(v: string): void;
   toggleFlagged(): void;
   qaAct(id: number, action: "approve" | "reject" | "follow"): void;
+  approvePayout(id: number): void;
+  holdPayout(id: number): void;
   markPaid(id: number): void;
   doExport(name: string, fmt: string): void;
   setTarget(path: keyof Targets, val: string): void;
@@ -473,6 +475,40 @@ export function PortalProvider({
         }
       },
 
+      approvePayout: (id) => {
+        const s = stateRef.current;
+        const rec = s.respondents.find((r) => r.id === id);
+        set({
+          respondents: s.respondents.map((r) => r.id === id ? { ...r, payStatus: "Approved" } : r),
+          audit: [logEntry("Payout approved", "· " + (rec?.name ?? ""), userName()), ...s.audit],
+        });
+        toast("Payout approved · " + (rec?.name ?? ""));
+        if (rec?.supabaseId) {
+          fetch(`/api/portal/submissions/${rec.supabaseId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pay_status: "approved" }),
+          }).catch(() => toast("Saved locally — DB sync failed"));
+        }
+      },
+
+      holdPayout: (id) => {
+        const s = stateRef.current;
+        const rec = s.respondents.find((r) => r.id === id);
+        set({
+          respondents: s.respondents.map((r) => r.id === id ? { ...r, payStatus: "On Hold" } : r),
+          audit: [logEntry("Payout put on hold", "· " + (rec?.name ?? ""), userName()), ...s.audit],
+        });
+        toast("Payout on hold · " + (rec?.name ?? ""));
+        if (rec?.supabaseId) {
+          fetch(`/api/portal/submissions/${rec.supabaseId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pay_status: "on_hold" }),
+          }).catch(() => toast("Saved locally — DB sync failed"));
+        }
+      },
+
       markPaid: (id) => {
         const s = stateRef.current;
         const dateLabel = new Date().toLocaleDateString("en-PH", { month: "short", day: "numeric" });
@@ -487,8 +523,6 @@ export function PortalProvider({
           audit: [logEntry("Payout marked paid", "· " + (rec?.name ?? ""), userName()), ...s.audit],
         });
         toast("Payout marked paid · " + (rec?.name ?? ""));
-
-        // Persist to Supabase.
         if (rec?.supabaseId) {
           fetch(`/api/portal/submissions/${rec.supabaseId}`, {
             method: "PATCH",

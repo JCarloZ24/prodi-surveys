@@ -102,7 +102,7 @@ export interface FunnelStep {
   pct: number;
 }
 
-export function funnel(all: Respondent[], c: Counts): FunnelStep[] {
+export function funnel(all: Respondent[], c: Counts, totalTarget = 114): FunnelStep[] {
   const profileDone = all.filter((r) => PROFILE_STAGES.includes(r.status as string)).length;
   const flaggedProfile = all.filter(
     (r) =>
@@ -113,7 +113,7 @@ export function funnel(all: Respondent[], c: Counts): FunnelStep[] {
   ).length;
   const qualifiedN = profileDone - flaggedProfile;
   const paidN = all.filter((r) => r.payStatus === "Paid").length;
-  const reg = c.registered || 1;
+  const max = totalTarget || 1;
   return (
     [
       ["Registered", c.registered],
@@ -126,7 +126,7 @@ export function funnel(all: Respondent[], c: Counts): FunnelStep[] {
       ["Verified", c.verified],
       ["Paid", paidN],
     ] as [string, number][]
-  ).map(([label, value]) => ({ label, value, pct: Math.round((value / reg) * 100) }));
+  ).map(([label, value]) => ({ label, value, pct: Math.min(100, Math.round((value / max) * 100)) }));
 }
 
 export interface ReferrerVM {
