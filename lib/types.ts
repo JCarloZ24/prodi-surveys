@@ -143,6 +143,16 @@ export interface PayoutDetails {
   bank: string;
 }
 
+export type TumblerColor = "grey" | "blue" | "black";
+
+export interface ShippingDetails {
+  color: TumblerColor;
+  useMyDetails: boolean;
+  recipientName: string;
+  recipientPhone: string;
+  address: string;
+}
+
 export interface Classification {
   assignedType: string;
   status: string;

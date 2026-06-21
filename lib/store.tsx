@@ -29,6 +29,8 @@ import type {
   Registration,
   Respondent,
   Role,
+  ShippingDetails,
+  TumblerColor,
   Targets,
   ViewKey,
 } from "./types";
@@ -83,6 +85,7 @@ export interface PortalState {
   surveyOnly: boolean;
   handoffMode: string;
   payout: PayoutDetails;
+  shipping: ShippingDetails;
   newCode: string;
   consentTerms: boolean;
   consentPrivacy: boolean;
@@ -110,6 +113,9 @@ function blankReg(): Registration {
 function blankPayout(): PayoutDetails {
   return { method: "GCash", acctName: "", acctNum: "", bank: "" };
 }
+function blankShipping(): ShippingDetails {
+  return { color: "grey" as TumblerColor, useMyDetails: true, recipientName: "", recipientPhone: "", address: "" };
+}
 
 const FLOW_DRAFT_KEY = "prodi-surveys.flowDraft.v1";
 const FLOW_DRAFT_FIELDS = [
@@ -126,6 +132,7 @@ const FLOW_DRAFT_FIELDS = [
   "surveyOnly",
   "handoffMode",
   "payout",
+  "shipping",
   "newCode",
   "consentTerms",
   "consentPrivacy",
@@ -195,6 +202,7 @@ function initialState(): PortalState {
     surveyOnly: false,
     handoffMode: "",
     payout: blankPayout(),
+    shipping: blankShipping(),
     newCode: "",
     consentTerms: false,
     consentPrivacy: false,
@@ -219,6 +227,7 @@ function hydrateDraft(base: PortalState): PortalState {
       qual: { ...blankQual(), ...(draft.qual || {}) },
       survey: draft.survey || {},
       payout: { ...blankPayout(), ...(draft.payout || {}) },
+      shipping: { ...blankShipping(), ...(draft.shipping || {}) },
       otp: "",
     };
   } catch {
@@ -286,6 +295,7 @@ export interface PortalActions {
   handoffDone(): void;
   copySurveyLink(code?: string): void;
   setPayout(k: keyof PayoutDetails, v: string): void;
+  setShipping(k: keyof ShippingDetails, v: string | boolean): void;
   setOrg(t: Qual["orgType"]): void;
   setQual(f: keyof Qual, v: string): void;
   toggleTech(opt: string): void;
@@ -307,8 +317,24 @@ const PortalContext = createContext<PortalContextValue | null>(null);
 // React 18/19 export the hooks under these names; alias for terseness.
 const useCb = useCallback as typeof useCallback;
 
-export function PortalProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<PortalState>(initialState);
+export function PortalProvider({
+  children,
+  initialRespondents,
+  initialRole,
+  initialMode,
+}: {
+  children: React.ReactNode;
+  initialRespondents?: Respondent[];
+  initialRole?: Role;
+  initialMode?: AppMode;
+}) {
+  const [state, setState] = useState<PortalState>(() => {
+    const s = initialState();
+    if (initialRespondents) s.respondents = initialRespondents;
+    if (initialRole) s.role = initialRole;
+    if (initialMode) s.mode = initialMode;
+    return s;
+  });
   // Mirror the latest state into a ref so action handlers (which always run
   // after commit) can read it synchronously, like the prototype's `this.state`.
   const stateRef = useRef(state);
@@ -389,6 +415,7 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
       qual: blankQual(),
       reg: blankReg(),
       payout: blankPayout(),
+      shipping: blankShipping(),
       consentTerms: false,
       consentPrivacy: false,
       consentAt: "",
@@ -591,14 +618,15 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
       },
       exitFlow: () => set(resetFlow()),
       // Branching wizard: Welcome(0) → Profile(1) → Register(2) → Verify(3) →
-      // Handoff(4) → Survey(5) → Selfie(6) → Payout(7) → Review(8) → Success(9).
-      // The payout step is skipped when payoutOn is off.
+      // Handoff(4) → Survey(5) → Selfie(6) → Payout or Shipping(7) → Review(8) → Success(9).
+      // TSI respondents always see step 7 (Shipping/tumbler); others see Payout only when payoutOn.
       flowNext: () => {
         const s = stateRef.current;
         let n = s.rStep;
         if (n === 6) {
           if (!s.selfie) return;
-          n = s.payoutOn ? 7 : 8;
+          const isTSI = s.rType === "TSI";
+          n = isTSI || s.payoutOn ? 7 : 8;
         } else if (n === 8) {
           n = 9;
         } else {
@@ -609,7 +637,8 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
       flowBack: () => {
         const s = stateRef.current;
         let n = s.rStep;
-        if (n === 8) n = s.payoutOn ? 7 : 6;
+        const isTSI = s.rType === "TSI";
+        if (n === 8) n = isTSI || s.payoutOn ? 7 : 6;
         else if (n === 5) n = s.surveyOnly ? 5 : 4;
         else n = Math.max(0, n - 1);
         // Survey-only respondents never see steps before the survey.
@@ -680,6 +709,7 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
         toast("Survey link copied");
       },
       setPayout: (k, v) => set((s) => ({ payout: { ...s.payout, [k]: v } })),
+      setShipping: (k, v) => set((s) => ({ shipping: { ...s.shipping, [k]: v } })),
 
       setOrg: (t) => {
         const map: Record<string, Respondent["type"] | ""> = { gov: "TSI", tech: "AgriTech", food: "SME", other: "" };

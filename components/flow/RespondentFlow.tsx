@@ -26,10 +26,12 @@ export function RespondentFlow() {
 
   // Progress indicator: survey-only respondents only ever see Survey onward,
   // and the Payout pip drops out when no token is offered.
+  const isTSI = state.rType === "TSI";
   const stepDefs: [string, number][] = [];
   if (!state.surveyOnly) stepDefs.push(["Profile", 1], ["Register", 2], ["Verify", 3]);
   stepDefs.push(["Survey", 5], ["Selfie", 6]);
-  if (state.payoutOn) stepDefs.push(["Payout", 7]);
+  if (isTSI) stepDefs.push(["Free Token", 7]);
+  else if (state.payoutOn) stepDefs.push(["Payout", 7]);
   stepDefs.push(["Submit", 8]);
   const showSteps = state.surveyOnly ? step >= 5 && step <= 8 : step >= 1 && step <= 8;
   const activeIdx = stepDefs.findIndex(([, t]) => step === t);
@@ -111,7 +113,7 @@ export function RespondentFlow() {
           {step === 4 && <Handoff />}
           {step === 5 && <SurveyStep />}
           {step === 6 && <Selfie />}
-          {step === 7 && <Payout />}
+          {step === 7 && (isTSI ? <Shipping /> : <Payout />)}
           {step === 8 && <Review />}
           {step === 9 && <Success />}
         </div>
@@ -468,38 +470,50 @@ function Register() {
           hint={!referralError ? referralMessage : ""}
           error={referralError ? referralMessage : ""}
         />
-        <div className="border-t border-[#F2F2F4] pt-4">
-          <div className="flex items-start gap-3">
-            <div className="flex-1">
-              <span className="mb-[3px] block text-[13px] font-bold text-gray-700">
-                Provide a token / payout for this respondent?
+        {state.rType === "TSI" ? (
+          <div className="border-t border-[#F2F2F4] pt-4">
+            <div className="flex items-start gap-2.5 rounded-[9px] border border-brand-pinkLine bg-brand-pinkSoft2 px-3.5 py-3 text-[12.5px] leading-[1.5] text-[#9D174D]">
+              <span className="mt-[1px] flex-none">🎁</span>
+              <span>
+                As a government / TSI organization, your free token is a <b>tumbler giveaway</b>{" "}
+                (shipped to you). You&apos;ll provide your shipping address in the next step.
               </span>
-              <span className="text-[11.5px] leading-[1.45] text-gray-400">
-                Enumerators can choose whether to offer the incentive. If off, no payout step is
-                shown and no token is owed.
-              </span>
-            </div>
-            <div className="flex flex-none gap-0.5 rounded-[9px] bg-gray-100 p-[3px]">
-              {([["Yes", true], ["No", false]] as [string, boolean][]).map(([label, val]) => {
-                const active = state.payoutOn === val;
-                return (
-                  <button
-                    key={label}
-                    onClick={() => actions.setPayoutOn(val)}
-                    className="h-[30px] rounded-[7px] px-[15px] text-[12.5px] font-bold"
-                    style={{
-                      background: active ? "#fff" : "transparent",
-                      color: active ? (val ? "#15803D" : "#B91C1C") : "#71717A",
-                      boxShadow: active ? "0 1px 2px rgba(0,0,0,.12)" : "none",
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="border-t border-[#F2F2F4] pt-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <span className="mb-[3px] block text-[13px] font-bold text-gray-700">
+                  Provide a token / payout for this respondent?
+                </span>
+                <span className="text-[11.5px] leading-[1.45] text-gray-400">
+                  Enumerators can choose whether to offer the incentive. If off, no payout step is
+                  shown and no token is owed.
+                </span>
+              </div>
+              <div className="flex flex-none gap-0.5 rounded-[9px] bg-gray-100 p-[3px]">
+                {([["Yes", true], ["No", false]] as [string, boolean][]).map(([label, val]) => {
+                  const active = state.payoutOn === val;
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => actions.setPayoutOn(val)}
+                      className="h-[30px] rounded-[7px] px-[15px] text-[12.5px] font-bold"
+                      style={{
+                        background: active ? "#fff" : "transparent",
+                        color: active ? (val ? "#15803D" : "#B91C1C") : "#71717A",
+                        boxShadow: active ? "0 1px 2px rgba(0,0,0,.12)" : "none",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <FlowNav nextLabel="Continue" disabled={!canContinue} />
     </div>
@@ -897,6 +911,147 @@ function Selfie() {
   );
 }
 
+const TUMBLER_COLORS: { value: "grey" | "blue" | "black"; label: string; hex: string }[] = [
+  { value: "grey", label: "Light Grey", hex: "#D1D5DB" },
+  { value: "blue", label: "Navy Blue", hex: "#1E3A5F" },
+  { value: "black", label: "Matte Black", hex: "#18181B" },
+];
+
+function Shipping() {
+  const { state, actions } = usePortal();
+  const s = state.shipping;
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
+
+  const effectiveName = s.useMyDetails ? state.reg.name : s.recipientName;
+  const effectivePhone = s.useMyDetails ? state.reg.mobile : s.recipientPhone;
+  const nameOk = effectiveName.trim().length > 0;
+  const phoneOk = effectivePhone.trim().length > 0;
+  const addressOk = s.address.trim().length > 0;
+  const canSubmit = nameOk && phoneOk && addressOk;
+
+  return (
+    <div>
+      <h1 className="mb-1.5 text-[22px] font-extrabold tracking-[-.5px]">Free token — tumbler</h1>
+      <p className="mb-[22px] text-[13.5px] text-gray-500">
+        Government / TSI organizations receive a <b className="text-gray-700">branded tumbler</b> instead
+        of a cash token. Choose your preferred color and provide the shipping address.
+      </p>
+
+      <div className="flex flex-col gap-5 rounded-2xl border border-line bg-white p-[22px]">
+        {/* Color picker */}
+        <div>
+          <span className="mb-2 block text-[12px] font-bold text-gray-700">Tumbler color</span>
+          <div className="grid grid-cols-3 gap-2.5">
+            {TUMBLER_COLORS.map((c) => {
+              const active = s.color === c.value;
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => actions.setShipping("color", c.value)}
+                  className={cx(
+                    "flex flex-col items-center gap-2 rounded-[11px] border-[1.5px] py-3 text-[12px] font-bold transition-colors",
+                    active ? "border-brand-pink bg-brand-pinkSoft text-[#9D174D]" : "border-[#E2E2E6] bg-white text-zinc-500",
+                  )}
+                >
+                  <div
+                    className="h-8 w-8 rounded-full border border-black/10"
+                    style={{ background: c.hex }}
+                  />
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Use my own details toggle */}
+        <div>
+          <span className="mb-2 block text-[12px] font-bold text-gray-700">Recipient</span>
+          <div className="flex items-center gap-0.5 rounded-[9px] bg-gray-100 p-[3px]">
+            {([["Use my details", true], ["Someone else", false]] as [string, boolean][]).map(([label, val]) => {
+              const active = s.useMyDetails === val;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => actions.setShipping("useMyDetails", val)}
+                  className="h-[30px] flex-1 rounded-[7px] px-3 text-[12px] font-bold"
+                  style={{
+                    background: active ? "#fff" : "transparent",
+                    color: active ? "#18181B" : "#71717A",
+                    boxShadow: active ? "0 1px 2px rgba(0,0,0,.12)" : "none",
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {!s.useMyDetails && (
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <Field
+              label="Recipient name"
+              value={s.recipientName}
+              onChange={(v) => actions.setShipping("recipientName", v)}
+              onBlur={() => touch("recipientName")}
+              error={touched.recipientName && !s.recipientName.trim() ? "Required." : ""}
+              placeholder="Full name"
+            />
+            <Field
+              label="Recipient phone"
+              value={s.recipientPhone}
+              onChange={(v) => actions.setShipping("recipientPhone", v)}
+              onBlur={() => touch("recipientPhone")}
+              error={touched.recipientPhone && !s.recipientPhone.trim() ? "Required." : ""}
+              placeholder="09XX XXX XXXX"
+              type="tel"
+              inputMode="tel"
+            />
+          </div>
+        )}
+
+        {s.useMyDetails && (
+          <div className="rounded-[9px] border border-line2 bg-muted px-3.5 py-2.5 text-[12.5px] text-gray-500">
+            <span className="font-semibold text-gray-700">{state.reg.name || "—"}</span>
+            {" · "}
+            {state.reg.mobile || "—"}
+          </div>
+        )}
+
+        {/* Shipping address */}
+        <div>
+          <span className="mb-1.5 block text-[12px] font-bold text-gray-700">Shipping address</span>
+          <textarea
+            rows={3}
+            value={s.address}
+            onChange={(e) => actions.setShipping("address", e.target.value)}
+            onBlur={() => touch("address")}
+            placeholder="Full street address, barangay, city / municipality, province, zip code"
+            className={cx(
+              "w-full rounded-[9px] border px-3.5 py-2.5 text-[13.5px] leading-[1.55] outline-none resize-none",
+              touched.address && !addressOk ? "border-red-400" : "border-[#E2E2E6]",
+            )}
+          />
+          {touched.address && !addressOk && (
+            <span className="mt-1 block text-[11.5px] text-red-500">Please enter the shipping address.</span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-[9px] rounded-[9px] border border-brand-pinkLine bg-brand-pinkSoft2 px-[13px] py-[11px] text-[12px] text-[#9D174D]">
+          <span>📦</span>
+          Tumblers ship within 7–14 business days after your submission is verified.
+        </div>
+      </div>
+
+      <FlowNav nextLabel="Review & submit" disabled={!canSubmit} />
+    </div>
+  );
+}
+
 const PAYOUT_METHODS = ["GCash", "Maya", "Bank transfer", "Other"];
 
 function Payout() {
@@ -1015,7 +1170,16 @@ function Review() {
     ],
     ["Mode", state.surveyOnly ? "Self-service link" : "Enumerator-assisted"],
   ];
-  if (state.payoutOn) {
+  const isTSIpath = state.rType === "TSI";
+  if (isTSIpath) {
+    const colorLabel = { grey: "Light Grey", blue: "Navy Blue", black: "Matte Black" }[state.shipping.color] ?? state.shipping.color;
+    const recipient = state.shipping.useMyDetails ? state.reg.name : state.shipping.recipientName;
+    items.push(
+      ["Free token", "Tumbler giveaway · " + colorLabel],
+      ["Ship to", recipient || "—"],
+      ["Shipping address", state.shipping.address || "—"],
+    );
+  } else if (state.payoutOn) {
     items.push(["Payout method", state.payout.method], ["Token", peso(tok(state.incentives, state.rType))]);
   } else {
     items.push(["Token / payout", "Not offered"]);
@@ -1025,6 +1189,7 @@ function Review() {
     setSubmitting(true);
     setSubmitError("");
     try {
+      const isTSI = state.rType === "TSI";
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1034,7 +1199,8 @@ function Review() {
           survey_type: state.rType,
           answers: state.survey,
           selfie_url: state.selfieUrl || null,
-          payout_details: state.payoutOn ? state.payout : null,
+          payout_details: !isTSI && state.payoutOn ? state.payout : null,
+          shipping_details: isTSI ? state.shipping : null,
           referrer_code: state.reg.code || null,
           consent: {
             terms: state.consentTerms,
