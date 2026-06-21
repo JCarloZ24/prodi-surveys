@@ -70,6 +70,8 @@ export interface Respondent {
   code: string;
   createdDays: number;
   color: string;
+  // Supabase row UUID — present on records fetched from DB, absent on locally-created ones.
+  supabaseId?: string;
   // Added when a respondent is created through the survey flow.
   assignedType?: string;
   qualStatus?: string;

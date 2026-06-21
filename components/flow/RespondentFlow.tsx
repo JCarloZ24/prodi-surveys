@@ -1063,12 +1063,22 @@ function Payout() {
   const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
 
   const nameOk = p.acctName.trim().length > 0;
-  const numOk = p.acctNum.trim().length > 0;
+  const numDigits = p.acctNum.replace(/\D/g, "");
+  const numOk = isEwallet
+    ? numDigits.length === 11 && numDigits.startsWith("09")
+    : p.acctNum.trim().length > 0;
   const bankOk = p.bank.trim().length > 0;
   // Every method needs an account name + number; bank transfer also needs the bank name.
   const canSubmit = (isBank ? bankOk : true) && nameOk && numOk;
   const numLabel = isEwallet ? "Mobile number" : isBank ? "Account number" : "Account / reference number";
   const numPh = isEwallet ? "09XX XXX XXXX" : "Account or reference no.";
+  const numError = touched.acctNum
+    ? !p.acctNum.trim()
+      ? "Required."
+      : isEwallet && !numOk
+        ? "Enter a valid PH mobile number (e.g. 09XX XXX XXXX)."
+        : ""
+    : "";
 
   return (
     <div>
@@ -1123,7 +1133,7 @@ function Payout() {
             value={p.acctNum}
             onChange={(v) => actions.setPayout("acctNum", v)}
             onBlur={() => touch("acctNum")}
-            error={touched.acctNum && !numOk ? "Required." : ""}
+            error={numError}
             type={isEwallet ? "tel" : "text"}
             inputMode={isEwallet ? "tel" : "text"}
             placeholder={numPh}

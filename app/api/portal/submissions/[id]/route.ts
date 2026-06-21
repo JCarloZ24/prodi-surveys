@@ -15,12 +15,27 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const body = await req.json().catch(() => ({})) as { status?: string; pay_status?: string };
-  const updates: Record<string, string> = {};
+  const body = await req.json().catch(() => ({})) as {
+    status?: string;
+    pay_status?: string;
+  };
+  const updates: Record<string, string | null> = {};
 
   const validStatuses = ["submitted", "verified", "rejected", "follow_up"];
   if (body.status && validStatuses.includes(body.status)) {
     updates.status = body.status;
+    // When QA approves, initialise payout_status to pending (if not already set).
+    if (body.status === "verified") {
+      updates.payout_status = "pending";
+    }
+  }
+
+  const validPayStatuses = ["pending", "approved", "paid", "on_hold"];
+  if (body.pay_status && validPayStatuses.includes(body.pay_status)) {
+    updates.payout_status = body.pay_status;
+    if (body.pay_status === "paid") {
+      updates.paid_at = new Date().toISOString();
+    }
   }
 
   if (Object.keys(updates).length === 0) {

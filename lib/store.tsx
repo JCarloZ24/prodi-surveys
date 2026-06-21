@@ -15,7 +15,6 @@ import {
   useState,
 } from "react";
 import { blankQual } from "./classify";
-import { buildData } from "./mockData";
 import { code as codeOf, hash } from "./format";
 import { publicUrl } from "./public-url";
 import type {
@@ -143,8 +142,7 @@ const FLOW_DRAFT_FIELDS = [
 ] as const;
 
 function initialState(): PortalState {
-  const data = buildData();
-  const base: PortalState = {
+  return {
     mode: "login",
     role: "admin",
     view: "dashboard",
@@ -181,8 +179,8 @@ function initialState(): PortalState {
     referredCode: "",
     referralPath: "",
     qual: blankQual(),
-    respondents: data.respondents,
-    audit: data.audit,
+    respondents: [],
+    audit: [],
     selectedId: null,
     search: "",
     filterType: "all",
@@ -208,8 +206,6 @@ function initialState(): PortalState {
     consentPrivacy: false,
     consentAt: "",
   };
-
-  return base;
 }
 
 function hydrateDraft(base: PortalState): PortalState {
@@ -465,15 +461,25 @@ export function PortalProvider({
           audit: [logEntry("QA " + word, "· " + (rec?.name ?? ""), userName()), ...s.audit],
         });
         toast(verb + " · " + (rec?.name ?? ""));
+
+        // Persist to Supabase.
+        if (rec?.supabaseId) {
+          const dbStatus = { approve: "verified", reject: "rejected", follow: "follow_up" }[action];
+          fetch(`/api/portal/submissions/${rec.supabaseId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: dbStatus }),
+          }).catch(() => toast("Saved locally — DB sync failed"));
+        }
       },
 
       markPaid: (id) => {
         const s = stateRef.current;
-        const recs = s.respondents.map((r) => (r.id === id ? { ...r, payStatus: "Paid" } : r));
-        const paid = {
-          ...s.paid,
-          [id]: new Date().toLocaleDateString("en-PH", { month: "short", day: "numeric" }),
-        };
+        const dateLabel = new Date().toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+        const recs = s.respondents.map((r) =>
+          r.id === id ? { ...r, payStatus: "Paid", _paidDate: dateLabel } : r,
+        );
+        const paid = { ...s.paid, [id]: dateLabel };
         const rec = s.respondents.find((r) => r.id === id);
         set({
           respondents: recs,
@@ -481,6 +487,15 @@ export function PortalProvider({
           audit: [logEntry("Payout marked paid", "· " + (rec?.name ?? ""), userName()), ...s.audit],
         });
         toast("Payout marked paid · " + (rec?.name ?? ""));
+
+        // Persist to Supabase.
+        if (rec?.supabaseId) {
+          fetch(`/api/portal/submissions/${rec.supabaseId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pay_status: "paid" }),
+          }).catch(() => toast("Saved locally — DB sync failed"));
+        }
       },
 
       doExport: (name, fmt) => {
