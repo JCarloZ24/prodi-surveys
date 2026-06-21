@@ -102,7 +102,7 @@ export function StaffPortal() {
   const { state, actions } = usePortal();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [surveyHref, setSurveyHref] = useState("https://survey.prodigitalitydata.live");
+  const [surveyHref, setSurveyHref] = useState("https://www.prodigitalitydata.live");
   useEffect(() => {
     if (window.location.hostname === "localhost") setSurveyHref(window.location.origin);
   }, []);

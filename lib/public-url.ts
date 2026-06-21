@@ -1,10 +1,10 @@
 // Base URL for the respondent-facing survey app (survey.prodigitalitydata.live)
 export const PUBLIC_SITE_ORIGIN =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://survey.prodigitalitydata.live";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.prodigitalitydata.live";
 
 // Base URL for the admin portal (admin.prodigitalitydata.live)
 export const PORTAL_ORIGIN =
-  process.env.NEXT_PUBLIC_PORTAL_URL || "https://admin.prodigitalitydata.live";
+  process.env.NEXT_PUBLIC_PORTAL_URL || "https://www.prodigitalitydata.live/portal/login";
 
 export function publicUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : "/" + path;

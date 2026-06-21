@@ -4,7 +4,7 @@
 import type { EmailDef } from "./types";
 
 export function emailDefs(): EmailDef[] {
-  const link = "survey.prodigitalitydata.live";
+  const link = "www.prodigitalitydata.live";
   return [
     {
       id: "verify", audience: "Respondent", name: "Verify your email",
