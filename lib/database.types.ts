@@ -111,6 +111,7 @@ export type Database = {
           answers: Json
           consent: Json | null
           created_at: string | null
+          enumerator_slug: string | null
           id: string
           lead: Json | null
           paid_at: string | null
@@ -128,6 +129,7 @@ export type Database = {
           answers: Json
           consent?: Json | null
           created_at?: string | null
+          enumerator_slug?: string | null
           id?: string
           lead?: Json | null
           paid_at?: string | null
@@ -145,6 +147,7 @@ export type Database = {
           answers?: Json
           consent?: Json | null
           created_at?: string | null
+          enumerator_slug?: string | null
           id?: string
           lead?: Json | null
           paid_at?: string | null
