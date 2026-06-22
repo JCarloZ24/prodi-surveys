@@ -271,6 +271,7 @@ export interface SelfServiceLaunch {
   reg?: Partial<Registration>;
   qual?: Partial<Qual>;
   consent?: { terms?: boolean; privacy?: boolean; accepted_at?: string | null } | null;
+  payoutOn?: boolean;
   submissionId?: string;
   preview?: boolean;
 }
@@ -727,7 +728,7 @@ export function PortalProvider({
       // that same row (one identified row per respondent). Without a row, rType comes
       // from the URL (?t=) and a fresh row is created on submit.
       launchEnumeratorSelfServiceFlow: (slug, opts = {}) => {
-        const { referralCode, rType, reg, qual, consent, submissionId, preview = false } = opts;
+        const { referralCode, rType, reg, qual, consent, payoutOn, submissionId, preview = false } = opts;
         const refC =
           (referralCode || "").trim().toUpperCase() || (reg?.code || "").trim().toUpperCase();
         const sid = submissionId || "";
@@ -744,6 +745,7 @@ export function PortalProvider({
           reg: { ...blankReg(), ...(reg || {}), code: refC },
           qual: { ...blankQual(), ...(qual || {}) },
           ...(rType ? { rType: rType as Respondent["type"] } : {}),
+          ...(typeof payoutOn === "boolean" ? { payoutOn } : {}),
           ...(consent
             ? {
                 consentTerms: !!consent.terms,
@@ -868,10 +870,16 @@ export function PortalProvider({
 
       setOrg: (t) => {
         const map: Record<string, Respondent["type"] | ""> = { gov: "TSI", tech: "AgriTech", food: "SME", other: "" };
-        set((s) => ({
-          qual: { ...s.qual, orgType: t },
-          rType: (map[t] || s.rType) as Respondent["type"],
-        }));
+        set((s) => {
+          // Keep reg.type in lockstep with the survey path (rType) so the stored
+          // registration never disagrees with survey_type.
+          const newType = (map[t] || s.rType) as Respondent["type"];
+          return {
+            qual: { ...s.qual, orgType: t },
+            rType: newType,
+            reg: { ...s.reg, type: newType },
+          };
+        });
       },
       setQual: (f, v) => set((s) => ({ qual: { ...s.qual, [f]: v } })),
       toggleTech: (opt) => {

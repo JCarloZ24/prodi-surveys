@@ -19,6 +19,8 @@ export async function POST(req: NextRequest) {
     "PS-" + code(hash((registration.email || registration.name || "respondent") + Date.now()));
   const savedRegistration = {
     ...registration,
+    // registration.type must always match the survey path it was submitted under.
+    type: survey_type,
     generated_referral_code: generatedReferralCode,
   };
 

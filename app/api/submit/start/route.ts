@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase-server";
 // responses are captured). Service-role: submissions are never exposed to anon.
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { registration, qualification, survey_type, referrer_code, enumerator_slug, consent } = body;
+  const { registration, qualification, survey_type, referrer_code, enumerator_slug, consent, payout_offered } = body;
 
   if (!registration || !qualification || !survey_type) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
       referrer_code: referrer_code || null,
       enumerator_slug: enumerator_slug || null,
       consent: consent || null,
+      payout_offered: typeof payout_offered === "boolean" ? payout_offered : null,
       status: "started",
       is_survey_completed: false,
     })

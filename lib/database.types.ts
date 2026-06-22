@@ -164,6 +164,7 @@ export type Database = {
           lead: Json | null
           paid_at: string | null
           payout_details: Json | null
+          payout_offered: boolean | null
           payout_status: string | null
           qualification: Json
           referrer_code: string | null
@@ -183,6 +184,7 @@ export type Database = {
           lead?: Json | null
           paid_at?: string | null
           payout_details?: Json | null
+          payout_offered?: boolean | null
           payout_status?: string | null
           qualification: Json
           referrer_code?: string | null
@@ -202,6 +204,7 @@ export type Database = {
           lead?: Json | null
           paid_at?: string | null
           payout_details?: Json | null
+          payout_offered?: boolean | null
           payout_status?: string | null
           qualification?: Json
           referrer_code?: string | null

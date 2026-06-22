@@ -527,11 +527,12 @@ function Otp() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          registration: state.reg,
+          registration: { ...state.reg, type: state.rType },
           qualification: state.qual,
           survey_type: state.rType,
           referrer_code: state.reg.code || null,
           enumerator_slug: state.enumeratorSlug || null,
+          payout_offered: state.payoutOn,
           consent: {
             terms: state.consentTerms,
             privacy: state.consentPrivacy,

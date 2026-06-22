@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { SurveyPageClient } from "../SurveyPageClient";
 import { InvalidSurveyLink } from "../InvalidSurveyLink";
+import { AlreadySubmitted } from "../AlreadySubmitted";
 import type { SelfServiceLaunch } from "@/lib/store";
 
 // /s/<enumerator-slug>?referral-code=<code> — the canonical survey link.
@@ -49,23 +50,28 @@ export default async function SurveyPage({
     if (sid) {
       const { data: row } = await db
         .from("submissions")
-        .select("registration, qualification, consent, survey_type, referrer_code, enumerator_slug, is_survey_completed")
+        .select("registration, qualification, consent, survey_type, referrer_code, enumerator_slug, payout_offered, is_survey_completed")
         .eq("id", sid)
         .maybeSingle();
-      if (row && row.enumerator_slug === (enumerator.slug ?? slug) && !row.is_survey_completed) {
+      if (row && row.enumerator_slug === (enumerator.slug ?? slug)) {
+        // Already finished — show a friendly confirmation instead of re-running it.
+        if (row.is_survey_completed) {
+          return <AlreadySubmitted />;
+        }
         prefill = {
           submissionId: sid,
           reg: (row.registration as SelfServiceLaunch["reg"]) ?? undefined,
           qual: (row.qualification as SelfServiceLaunch["qual"]) ?? undefined,
           consent: (row.consent as SelfServiceLaunch["consent"]) ?? undefined,
+          payoutOn: typeof row.payout_offered === "boolean" ? row.payout_offered : undefined,
           rType: row.survey_type ?? rType,
           referralCode: row.referrer_code ?? referralCode,
         };
       }
     }
     // A self-service link is only valid when its sid resolves to this enumerator's
-    // not-yet-completed partial submission. Otherwise (no sid, unknown sid, wrong
-    // enumerator, or already submitted) decline — no identity-less fallback.
+    // not-yet-completed partial submission. Otherwise (no sid, unknown sid, or wrong
+    // enumerator) decline — no identity-less fallback.
     if (!prefill) {
       return <InvalidSurveyLink />;
     }
