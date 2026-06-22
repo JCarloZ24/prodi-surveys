@@ -17,6 +17,11 @@ export default async function SurveyPage({
   const slug = decodeURIComponent(code).trim().toLowerCase();
   const refParam = sp["referral-code"];
   const referralCode = typeof refParam === "string" ? refParam : undefined;
+  // ?self-service=true drops the respondent straight into the survey (skipping
+  // Profile/Register/Verify); ?t= carries the survey type the Profile step would
+  // otherwise determine.
+  const selfService = sp["self-service"] === "true";
+  const rType = typeof sp["t"] === "string" ? (sp["t"] as string) : undefined;
 
   // The survey must be opened from a valid, approved enumerator's link.
   const db = createAdminClient();
@@ -32,5 +37,12 @@ export default async function SurveyPage({
     return <InvalidSurveyLink />;
   }
 
-  return <SurveyPageClient slug={enumerator.slug ?? slug} referralCode={referralCode} />;
+  return (
+    <SurveyPageClient
+      slug={enumerator.slug ?? slug}
+      referralCode={referralCode}
+      selfService={selfService}
+      rType={rType}
+    />
+  );
 }

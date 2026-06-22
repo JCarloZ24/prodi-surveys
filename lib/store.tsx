@@ -294,6 +294,7 @@ export interface PortalActions {
   launchReferralFlow(code: string, preview?: boolean): void;
   launchSurveyOnlyFlow(code: string, preview?: boolean, rType?: string): void;
   launchEnumeratorFlow(slug: string, referralCode?: string, preview?: boolean): void;
+  launchEnumeratorSelfServiceFlow(slug: string, referralCode?: string, rType?: string, preview?: boolean): void;
   exitFlow(): void;
   flowNext(): void;
   flowBack(): void;
@@ -314,7 +315,7 @@ export interface PortalActions {
   handoffSendLink(): void;
   previewSurveyOnly(code?: string, rType?: string): void;
   handoffDone(): void;
-  copySurveyLink(code?: string, rType?: string): void;
+  copySurveyLink(link: string): void;
   handoffReset(): void;
   setPayout(k: keyof PayoutDetails, v: string): void;
   setShipping(k: keyof ShippingDetails, v: string | boolean): void;
@@ -698,6 +699,26 @@ export function PortalProvider({
           ...(refC ? { qual: { ...blankQual(), hearAbout: "Friend or Referral" } } : {}),
         });
       },
+      // Enumerator-attributed self-service link (/s/<slug>?...&self-service=true):
+      // the respondent skips Profile/Register/Verify and starts at the survey, but
+      // the submission is still attributed to the enumerator slug + referral code.
+      // rType comes from the URL (?t=) since the type-determining Profile step is
+      // skipped.
+      launchEnumeratorSelfServiceFlow: (slug, referralCode, rType?, preview = false) => {
+        const refC = (referralCode || "").trim().toUpperCase();
+        const s = stateRef.current;
+        if (s.mode === "flow" && s.surveyOnly && s.enumeratorSlug === slug && s.reg.code === refC) return;
+        set({
+          ...resetFlow(),
+          rStep: 5,
+          surveyOnly: true,
+          enumeratorSlug: slug,
+          handoffMode: preview ? "preview" : "",
+          ...(refC ? { referredBy: "Referral", referredCode: refC } : {}),
+          reg: { ...blankReg(), code: refC },
+          ...(rType ? { rType: rType as Respondent["type"] } : {}),
+        });
+      },
       launchSurveyOnlyFlow: (surveyCode, preview = false, rType?) => {
         const c = surveyCode.trim().toUpperCase();
         const s = stateRef.current;
@@ -799,10 +820,7 @@ export function PortalProvider({
         set(resetFlow());
         toast("Self-service survey link sent");
       },
-      copySurveyLink: (code, rType?) => {
-        const c = (code || "").trim().toUpperCase() || "PS-" + codeOf(Date.now() % 99999);
-        const tParam = rType ? "?t=" + encodeURIComponent(rType) : "";
-        const link = publicUrl("/s/" + encodeURIComponent(c) + tParam);
+      copySurveyLink: (link) => {
         try {
           if (navigator.clipboard) navigator.clipboard.writeText(link);
         } catch {
