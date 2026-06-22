@@ -7,7 +7,7 @@ export async function GET() {
   const db = createAdminClient();
   const { data, error } = await db
     .from("profiles")
-    .select("id, full_name")
+    .select("id, full_name, slug")
     .eq("role", "enumerator")
     .eq("status", "approved")
     .order("full_name", { ascending: true });
