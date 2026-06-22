@@ -6,11 +6,11 @@ import type { Role, ViewKey } from "@/lib/types";
 export const VIEW_KEYS: ViewKey[] = [
   "dashboard",
   "respondents",
-  "referrals",
   "qa",
   "payouts",
   "enumerators",
   "stakeholders",
+  "referrers",
   "reports",
   "emails",
   "audit",
@@ -21,13 +21,12 @@ export const VIEW_KEYS: ViewKey[] = [
 export const ALLOWED_STAKEHOLDER: ViewKey[] = [
   "dashboard",
   "respondents",
-  "referrals",
   "reports",
   "audit",
 ];
 
 // Account-management views only an admin may access.
-export const ADMIN_ONLY: ViewKey[] = ["enumerators", "stakeholders"];
+export const ADMIN_ONLY: ViewKey[] = ["enumerators", "stakeholders", "referrers"];
 
 export function allowedViews(role: Role): ViewKey[] {
   if (role === "stakeholder") return VIEW_KEYS.filter((v) => ALLOWED_STAKEHOLDER.includes(v));

@@ -106,6 +106,53 @@ export type Database = {
           },
         ]
       }
+      referrer: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string | null
+          full_name: string
+          id: string
+          payout_details: Json | null
+          phone: string | null
+          referral_code: string
+          type: Database["public"]["Enums"]["referrer_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          payout_details?: Json | null
+          phone?: string | null
+          referral_code: string
+          type: Database["public"]["Enums"]["referrer_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          payout_details?: Json | null
+          phone?: string | null
+          referral_code?: string
+          type?: Database["public"]["Enums"]["referrer_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrer_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       submissions: {
         Row: {
           answers: Json
@@ -172,6 +219,7 @@ export type Database = {
     }
     Enums: {
       profile_status: "pending" | "approved" | "rejected"
+      referrer_type: "enumerator" | "respondent" | "others"
       user_role: "admin" | "enumerator" | "stakeholder"
     }
     CompositeTypes: {
@@ -301,6 +349,7 @@ export const Constants = {
   public: {
     Enums: {
       profile_status: ["pending", "approved", "rejected"],
+      referrer_type: ["enumerator", "respondent", "others"],
       user_role: ["admin", "enumerator", "stakeholder"],
     },
   },

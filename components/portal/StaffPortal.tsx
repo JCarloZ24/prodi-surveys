@@ -12,15 +12,12 @@ import {
   groups,
   payoutTotals,
   refTiles,
-  referrers,
   tok,
   bon,
   totals,
 } from "@/lib/selectors";
 import {
   avatarColor,
-  code as codeOf,
-  hash,
   initials,
   peso,
 } from "@/lib/format";
@@ -29,6 +26,7 @@ import { cx } from "@/lib/cx";
 import { LogoMark } from "@/lib/icons";
 import { createBrowserSupabase } from "@/lib/supabase-browser";
 import { allowedViews } from "@/lib/portal-views";
+import { ReferrersView } from "@/components/portal/ReferrersView";
 import type { Respondent, Role, ViewKey } from "@/lib/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -87,11 +85,11 @@ function tokenDisplay(type: string, incentives: { TSI: { token: number }; AgriTe
 const NAV: { key: ViewKey; label: string; icon: React.ReactNode }[] = [
   { key: "dashboard",   label: "Dashboard",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> },
   { key: "respondents", label: "Respondents",  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
-  { key: "referrals",   label: "Referrals",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg> },
   { key: "qa",          label: "QA Review",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> },
   { key: "payouts",     label: "Payouts",      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> },
   { key: "enumerators", label: "Enumerators",  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
   { key: "stakeholders", label: "Stakeholders", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg> },
+  { key: "referrers",   label: "Referrers",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> },
   { key: "reports",     label: "Reports / Export", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> },
   { key: "emails",      label: "Emails",        icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
   { key: "audit",       label: "Audit Logs",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="10" y1="17" x2="8" y2="17"/></svg> },
@@ -130,9 +128,9 @@ export function PortalView({ view }: { view: ViewKey }) {
     case "respondents":  return <RespondentsView />;
     case "qa":           return <QaView />;
     case "payouts":      return <PayoutsView />;
-    case "referrals":    return <ReferralsView />;
     case "enumerators":  return <EnumeratorsView />;
     case "stakeholders": return <StakeholdersView />;
+    case "referrers":    return <ReferrersView />;
     case "reports":      return <ReportsView />;
     case "emails":       return <EmailsView />;
     case "audit":        return <AuditView />;
@@ -499,9 +497,6 @@ function Dashboard() {
         <div className="rounded-2xl border border-[#E4E4E7] bg-white p-5">
           <div className="mb-4 flex items-center justify-between">
             <span className="text-[13.5px] font-bold text-[#18181B]">Referrals</span>
-            <button onClick={() => go("referrals")} className="text-[12px] font-semibold text-[#E0195F] hover:underline">
-              View all →
-            </button>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {tiles.map((t) => (
@@ -941,106 +936,6 @@ function PayoutsView() {
                   </tr>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Referrals ────────────────────────────────────────────────────────────────
-
-function ReferralsView() {
-  const { state, actions } = usePortal();
-  const tiles = useMemo(() => refTiles(state.respondents, state.incentives), [state.respondents, state.incentives]);
-  const refs  = useMemo(
-    () => referrers(state.respondents, state.manualReferrers, state.incentives, codeOf, hash, initials),
-    [state.respondents, state.manualReferrers, state.incentives],
-  );
-
-  return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Referral tracking"
-        sub="Bonuses become eligible only after the referred respondent is Verified."
-        action={
-          state.role !== "stakeholder" ? (
-            <button
-              onClick={() => actions.setShowAddRef(!state.showAddRef)}
-              className="flex items-center gap-1.5 rounded-[9px] bg-[#18181B] px-3.5 py-2 text-[12.5px] font-bold text-white"
-            >
-              + Add referrer
-            </button>
-          ) : undefined
-        }
-      />
-
-      {/* Stat tiles */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {tiles.map((t) => (
-          <StatCard key={t.label} label={t.label} value={t.value} />
-        ))}
-      </div>
-
-      {/* Add referrer form */}
-      {state.showAddRef && (
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-[#E4E4E7] bg-[#F7F7F8] p-4">
-          <input
-            value={state.newRefName}
-            onChange={(e) => actions.setNewRefName(e.target.value)}
-            placeholder="Referrer name"
-            className="h-9 flex-1 min-w-[160px] rounded-[9px] border border-[#E4E4E7] bg-white px-3 text-[13px] focus:outline-none focus:border-[#18181B]"
-          />
-          <select
-            value={state.newRefKind}
-            onChange={(e) => actions.setNewRefKind(e.target.value)}
-            className="h-9 rounded-[9px] border border-[#E4E4E7] bg-white px-3 text-[13px] focus:outline-none"
-          >
-            {["Partner / TSI", "LGU", "Media", "Other"].map((k) => <option key={k}>{k}</option>)}
-          </select>
-          <button onClick={actions.addReferrer} className="h-9 rounded-[9px] bg-[#18181B] px-4 text-[13px] font-bold text-white">Add</button>
-        </div>
-      )}
-
-      {/* Table */}
-      <div className="overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white">
-        <div className="border-b border-[#F2F2F4] px-5 py-3.5 text-[13.5px] font-bold text-[#18181B]">
-          Top referrers
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[600px]">
-            <thead>
-              <tr className="border-b border-[#F2F2F4]">
-                {["REFERRER", "CODE", "REFERRED", "VERIFIED", "BONUS ELIGIBLE"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {refs.map((r) => (
-                <tr key={r.name} className="border-b border-[#F5F5F7] last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-[11px] font-extrabold text-white" style={{ background: r.avatarBg }}>
-                        {r.initials}
-                      </div>
-                      <div>
-                        <div className="text-[13px] font-bold text-[#18181B]">{r.name}</div>
-                        <div className="text-[11.5px] text-gray-400">{r.kind}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-[12px] font-semibold text-gray-600">{r.code}</td>
-                  <td className="px-4 py-3 text-[13px] font-semibold text-gray-700">{r.referred}</td>
-                  <td className="px-4 py-3">
-                    <span className={cx("text-[13px] font-bold", r.verified > 0 ? "text-emerald-700" : "text-gray-400")}>
-                      {r.verified}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-[13px] font-semibold text-gray-700">{r.bonusLabel}</td>
-                </tr>
-              ))}
             </tbody>
           </table>
         </div>

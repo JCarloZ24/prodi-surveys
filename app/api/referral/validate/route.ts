@@ -19,6 +19,9 @@ export async function POST(req: NextRequest) {
     }
 
     const db = createAdminClient();
+
+    // A code is valid if it matches a respondent's generated code OR an
+    // admin-managed referrer's code.
     const { data, error } = await db
       .from("submissions")
       .select("id")
@@ -30,8 +33,21 @@ export async function POST(req: NextRequest) {
       console.error("Referral validation error:", error);
       return NextResponse.json({ error: "Referral validation failed" }, { status: 500 });
     }
+    if (data) return NextResponse.json({ valid: true });
 
-    return NextResponse.json({ valid: !!data });
+    const { data: ref, error: refError } = await db
+      .from("referrer")
+      .select("id")
+      .eq("referral_code", normalized)
+      .limit(1)
+      .maybeSingle();
+
+    if (refError) {
+      console.error("Referral validation error:", refError);
+      return NextResponse.json({ error: "Referral validation failed" }, { status: 500 });
+    }
+
+    return NextResponse.json({ valid: !!ref });
   } catch (error) {
     console.error("Referral validation error:", error);
     return NextResponse.json({ error: "Referral validation failed" }, { status: 500 });
