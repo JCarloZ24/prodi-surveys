@@ -4,8 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthShell, authInputClass, authButtonClass } from "@/components/portal/AuthShell";
 
-export function VerifyEmailForm({ email }: { email: string }) {
-  const router = useRouter();
+// Inner OTP UI + logic, without the AuthShell wrapper. Reused by the standalone
+// verify-email page and by the signup wizard's final step.
+export function VerifyEmailFields({
+  email,
+  onVerified,
+}: {
+  email: string;
+  onVerified: () => void;
+}) {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -28,8 +35,7 @@ export function VerifyEmailForm({ email }: { email: string }) {
         setError(data.error ?? "Verification failed");
         return;
       }
-      router.push("/portal/pending");
-      router.refresh();
+      onVerified();
     } catch {
       setError("Network error — please try again.");
     } finally {
@@ -57,7 +63,7 @@ export function VerifyEmailForm({ email }: { email: string }) {
   };
 
   return (
-    <AuthShell>
+    <>
       <div className="mb-7">
         <h2 className="text-[26px] font-extrabold tracking-[-0.6px] text-[#18181B]">Verify your email</h2>
         <p className="mt-1.5 text-[13.5px] text-gray-500">
@@ -106,6 +112,23 @@ export function VerifyEmailForm({ email }: { email: string }) {
           {resending ? "Sending…" : "Resend"}
         </button>
       </p>
+    </>
+  );
+}
+
+// Standalone page version: wraps the fields in the auth shell and routes to the
+// pending page on success. Used by app/portal/verify-email for returning users.
+export function VerifyEmailForm({ email }: { email: string }) {
+  const router = useRouter();
+  return (
+    <AuthShell>
+      <VerifyEmailFields
+        email={email}
+        onVerified={() => {
+          router.push("/portal/pending");
+          router.refresh();
+        }}
+      />
     </AuthShell>
   );
 }
