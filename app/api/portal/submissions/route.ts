@@ -13,6 +13,7 @@ export async function GET() {
   const { data, error } = await db
     .from("submissions")
     .select("*")
+    .neq("survey_type", "lead")
     .order("created_at", { ascending: false });
 
   if (error) {

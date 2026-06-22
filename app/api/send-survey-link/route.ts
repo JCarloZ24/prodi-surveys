@@ -10,7 +10,7 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
-function renderSurveyLinkEmail(name: string, surveyLink: string) {
+function renderSurveyLinkEmail(name: string, surveyLink: string, sendId: string) {
   const safeName = escapeHtml(name);
   const safeLink = escapeHtml(surveyLink);
   const accent = "#E0195F";
@@ -25,7 +25,7 @@ function renderSurveyLinkEmail(name: string, surveyLink: string) {
   <title>Your Prodigitality Survey Link</title>
 </head>
 <body style="margin:0;padding:0;background:#F0F0F3;font-family:Inter,-apple-system,BlinkMacSystemFont,Arial,sans-serif;color:#18181B">
-  <div style="display:none;max-height:0;overflow:hidden;color:transparent;opacity:0">Your personalized survey link is ready — it takes about 5–10 minutes.</div>
+  <div style="display:none;max-height:0;overflow:hidden;color:transparent;opacity:0">Your personalized survey link is ready — it takes about 5–10 minutes. ${sendId}</div>
   <div style="padding:32px 16px">
     <div style="margin:0 auto;max-width:540px;overflow:hidden;border-radius:18px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08)">
       <div style="height:5px;background:${accent}"></div>
@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
     }
 
     const safeName = (name || "there").trim();
+    const sendId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     await createTransporter().sendMail({
       from: FROM_ADDRESS,
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
         "",
         "Prodigitality · prodigitalitydata.live",
       ].join("\n"),
-      html: renderSurveyLinkEmail(safeName, surveyLink),
+      html: renderSurveyLinkEmail(safeName, surveyLink, sendId),
       attachments: [LOGO_ATTACHMENT],
     });
 

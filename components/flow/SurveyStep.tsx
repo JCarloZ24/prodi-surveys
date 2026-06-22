@@ -6,6 +6,7 @@ import { surveyDef } from "@/lib/survey";
 import { typePillClass, typeShort } from "@/lib/format";
 import type { SurveyQuestion } from "@/lib/types";
 import { RadioOption, MultiOption } from "./Options";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 // A question counts as answered when it has a value. For a matrix, every row
 // must have a selection (each row offers a "Not applicable" escape).
@@ -223,18 +224,11 @@ export function SurveyStep() {
               )}
 
               {q.kind === "select" && (
-                <select
+                <CustomSelect
                   value={typeof cur === "string" ? cur : ""}
-                  onChange={(e) => actions.setAnswer(id, e.target.value)}
-                  className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] bg-white px-2.5 text-[13.5px] outline-none"
-                >
-                  <option value="">Select…</option>
-                  {(q.opts || []).map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => actions.setAnswer(id, v)}
+                  options={q.opts || []}
+                />
               )}
 
               {q.kind === "number" && (
@@ -265,18 +259,12 @@ export function SurveyStep() {
                         <span className="w-[104px] flex-none text-[12.5px] font-semibold leading-[1.3] text-gray-700 sm:w-[140px]">
                           {row}
                         </span>
-                        <select
+                        <CustomSelect
                           value={(obj as Record<string, string>)[row] || ""}
-                          onChange={(e) => actions.setMatrix(id, row, e.target.value)}
-                          className="h-10 flex-1 rounded-[9px] border border-[#E2E2E6] bg-white px-2.5 text-[13px] outline-none"
-                        >
-                          <option value="">Select…</option>
-                          {(q.scale || []).map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(v) => actions.setMatrix(id, row, v)}
+                          options={q.scale || []}
+                          compact
+                        />
                       </div>
                     );
                   })}

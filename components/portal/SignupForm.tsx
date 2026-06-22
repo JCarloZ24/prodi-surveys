@@ -23,10 +23,28 @@ const PAYOUT_METHODS = ["GCash", "Maya", "Bank transfer", "Other"];
 type StepKey = "details" | "payout" | "slug" | "verify";
 type SlugStatus = "idle" | "checking" | "available" | "taken";
 
+function passwordStrength(pw: string): { bars: number; label: string; color: string; hint: string } {
+  if (pw.length === 0) return { bars: 0, label: "", color: "", hint: "" };
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[a-z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  if (score <= 2) return { bars: 1, label: "Weak", color: "#EF4444", hint: "add uppercase, numbers, or symbols" };
+  if (score <= 4) return { bars: 2, label: "Fair", color: "#F59E0B", hint: "add symbols or make it longer" };
+  return { bars: 3, label: "Strong", color: "#10B981", hint: "" };
+}
+
 function payoutError(p: PayoutDetails): string | null {
   if (!PAYOUT_METHODS.includes(p.method)) return "Choose a payout method";
   if (!p.acctName.trim()) return "Account name is required";
   if (!p.acctNum.trim()) return "Account / mobile number is required";
+  if ((p.method === "GCash" || p.method === "Maya")) {
+    const digits = p.acctNum.replace(/\D/g, "");
+    if (digits.length !== 11 || !digits.startsWith("09")) return "Enter a valid 11-digit mobile number starting with 09";
+  }
   if (p.method === "Bank transfer" && !p.bank.trim()) return "Bank name is required";
   return null;
 }
@@ -66,7 +84,31 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [mobileTouched, setMobileTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [payoutNumTouched, setPayoutNumTouched] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const mobileDigits = mobile.replace(/\D/g, "");
+  const mobileValid = mobileDigits.length === 11 && mobileDigits.startsWith("09");
+  const mobileError = mobileTouched && mobile.length > 0 && !mobileValid
+    ? mobileDigits.length < 11
+      ? `${mobileDigits.length}/11 digits — must be 11 digits starting with 09`
+      : "Must start with 09"
+    : "";
+
+  const isMobileMethod = payout.method === "GCash" || payout.method === "Maya";
+  const payoutNumDigits = payout.acctNum.replace(/\D/g, "");
+  const payoutNumValid = !isMobileMethod || (payoutNumDigits.length === 11 && payoutNumDigits.startsWith("09"));
+  const payoutNumError = isMobileMethod && payoutNumTouched && payout.acctNum.length > 0 && !payoutNumValid
+    ? payoutNumDigits.length < 11
+      ? `${payoutNumDigits.length}/11 digits — must be 11 digits starting with 09`
+      : "Must start with 09"
+    : "";
+
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
+  const pwStrength = passwordStrength(password);
   const suggestions = useMemo(() => slugSuggestions(fullName), [fullName]);
 
   const slugTrimmed = slug.toLowerCase().trim();
@@ -101,7 +143,7 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
   }, [slugTrimmed, slugFormatValid, current]);
 
   const detailsValid =
-    !!fullName && !!email && !!mobile && password.length >= 8 && password === confirmPassword;
+    !!fullName && !!email && mobileValid && password.length >= 8 && password === confirmPassword;
   const payoutValid = payoutError(payout) === null;
 
   const continueDisabled =
@@ -243,14 +285,37 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
                   />
                 </Field>
                 <Field label="Mobile number">
-                  <input
-                    type="tel"
-                    value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    placeholder="09XX XXX XXXX"
-                    autoComplete="tel"
-                    className={authInputClass}
-                  />
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      value={mobile}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                        setMobile(digits);
+                      }}
+                      onBlur={() => setMobileTouched(true)}
+                      placeholder="09XX XXX XXXX"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      className={cx(
+                        authInputClass,
+                        "pr-14",
+                        mobileError ? "border-red-300 bg-red-50" : mobileTouched && mobileValid ? "border-emerald-300 bg-emerald-50" : "",
+                      )}
+                    />
+                    <span className={cx(
+                      "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11.5px] font-semibold tabular-nums",
+                      mobileError ? "text-red-400" : mobileValid ? "text-emerald-500" : "text-gray-300",
+                    )}>
+                      {mobileDigits.length}/11
+                    </span>
+                  </div>
+                  {mobileError && (
+                    <p className="mt-1 text-[12px] font-semibold text-red-600">{mobileError}</p>
+                  )}
+                  {mobileTouched && mobileValid && (
+                    <p className="mt-1 text-[12px] font-semibold text-emerald-600">✓ Valid mobile number</p>
+                  )}
                 </Field>
                 {extraField && (
                   <Field label={extraField.label}>
@@ -264,24 +329,67 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
                   </Field>
                 )}
                 <Field label="Password">
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="At least 8 characters"
-                    autoComplete="new-password"
-                    className={authInputClass}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setPasswordTouched(true); }}
+                      placeholder="At least 8 characters"
+                      autoComplete="new-password"
+                      className={cx(authInputClass, "pr-10")}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      tabIndex={-1}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff /> : <Eye />}
+                    </button>
+                  </div>
+                  {passwordTouched && password.length > 0 && (
+                    <div className="mt-2">
+                      <div className="flex gap-1">
+                        {[0, 1, 2].map((i) => (
+                          <div
+                            key={i}
+                            className="h-1 flex-1 rounded-full transition-all duration-200"
+                            style={{
+                              background: i < pwStrength.bars
+                                ? pwStrength.color
+                                : "#E4E4E7",
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <p className="mt-1 text-[12px] font-semibold" style={{ color: pwStrength.color }}>
+                        {pwStrength.label}
+                        {pwStrength.hint ? <span className="ml-1 font-normal text-gray-400">— {pwStrength.hint}</span> : null}
+                      </p>
+                    </div>
+                  )}
                 </Field>
                 <Field label="Confirm password">
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Re-enter your password"
-                    autoComplete="new-password"
-                    className={cx(authInputClass, passwordsMismatch && "border-red-300 bg-red-50")}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showConfirm ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter your password"
+                      autoComplete="new-password"
+                      className={cx(authInputClass, "pr-10", passwordsMismatch && "border-red-300 bg-red-50")}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      tabIndex={-1}
+                      aria-label={showConfirm ? "Hide password" : "Show password"}
+                    >
+                      {showConfirm ? <EyeOff /> : <Eye />}
+                    </button>
+                  </div>
                   {passwordsMismatch && (
                     <p className="mt-1 text-[12px] font-semibold text-red-600">Passwords do not match.</p>
                   )}
@@ -301,7 +409,7 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
                       <button
                         key={m}
                         type="button"
-                        onClick={() => setPayout((p) => ({ ...p, method: m }))}
+                        onClick={() => { setPayout((p) => ({ ...p, method: m, acctNum: "" })); setPayoutNumTouched(false); }}
                         className={cx(
                           "rounded-[9px] border px-3.5 py-2 text-[12.5px] font-semibold transition-colors",
                           payout.method === m
@@ -324,13 +432,40 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
                   />
                 </Field>
                 <Field label={numberLabel}>
-                  <input
-                    type="text"
-                    value={payout.acctNum}
-                    onChange={(e) => setPayout((p) => ({ ...p, acctNum: e.target.value }))}
-                    placeholder={payout.method === "Bank transfer" ? "Account number" : "09XX XXX XXXX"}
-                    className={authInputClass}
-                  />
+                  <div className="relative">
+                    <input
+                      type={isMobileMethod ? "tel" : "text"}
+                      inputMode={isMobileMethod ? "numeric" : undefined}
+                      value={payout.acctNum}
+                      onChange={(e) => {
+                        const val = isMobileMethod
+                          ? e.target.value.replace(/\D/g, "").slice(0, 11)
+                          : e.target.value;
+                        setPayout((p) => ({ ...p, acctNum: val }));
+                      }}
+                      onBlur={() => setPayoutNumTouched(true)}
+                      placeholder={payout.method === "Bank transfer" ? "Account number" : "09XX XXX XXXX"}
+                      className={cx(
+                        authInputClass,
+                        isMobileMethod && "pr-14",
+                        payoutNumError ? "border-red-300 bg-red-50" : payoutNumTouched && payoutNumValid && isMobileMethod ? "border-emerald-300 bg-emerald-50" : "",
+                      )}
+                    />
+                    {isMobileMethod && (
+                      <span className={cx(
+                        "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11.5px] font-semibold tabular-nums",
+                        payoutNumError ? "text-red-400" : payoutNumValid ? "text-emerald-500" : "text-gray-300",
+                      )}>
+                        {payoutNumDigits.length}/11
+                      </span>
+                    )}
+                  </div>
+                  {payoutNumError && (
+                    <p className="mt-1 text-[12px] font-semibold text-red-600">{payoutNumError}</p>
+                  )}
+                  {isMobileMethod && payoutNumTouched && payoutNumValid && (
+                    <p className="mt-1 text-[12px] font-semibold text-emerald-600">✓ Valid mobile number</p>
+                  )}
                 </Field>
                 {payout.method === "Bank transfer" && (
                   <Field label="Bank name">
@@ -460,5 +595,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="mb-1.5 block text-[12.5px] font-semibold text-gray-600">{label}</label>
       {children}
     </div>
+  );
+}
+
+function Eye() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  );
+}
+
+function EyeOff() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
+    </svg>
   );
 }

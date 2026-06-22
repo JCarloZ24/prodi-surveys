@@ -1305,7 +1305,7 @@ function Shipping() {
 
         {/* Shipping address */}
         <div>
-          <span className="mb-1.5 block text-[12px] font-bold text-gray-700">Shipping address</span>
+          <span className="mb-1.5 block text-[12px] font-bold text-gray-700">Shipping address <span className="text-brand-pink">*</span></span>
           <textarea
             rows={3}
             value={s.address}
@@ -1328,7 +1328,11 @@ function Shipping() {
         </div>
       </div>
 
-      <FlowNav nextLabel="Review & submit" disabled={!canSubmit} />
+      <FlowNav
+        nextLabel="Review & submit"
+        disabled={!canSubmit}
+        onDisabledClick={() => setTouched({ address: true, recipientName: true, recipientPhone: true })}
+      />
     </div>
   );
 }

@@ -138,6 +138,7 @@ export interface Registration {
   region: string;
   type: RespondentType;
   code: string;
+  enumerator?: string;
 }
 
 export interface PayoutDetails {

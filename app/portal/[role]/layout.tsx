@@ -28,6 +28,7 @@ export default async function PortalRoleLayout({
     const { data } = await db
       .from("submissions")
       .select("*")
+      .neq("survey_type", "lead")
       .order("created_at", { ascending: false });
     respondents = (data ?? []).map((row, i) =>
       rowToRespondent(row as Record<string, unknown>, i),

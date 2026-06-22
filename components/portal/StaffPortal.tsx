@@ -1587,6 +1587,8 @@ function renderDynamic(text: string, vars: Record<string, string>, accent: strin
   );
 }
 
+const LIVE_EMAIL_IDS = new Set(["verify", "invite", "verified", "rejected"]);
+
 function EmailsView() {
   const { state, actions } = usePortal();
   const defs = useMemo(() => emailDefs(), []);
@@ -1639,8 +1641,15 @@ function EmailsView() {
                         : "hover:bg-[#F7F7F8]",
                     )}
                   >
-                    <div className={cx("text-[12.5px] font-semibold", state.emailSel === d.id ? "text-[#18181B]" : "text-gray-700")}>
-                      {d.name}
+                    <div className="flex items-center gap-1.5">
+                      <span className={cx("flex-1 text-[12.5px] font-semibold", state.emailSel === d.id ? "text-[#18181B]" : "text-gray-700")}>
+                        {d.name}
+                      </span>
+                      {LIVE_EMAIL_IDS.has(d.id) && (
+                        <span className="flex-none rounded-full bg-[#DCFCE7] px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-[#15803D]">
+                          Live
+                        </span>
+                      )}
                     </div>
                   </button>
                 ))}
@@ -1661,7 +1670,14 @@ function EmailsView() {
                 >
                   {sel.audience}
                 </span>
-                <span className="text-[11.5px] text-gray-400">— sent on this trigger</span>
+                {LIVE_EMAIL_IDS.has(sel.id) ? (
+                  <span className="flex items-center gap-1 rounded-full border border-[#BBF7D0] bg-[#DCFCE7] px-2 py-0.5 text-[10.5px] font-bold text-[#15803D]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E]" />
+                    Live — auto-sent by the system
+                  </span>
+                ) : (
+                  <span className="text-[11.5px] text-gray-400">Preview only — not yet wired</span>
+                )}
               </div>
               <div className="text-[15px] font-bold text-[#18181B]">{sel.subject}</div>
               <div className="mt-2 space-y-0.5">

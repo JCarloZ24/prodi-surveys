@@ -6,11 +6,13 @@ import { usePortal } from "@/lib/store";
 export function FlowNav({
   nextLabel = "Continue",
   onNext,
+  onDisabledClick,
   disabled = false,
   hideBack = false,
 }: {
   nextLabel?: string;
   onNext?: () => void;
+  onDisabledClick?: () => void;
   disabled?: boolean;
   hideBack?: boolean;
 }) {
@@ -26,12 +28,12 @@ export function FlowNav({
         </button>
       )}
       <button
-        onClick={onNext || actions.flowNext}
-        disabled={disabled}
+        onClick={disabled ? onDisabledClick : (onNext || actions.flowNext)}
+        disabled={disabled && !onDisabledClick}
         className="h-[46px] flex-1 rounded-[11px] text-sm font-bold text-white"
         style={{
           background: disabled ? "#D4D4D8" : "#18181B",
-          cursor: disabled ? "not-allowed" : "pointer",
+          cursor: disabled ? (onDisabledClick ? "pointer" : "not-allowed") : "pointer",
         }}
       >
         {nextLabel}

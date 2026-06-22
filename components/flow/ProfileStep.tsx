@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePortal } from "@/lib/store";
 import { RadioOption, MultiOption } from "./Options";
 import { cx } from "@/lib/cx";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 import type { Qual } from "@/lib/types";
 
 const ORG_CARDS: { key: Qual["orgType"]; icon: string; title: string; ex: string; help: string }[] = [
@@ -245,16 +246,11 @@ export function ProfileStep() {
         <Branch>
           <div>
             <FieldLabel>Which organization do you work for?<Req /></FieldLabel>
-            <select
+            <CustomSelect
               value={q.govOrg}
-              onChange={(e) => actions.setQual("govOrg", e.target.value)}
-              className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] bg-white px-2.5 text-[13.5px] outline-none"
-            >
-              <option value="">Select…</option>
-              {GOV_ORGS.map((o) => (
-                <option key={o} value={o}>{o}</option>
-              ))}
-            </select>
+              onChange={(v) => actions.setQual("govOrg", v)}
+              options={GOV_ORGS}
+            />
           </div>
           <div>
             <FieldLabel>What department, office, or unit are you part of?<Req /></FieldLabel>
@@ -353,33 +349,24 @@ export function ProfileStep() {
         <Branch>
           <div>
             <FieldLabel>How did you hear about this survey?<Req /></FieldLabel>
-            <select
+            <CustomSelect
               value={q.hearAbout}
-              onChange={(e) => {
-                actions.setQual("hearAbout", e.target.value);
+              onChange={(v) => {
+                actions.setQual("hearAbout", v);
                 actions.setQual("refName", "");
               }}
-              className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] bg-white px-2.5 text-[13.5px] outline-none"
-            >
-              <option value="">Select…</option>
-              {HEAR_ABOUT.map((o) => (
-                <option key={o} value={o}>{o}</option>
-              ))}
-            </select>
+              options={HEAR_ABOUT}
+            />
           </div>
           {q.hearAbout === "Friend or Referral" && (
             <div>
               <FieldLabel>Referrer</FieldLabel>
-              <select
+              <CustomSelect
                 value={q.refName}
-                onChange={(e) => actions.setQual("refName", e.target.value)}
-                className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] bg-white px-2.5 text-[13.5px] outline-none"
-              >
-                <option value="">Select a referrer…</option>
-                {state.manualReferrers.map((r) => (
-                  <option key={r.name} value={r.name}>{r.name}</option>
-                ))}
-              </select>
+                onChange={(v) => actions.setQual("refName", v)}
+                options={state.manualReferrers.map((r) => r.name)}
+                placeholder="Select a referrer…"
+              />
             </div>
           )}
           {q.hearAbout === "Other" && (
