@@ -16,12 +16,11 @@ export const LOGO_ATTACHMENT = {
 export const FROM_ADDRESS =
   process.env.SMTP_FROM || "Prodi-Surveys <no-reply@prodigitality.net>";
 
-// Headers that signal good email hygiene to spam filters.
-// List-Unsubscribe + One-Click satisfies Gmail's bulk-sender requirements and
-// prevents "Report as spam" being the only opt-out visible to the user.
+// Headers for transactional emails (OTP, survey links).
+// Do NOT include List-Unsubscribe — that header tells Gmail the email is a
+// mailing list / marketing campaign and triggers the Promotions tab.
+// DKIM signing (wired in createTransporter) is the correct deliverability lever.
 export const TRANSACTIONAL_HEADERS = {
-  "List-Unsubscribe": "<mailto:no-reply@prodigitality.net?subject=unsubscribe>",
-  "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
   "X-Mailer": "Prodi-Surveys",
 };
 

@@ -25,7 +25,7 @@ function escapeHtml(value: string) {
 function renderOtpEmail(code: string, email: string) {
   const safeCode = escapeHtml(code);
   const safeEmail = escapeHtml(email);
-  const accent = "#E0195F";
+  const accent = "#4F46E5";
 
   const logoImg = `<img src="cid:logomark" width="28" height="28" alt="P" style="display:inline-block;vertical-align:middle;border:0"/>`;
 
