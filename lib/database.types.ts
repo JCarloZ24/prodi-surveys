@@ -41,13 +41,69 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          is_email_verified: boolean
+          rejected_reason: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          slug: string | null
+          status: Database["public"]["Enums"]["profile_status"]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          is_email_verified?: boolean
+          rejected_reason?: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          slug?: string | null
+          status?: Database["public"]["Enums"]["profile_status"]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          is_email_verified?: boolean
+          rejected_reason?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          slug?: string | null
+          status?: Database["public"]["Enums"]["profile_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       submissions: {
         Row: {
           answers: Json
           consent: Json | null
           created_at: string | null
           id: string
+          lead: Json | null
+          paid_at: string | null
           payout_details: Json | null
+          payout_status: string | null
           qualification: Json
           referrer_code: string | null
           registration: Json
@@ -61,7 +117,10 @@ export type Database = {
           consent?: Json | null
           created_at?: string | null
           id?: string
+          lead?: Json | null
+          paid_at?: string | null
           payout_details?: Json | null
+          payout_status?: string | null
           qualification: Json
           referrer_code?: string | null
           registration: Json
@@ -75,7 +134,10 @@ export type Database = {
           consent?: Json | null
           created_at?: string | null
           id?: string
+          lead?: Json | null
+          paid_at?: string | null
           payout_details?: Json | null
+          payout_status?: string | null
           qualification?: Json
           referrer_code?: string | null
           registration?: Json
@@ -94,7 +156,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      profile_status: "pending" | "approved" | "rejected"
+      user_role: "admin" | "enumerator" | "stakeholder"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -221,6 +284,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      profile_status: ["pending", "approved", "rejected"],
+      user_role: ["admin", "enumerator", "stakeholder"],
+    },
   },
 } as const
