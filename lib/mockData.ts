@@ -127,7 +127,7 @@ export function buildData(): MockData {
     return {
       id: recId, name, org, type, status, region, position, email, mobile,
       emailV, surveyDone, selfie, verified, token, bonus, referred,
-      referrer: ref, mode, enumerator: enumr, payStatus, method, acct, compMin,
+      referrer: ref, referredBy: null, mode, enumerator: enumr, payStatus, method, acct, compMin,
       flags: opts.flags || [], code: recCode, createdDays: days,
       color: avatarColor(name),
     };

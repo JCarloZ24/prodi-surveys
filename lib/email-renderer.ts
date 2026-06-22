@@ -55,6 +55,7 @@ export function renderEmailHtml(def: EmailDef, vars: Record<string, string>): st
         const rows = (block.rows ?? [])
           .map(([label, value]) => {
             const v = interpolate(value, vars);
+            if (!v) return "";
             const labelVal = esc(label);
             const valueVal = esc(v);
             return `<tr>

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireApproved } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase-server";
-import { rowToRespondent } from "@/lib/submission-mapper";
+import { rowsToRespondents } from "@/lib/submission-mapper";
 import { PortalShell } from "@/components/portal/StaffPortal";
 import { defaultView, isRole } from "@/lib/portal-views";
 import type { Respondent } from "@/lib/types";
@@ -30,8 +30,8 @@ export default async function PortalRoleLayout({
       .select("*")
       .neq("survey_type", "lead")
       .order("created_at", { ascending: false });
-    respondents = (data ?? []).map((row, i) =>
-      rowToRespondent(row as Record<string, unknown>, i),
+    respondents = rowsToRespondents(
+      (data ?? []).map((row) => row as Record<string, unknown>),
     );
   } catch {
     // DB unavailable — portal loads with an empty respondent list.

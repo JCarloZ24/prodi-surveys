@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase-server";
-import { rowToRespondent } from "@/lib/submission-mapper";
+import { rowsToRespondents } from "@/lib/submission-mapper";
 
 export async function GET() {
   const me = await getProfile();
@@ -20,8 +20,8 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const respondents = (data ?? []).map((row, i) =>
-    rowToRespondent(row as Record<string, unknown>, i)
+  const respondents = rowsToRespondents(
+    (data ?? []).map((row) => row as Record<string, unknown>),
   );
 
   return NextResponse.json({ respondents });

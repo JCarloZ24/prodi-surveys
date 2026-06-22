@@ -636,7 +636,7 @@ function RespondentsView() {
             <table className="w-full min-w-[860px]">
               <thead>
                 <tr className="border-b border-[#F2F2F4]">
-                  {["RESPONDENT", "TYPE", "REGION", "MODE", "ENUMERATOR", "STATUS", "PAY STATUS", "FLAGS", "TOKEN"].map((h) => (
+                  {["RESPONDENT", "TYPE", "REGION", "MODE", "ENUMERATOR", "REFERRED BY", "PROFILE STATUS", "PAY STATUS", "FLAGS", "TOKEN"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{h}</th>
                   ))}
                 </tr>
@@ -672,6 +672,7 @@ function RespondentsView() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.enumerator || "—"}</td>
+                    <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.referredBy || "—"}</td>
                     <td className="px-4 py-3">{statusBadge(r.status)}</td>
                     <td className="px-4 py-3">
                       {r.verified && r.payStatus && r.payStatus !== "—"
@@ -731,7 +732,7 @@ function QaView() {
       ) : (
         filtered.map((r) => {
           const isFlagged = r.flags && r.flags.length > 0;
-          const hasUnique = !isFlagged;
+          const hasUnique = !r.flags.some(f => f.startsWith("Duplicate"));
           return (
             <div
               key={r.id}
@@ -1482,7 +1483,7 @@ function renderDynamic(text: string, vars: Record<string, string>, accent: strin
   );
 }
 
-const LIVE_EMAIL_IDS = new Set(["verify", "invite", "verified", "rejected"]);
+const LIVE_EMAIL_IDS = new Set(["verify", "invite", "verified", "rejected", "paid", "paid-tumbler"]);
 
 function EmailsView() {
   const { state, actions } = usePortal();
@@ -1933,9 +1934,9 @@ function ProfileDrawer() {
     { label: "Email verified",        ok: r.emailV,     note: null },
     { label: "Survey completed",      ok: r.surveyDone, note: null },
     { label: "Selfie submitted",      ok: r.selfie,     note: null },
-    { label: "Email unique",          ok: r.emailV,     note: "no match" },
-    { label: "Mobile unique",         ok: !!r.mobile,   note: "no match" },
-    { label: "Payout not duplicated", ok: true,         note: "ok" },
+    { label: "Email unique",          ok: !r.flags.includes("Duplicate email"),   note: r.flags.includes("Duplicate email")   ? "match found" : "no match" },
+    { label: "Mobile unique",         ok: !r.flags.includes("Duplicate mobile"),  note: r.flags.includes("Duplicate mobile")  ? "match found" : "no match" },
+    { label: "No prior payout",        ok: !r.flags.includes("Duplicate payout"),  note: r.flags.includes("Duplicate payout")  ? "prior found" : "no prior found" },
   ];
 
   const showQaActions  = state.role !== "stakeholder" && (r.status === "Pending QA" || r.status === "Needs Follow-up");
@@ -2007,12 +2008,12 @@ function ProfileDrawer() {
               ["EMAIL",         r.email],
               ["MOBILE",        r.mobile || "—"],
               ["REGION",        r.region || "—"],
-              ["POSITION",      r.position || "—"],
+              ["POSITION",      r.position && r.position !== "—" ? r.position : null],
               ["MODE",          r.mode],
-              ["ENUMERATOR",    r.enumerator || "—"],
+              ["ENUMERATOR",    r.enumerator && r.enumerator !== "—" ? r.enumerator : null],
               ["REFERRAL CODE", r.code || "—"],
-              ["REFERRED BY",   r.referrer || "—"],
-            ] as [string, string][]).map(([label, value]) => (
+              ["REFERRED BY",   r.referredBy || null],
+            ] as [string, string | null][]).filter(([, v]) => v !== null).map(([label, value]) => (
               <div key={label}>
                 <div className="text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{label}</div>
                 <div className="mt-0.5 break-all text-[12.5px] font-semibold text-[#18181B]">{value}</div>

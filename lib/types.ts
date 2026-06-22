@@ -61,6 +61,7 @@ export interface Respondent {
   bonus: number;
   referred: boolean;
   referrer: string | null;
+  referredBy: string | null;
   mode: CollectionMode;
   enumerator: string;
   payStatus: PayStatus | string;

@@ -27,6 +27,8 @@ export function rowToRespondent(
   idx: number,
 ): Respondent {
   const reg = (row.registration as Record<string, string>) ?? {};
+  const qual = (row.qualification as Record<string, string>) ?? {};
+  const answers = (row.answers as Record<string, string>) ?? {};
   const pay = (row.payout_details as Record<string, string> | null) ?? null;
   const ship = (row.shipping_details as Record<string, string> | null) ?? null;
   const rawStatus = (row.status as string) ?? "submitted";
@@ -88,7 +90,7 @@ export function rowToRespondent(
     type: surveyType as Respondent["type"],
     status: SUBMISSION_STATUS_LABEL[rawStatus] ?? rawStatus,
     region: reg.region ?? "—",
-    position: reg.position ?? "—",
+    position: answers.a_position ?? reg.position ?? "—",
     email: reg.email ?? "",
     mobile: reg.mobile ?? "",
     emailV: true,
@@ -100,6 +102,7 @@ export function rowToRespondent(
     bonus,
     referred,
     referrer: (row.referrer_code as string | null) ?? null,
+    referredBy: qual.refName || null,
     mode,
     enumerator,
     payStatus,
@@ -114,4 +117,44 @@ export function rowToRespondent(
     // Pass paidDate through as a custom field so the Payouts view can display it.
     ...(paidDate ? { _paidDate: paidDate } : {}),
   } as Respondent;
+}
+
+// Maps a raw rows array to Respondents with cross-row duplicate flags injected.
+// Use this instead of calling rowToRespondent individually so duplicate detection
+// always runs in both the server layout and the API route.
+export function rowsToRespondents(rows: Record<string, unknown>[]): Respondent[] {
+  // Pass 1 — build duplicate-detection maps.
+  const emailMap   = new Map<string, number>(); // all submissions
+  const mobileMap  = new Map<string, number>(); // all submissions
+  const payoutMap  = new Map<string, number>(); // non-rejected submissions (payout risk)
+
+  for (const row of rows) {
+    const reg    = (row.registration as Record<string, string>) ?? {};
+    const email  = (reg.email  ?? "").toLowerCase().trim();
+    const mobile = (reg.mobile ?? "").trim();
+    const status = (row.status as string) ?? "";
+
+    if (email)  emailMap.set(email,   (emailMap.get(email)   ?? 0) + 1);
+    if (mobile) mobileMap.set(mobile, (mobileMap.get(mobile) ?? 0) + 1);
+    // Count non-rejected submissions per email — more than one means the same
+    // person could receive multiple payouts if all are approved.
+    if (email && status !== "rejected") {
+      payoutMap.set(email, (payoutMap.get(email) ?? 0) + 1);
+    }
+  }
+
+  // Pass 2 — map rows and inject duplicate flags.
+  return rows.map((row, i) => {
+    const r      = rowToRespondent(row, i);
+    const reg    = (row.registration as Record<string, string>) ?? {};
+    const email  = (reg.email  ?? "").toLowerCase().trim();
+    const mobile = (reg.mobile ?? "").trim();
+
+    const flags: string[] = [];
+    if (email  && (emailMap.get(email)   ?? 0) > 1) flags.push("Duplicate email");
+    if (mobile && (mobileMap.get(mobile) ?? 0) > 1) flags.push("Duplicate mobile");
+    if (email  && (payoutMap.get(email)  ?? 0) > 1) flags.push("Duplicate payout");
+
+    return flags.length ? { ...r, flags } : r;
+  });
 }

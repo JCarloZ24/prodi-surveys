@@ -14,26 +14,33 @@ function buildVerifiedVars(row: Record<string, unknown>): Record<string, string>
   const surveyType = (row.survey_type as string) ?? "SME";
 
   const firstName = (reg.name ?? "").split(" ")[0] || "there";
-  const referenceNo = reg.generated_referral_code || "—";
-  const tokenAmt = DEFAULT_TOKEN[surveyType] ?? 0;
-  const tokenAmount = tokenAmt > 0 ? `₱${tokenAmt}` : "—";
+  const colorLabels: Record<string, string> = { grey: "Charcoal grey", blue: "Sky blue", black: "Black" };
 
-  let payoutMethod = "—";
-  if (pay?.acctNum) {
-    payoutMethod = `${pay.method ?? ""} •••• ${String(pay.acctNum).slice(-3)}`;
-  } else if (pay?.method) {
-    payoutMethod = pay.method;
-  } else if (ship) {
-    const colorLabels: Record<string, string> = { grey: "Charcoal grey", blue: "Sky blue", black: "Black" };
-    payoutMethod = `Tumbler · ${colorLabels[ship.color] ?? ship.color ?? "Grey"}`;
+  let tokenAmount: string;
+  let payoutMethod: string;
+
+  if (surveyType === "TSI" && ship) {
+    // TSI: token row shows tumbler color, payout method row is hidden (empty = skipped by renderer)
+    tokenAmount = `Tumbler · ${colorLabels[ship.color] ?? ship.color ?? "Grey"}`;
+    payoutMethod = "";
+  } else {
+    const tokenAmt = DEFAULT_TOKEN[surveyType] ?? 0;
+    tokenAmount = tokenAmt > 0 ? `₱${tokenAmt}` : "—";
+    if (pay?.acctNum) {
+      payoutMethod = `${pay.method ?? ""} •••• ${String(pay.acctNum).slice(-3)}`;
+    } else if (pay?.method) {
+      payoutMethod = pay.method;
+    } else {
+      payoutMethod = "—";
+    }
   }
 
-  return { firstName, referenceNo, tokenAmount, payoutMethod };
+  return { firstName, tokenAmount, payoutMethod };
 }
 
-async function sendQaEmail(
+async function sendEmail(
   toEmail: string,
-  defId: "verified" | "rejected",
+  defId: string,
   vars: Record<string, string>,
 ): Promise<void> {
   const def = emailDefs().find((d) => d.id === defId);
@@ -54,6 +61,41 @@ async function sendQaEmail(
     html,
     attachments: [LOGO_ATTACHMENT],
   });
+}
+
+function buildPaidVars(row: Record<string, unknown>, id: string): Record<string, string> {
+  const reg = (row.registration as Record<string, string>) ?? {};
+  const pay = (row.payout_details as Record<string, string> | null) ?? null;
+  const surveyType = (row.survey_type as string) ?? "SME";
+
+  const tokenAmt = DEFAULT_TOKEN[surveyType] ?? 0;
+  const amount = tokenAmt > 0 ? `₱${tokenAmt}` : "—";
+
+  let payoutMethod = "—";
+  if (pay?.acctNum) {
+    payoutMethod = `${pay.method ?? ""} •••• ${String(pay.acctNum).slice(-3)}`;
+  } else if (pay?.method) {
+    payoutMethod = pay.method;
+  }
+
+  const dateSent = new Date().toLocaleDateString("en-PH", {
+    month: "short", day: "numeric", year: "numeric",
+  });
+
+  return { amount, payoutMethod, dateSent };
+}
+
+function buildTumblerVars(row: Record<string, unknown>): Record<string, string> {
+  const reg = (row.registration as Record<string, string>) ?? {};
+  const ship = (row.shipping_details as Record<string, string> | null) ?? null;
+
+  const shippedTo = reg.name ?? "—";
+  const colorLabels: Record<string, string> = { grey: "Charcoal grey", blue: "Sky blue", black: "Black" };
+  const color = ship?.color ?? "grey";
+  const item = `Branded tumbler · ${colorLabels[color] ?? color}`;
+  const estDelivery = "7–14 business days";
+
+  return { shippedTo, item, estDelivery };
 }
 
 export async function PATCH(
@@ -105,8 +147,13 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Send QA notification email for approve / reject actions.
-  if (updates.status === "verified" || updates.status === "rejected") {
+  // Fetch row once for any email-triggering status change.
+  const needsEmail =
+    updates.status === "verified" ||
+    updates.status === "rejected" ||
+    updates.payout_status === "paid";
+
+  if (needsEmail) {
     const { data: row } = await db
       .from("submissions")
       .select("registration, payout_details, shipping_details, survey_type")
@@ -115,12 +162,27 @@ export async function PATCH(
 
     const reg = (row?.registration as Record<string, string>) ?? {};
     const email = reg.email;
-    if (email) {
-      const defId = updates.status === "verified" ? "verified" : "rejected";
-      const vars = defId === "verified" ? buildVerifiedVars(row as Record<string, unknown>) : {};
-      sendQaEmail(email, defId, vars).catch((e) =>
-        console.error(`QA ${defId} email error:`, e),
-      );
+
+    if (email && row) {
+      const r = row as Record<string, unknown>;
+
+      if (updates.status === "verified" || updates.status === "rejected") {
+        const defId = updates.status === "verified" ? "verified" : "rejected";
+        const vars = defId === "verified" ? buildVerifiedVars(r) : {};
+        sendEmail(email, defId, vars).catch((e) =>
+          console.error(`QA ${defId} email error:`, e),
+        );
+      }
+
+      if (updates.payout_status === "paid") {
+        const surveyType = (r.survey_type as string) ?? "SME";
+        const isTumbler = surveyType === "TSI";
+        const defId = isTumbler ? "paid-tumbler" : "paid";
+        const vars = isTumbler ? buildTumblerVars(r) : buildPaidVars(r, id);
+        sendEmail(email, defId, vars).catch((e) =>
+          console.error(`Paid email error (${defId}):`, e),
+        );
+      }
     }
   }
 
