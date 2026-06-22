@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { usePortal, USER_NAMES, PortalProvider } from "@/lib/store";
 import {
   counts,
+  enumCards,
   filteredRows,
   funnel,
   groups,
@@ -1068,6 +1069,7 @@ type ProfileUser = {
   region: string | null;
   organization: string | null;
   payout_details: { method?: string; acctName?: string; acctNum?: string; bank?: string } | null;
+  rejected_reason: string | null;
   created_at: string;
 };
 
@@ -1266,12 +1268,245 @@ function AccountsList({
 }
 
 function EnumeratorsView() {
+  const { state } = usePortal();
+  const [users, setUsers] = useState<ProfileUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/portal/users?role=enumerator");
+        const data = await res.json();
+        if (active) setUsers(res.ok ? (data.users ?? []) : []);
+      } catch {
+        if (active) setUsers([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const act = async (id: string, action: "approve" | "reject") => {
+    const reason =
+      action === "reject"
+        ? window.prompt("Reason for rejection (optional):") ?? undefined
+        : undefined;
+    setBusyId(id);
+    setNotice("");
+    try {
+      const res = await fetch(`/api/portal/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, reason }),
+      });
+      if (res.ok) {
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === id ? { ...u, status: action === "approve" ? "approved" : "rejected" } : u,
+          ),
+        );
+        setNotice(action === "approve" ? "Enumerator approved." : "Enumerator rejected.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setNotice(data.error ?? "Action failed.");
+      }
+    } catch {
+      setNotice("Network error.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const pending = users.filter((u) => u.status === "pending");
+  const approved = users.filter((u) => u.status === "approved");
+  const rejected = users.filter((u) => u.status === "rejected");
+
+  // Performance stats for approved enumerators, keyed by email.
+  const stats = useMemo(() => {
+    const cards = enumCards(
+      approved.map((u) => ({ name: u.full_name || u.email, email: u.email })),
+      state.respondents,
+      initials,
+    );
+    return new Map(cards.map((c) => [c.email, c]));
+  }, [approved, state.respondents]);
+
   return (
-    <AccountsList
-      role="enumerator"
-      title="Enumerators"
-      sub="Field enumerator accounts. Review and approve new signups before they can access the portal."
-    />
+    <div className="space-y-6">
+      <PageHeader
+        title="Enumerators"
+        sub="All field enumerator accounts, grouped by approval status."
+      />
+
+      {notice && (
+        <div className="rounded-[9px] border border-[#E4E4E7] bg-[#F7F7F8] px-3.5 py-2.5 text-[12.5px] font-semibold text-gray-600">
+          {notice}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="rounded-2xl border border-[#E4E4E7] bg-white py-14 text-center text-[13.5px] text-gray-400">
+          Loading…
+        </div>
+      ) : (
+        <>
+          {/* Pending approval */}
+          <section className="space-y-3">
+            <SectionHeader label="Pending approval" count={pending.length} accent="#D97706" />
+            {pending.length === 0 ? (
+              <EmptyNote>No enumerators awaiting approval.</EmptyNote>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {pending.map((u) => (
+                  <div key={u.id} className="rounded-2xl border border-amber-200 bg-white p-5">
+                    <div className="mb-3 flex items-center gap-3">
+                      <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full text-[13px] font-extrabold text-white" style={{ background: avatarColor(u.full_name || u.email) }}>
+                        {initials(u.full_name || u.email)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[14px] font-bold text-[#18181B]">{u.full_name || "—"}</div>
+                        <div className="truncate text-[12px] text-gray-400">{u.email}</div>
+                      </div>
+                      {u.is_email_verified ? (
+                        <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">Email verified</span>
+                      ) : (
+                        <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">Unverified</span>
+                      )}
+                    </div>
+                    <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-gray-500">
+                      <span>Mobile: <span className="text-gray-700">{u.mobile || "—"}</span></span>
+                      <span>Region: <span className="text-gray-700">{u.region || "—"}</span></span>
+                      <span>Handle: <span className="font-mono text-gray-700">{u.slug || "—"}</span></span>
+                      <span>Payout: <span className="text-gray-700">{u.payout_details?.method || "—"}</span></span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={busyId === u.id || !u.is_email_verified}
+                        onClick={() => act(u.id, "approve")}
+                        title={u.is_email_verified ? "" : "User must verify their email first"}
+                        className="flex-1 rounded-[9px] bg-emerald-600 py-2 text-[12.5px] font-bold text-white hover:bg-emerald-700 disabled:opacity-40"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        disabled={busyId === u.id}
+                        onClick={() => act(u.id, "reject")}
+                        className="flex-1 rounded-[9px] border border-red-300 bg-red-50 py-2 text-[12.5px] font-bold text-red-700 hover:bg-red-100 disabled:opacity-40"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Approved */}
+          <section className="space-y-3">
+            <SectionHeader label="Approved" count={approved.length} accent="#15803D" />
+            {approved.length === 0 ? (
+              <EmptyNote>No approved enumerators yet.</EmptyNote>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {approved.map((u) => {
+                  const s = stats.get(u.email) ?? { assigned: 0, completed: 0, followups: 0, rate: 0 };
+                  return (
+                    <div key={u.id} className="rounded-2xl border border-[#E4E4E7] bg-white p-5">
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full text-[13px] font-extrabold text-white" style={{ background: avatarColor(u.full_name || u.email) }}>
+                          {initials(u.full_name || u.email)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[14px] font-bold text-[#18181B]">{u.full_name || "—"}</div>
+                          <div className="truncate text-[12px] text-gray-400">{u.email}</div>
+                        </div>
+                        {u.slug && (
+                          <span className="rounded-md bg-[#F4F4F5] px-2 py-0.5 font-mono text-[11px] text-gray-600">{u.slug}</span>
+                        )}
+                      </div>
+                      <div className="mb-3 text-[11.5px] text-gray-400">{s.assigned} assigned respondents</div>
+                      <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+                        <div>
+                          <div className="text-[18px] font-extrabold text-[#18181B]">{s.completed}</div>
+                          <div className="text-[11px] text-gray-400">Completed</div>
+                        </div>
+                        <div>
+                          <div className="text-[18px] font-extrabold text-orange-600">{s.followups}</div>
+                          <div className="text-[11px] text-gray-400">Follow-ups</div>
+                        </div>
+                        <div>
+                          <div className="text-[18px] font-extrabold text-[#18181B]">{s.rate}%</div>
+                          <div className="text-[11px] text-gray-400">Completion</div>
+                        </div>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-[#F0F0F2]">
+                        <div className="h-full rounded-full" style={{ width: `${s.rate}%`, background: "#E0195F" }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* Rejected (only when present) */}
+          {rejected.length > 0 && (
+            <section className="space-y-3">
+              <SectionHeader label="Rejected" count={rejected.length} accent="#DC2626" />
+              <div className="overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white">
+                {rejected.map((u) => (
+                  <div key={u.id} className="flex items-center gap-3 border-b border-[#F5F5F7] px-4 py-3 last:border-0">
+                    <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-[11.5px] font-extrabold text-white" style={{ background: avatarColor(u.full_name || u.email) }}>
+                      {initials(u.full_name || u.email)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-bold text-[#18181B]">{u.full_name || "—"}</div>
+                      <div className="truncate text-[11.5px] text-gray-400">
+                        {u.email}{u.rejected_reason ? ` · ${u.rejected_reason}` : ""}
+                      </div>
+                    </div>
+                    <button
+                      disabled={busyId === u.id || !u.is_email_verified}
+                      onClick={() => act(u.id, "approve")}
+                      className="flex-none rounded-[8px] border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[12px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"
+                    >
+                      Approve
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function SectionHeader({ label, count, accent }: { label: string; count: number; accent: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="h-2 w-2 rounded-full" style={{ background: accent }} />
+      <h2 className="text-[14px] font-bold text-[#18181B]">{label}</h2>
+      <span className="rounded-full bg-[#F4F4F5] px-2 py-0.5 text-[11.5px] font-bold text-gray-500">{count}</span>
+    </div>
+  );
+}
+
+function EmptyNote({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-[#E4E4E7] bg-white py-8 text-center text-[12.5px] text-gray-400">
+      {children}
+    </div>
   );
 }
 
