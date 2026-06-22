@@ -40,25 +40,34 @@ export default async function SurveyPage({
 
   // Self-service links carry ?sid=<partial submission id> created when the
   // enumerator verified the respondent's email. Load that row (only if it belongs
-  // to this enumerator) and prefill the respondent's identity/qualification/consent
-  // so the final submit UPDATES it instead of creating a duplicate, identity-less row.
+  // to this enumerator and isn't already completed) and prefill the respondent's
+  // identity/qualification/consent so the final submit UPDATES it instead of
+  // creating a duplicate, identity-less row.
   let prefill: SelfServiceLaunch | undefined;
-  const sid = typeof sp["sid"] === "string" ? (sp["sid"] as string) : undefined;
-  if (selfService && sid) {
-    const { data: row } = await db
-      .from("submissions")
-      .select("registration, qualification, consent, survey_type, referrer_code, enumerator_slug")
-      .eq("id", sid)
-      .maybeSingle();
-    if (row && row.enumerator_slug === (enumerator.slug ?? slug)) {
-      prefill = {
-        submissionId: sid,
-        reg: (row.registration as SelfServiceLaunch["reg"]) ?? undefined,
-        qual: (row.qualification as SelfServiceLaunch["qual"]) ?? undefined,
-        consent: (row.consent as SelfServiceLaunch["consent"]) ?? undefined,
-        rType: row.survey_type ?? rType,
-        referralCode: row.referrer_code ?? referralCode,
-      };
+  if (selfService) {
+    const sid = typeof sp["sid"] === "string" ? (sp["sid"] as string) : undefined;
+    if (sid) {
+      const { data: row } = await db
+        .from("submissions")
+        .select("registration, qualification, consent, survey_type, referrer_code, enumerator_slug, is_survey_completed")
+        .eq("id", sid)
+        .maybeSingle();
+      if (row && row.enumerator_slug === (enumerator.slug ?? slug) && !row.is_survey_completed) {
+        prefill = {
+          submissionId: sid,
+          reg: (row.registration as SelfServiceLaunch["reg"]) ?? undefined,
+          qual: (row.qualification as SelfServiceLaunch["qual"]) ?? undefined,
+          consent: (row.consent as SelfServiceLaunch["consent"]) ?? undefined,
+          rType: row.survey_type ?? rType,
+          referralCode: row.referrer_code ?? referralCode,
+        };
+      }
+    }
+    // A self-service link is only valid when its sid resolves to this enumerator's
+    // not-yet-completed partial submission. Otherwise (no sid, unknown sid, wrong
+    // enumerator, or already submitted) decline — no identity-less fallback.
+    if (!prefill) {
+      return <InvalidSurveyLink />;
     }
   }
 
