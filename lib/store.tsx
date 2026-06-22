@@ -232,6 +232,13 @@ function hydrateDraft(base: PortalState): PortalState {
     if (!raw) return base;
     const draft = JSON.parse(raw) as Partial<PortalState>;
     if (draft.mode !== "flow") return base;
+    // A self-service launch (base.submissionId set) must only resume a draft from
+    // the same survey-only submission. Otherwise a different respondent's draft — or
+    // the enumerator's pre-handoff (assisted) draft — lingering in this browser would
+    // bleed into the session and be submitted onto the wrong submission row.
+    if (base.submissionId && (!draft.surveyOnly || draft.submissionId !== base.submissionId)) {
+      return base;
+    }
     return {
       ...base,
       ...draft,
