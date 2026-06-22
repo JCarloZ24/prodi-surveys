@@ -1178,8 +1178,11 @@ function Shipping() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
 
-  const effectiveName = s.useMyDetails ? state.reg.name : s.recipientName;
-  const effectivePhone = s.useMyDetails ? state.reg.mobile : s.recipientPhone;
+  // In a survey-only / self-service flow the Register step was skipped, so there
+  // are no "my details" — the respondent must enter the recipient name + phone.
+  const useMine = !state.surveyOnly && s.useMyDetails;
+  const effectiveName = useMine ? state.reg.name : s.recipientName;
+  const effectivePhone = useMine ? state.reg.mobile : s.recipientPhone;
   const nameOk = effectiveName.trim().length > 0;
   const phoneOk = effectivePhone.trim().length > 0;
   const addressOk = s.address.trim().length > 0;
@@ -1221,32 +1224,35 @@ function Shipping() {
           </div>
         </div>
 
-        {/* Use my own details toggle */}
-        <div>
-          <span className="mb-2 block text-[12px] font-bold text-gray-700">Recipient</span>
-          <div className="flex items-center gap-0.5 rounded-[9px] bg-gray-100 p-[3px]">
-            {([["Use my details", true], ["Someone else", false]] as [string, boolean][]).map(([label, val]) => {
-              const active = s.useMyDetails === val;
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => actions.setShipping("useMyDetails", val)}
-                  className="h-[30px] flex-1 rounded-[7px] px-3 text-[12px] font-bold"
-                  style={{
-                    background: active ? "#fff" : "transparent",
-                    color: active ? "#18181B" : "#71717A",
-                    boxShadow: active ? "0 1px 2px rgba(0,0,0,.12)" : "none",
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
+        {/* Use my own details toggle — only when registration details exist
+            (hidden in survey-only / self-service, where there are none). */}
+        {!state.surveyOnly && (
+          <div>
+            <span className="mb-2 block text-[12px] font-bold text-gray-700">Recipient</span>
+            <div className="flex items-center gap-0.5 rounded-[9px] bg-gray-100 p-[3px]">
+              {([["Use my details", true], ["Someone else", false]] as [string, boolean][]).map(([label, val]) => {
+                const active = s.useMyDetails === val;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => actions.setShipping("useMyDetails", val)}
+                    className="h-[30px] flex-1 rounded-[7px] px-3 text-[12px] font-bold"
+                    style={{
+                      background: active ? "#fff" : "transparent",
+                      color: active ? "#18181B" : "#71717A",
+                      boxShadow: active ? "0 1px 2px rgba(0,0,0,.12)" : "none",
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
-        {!s.useMyDetails && (
+        {!useMine && (
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <Field
               label="Recipient name"
@@ -1269,7 +1275,7 @@ function Shipping() {
           </div>
         )}
 
-        {s.useMyDetails && (
+        {useMine && (
           <div className="rounded-[9px] border border-line2 bg-muted px-3.5 py-2.5 text-[12.5px] text-gray-500">
             <span className="font-semibold text-gray-700">{state.reg.name || "—"}</span>
             {" · "}
@@ -1442,7 +1448,7 @@ function Review() {
   const isTSIpath = state.rType === "TSI";
   if (isTSIpath) {
     const colorLabel = { grey: "Light Grey", blue: "Navy Blue", black: "Matte Black" }[state.shipping.color] ?? state.shipping.color;
-    const recipient = state.shipping.useMyDetails ? state.reg.name : state.shipping.recipientName;
+    const recipient = (!state.surveyOnly && state.shipping.useMyDetails) ? state.reg.name : state.shipping.recipientName;
     items.push(
       ["Free token", "Tumbler giveaway · " + colorLabel],
       ["Ship to", recipient || "—"],
