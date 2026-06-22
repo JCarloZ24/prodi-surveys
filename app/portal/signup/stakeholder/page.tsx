@@ -6,7 +6,7 @@ export default function StakeholderSignupPage() {
       role="stakeholder"
       title="Stakeholder sign-up"
       subtitle="Create your account. We'll verify your email, then an administrator approves access."
-      extraField={{ key: "organization", label: "Organization", placeholder: "e.g. DTI" }}
+      extraField={{ key: "organization", label: "Organization (optional)", placeholder: "e.g. DTI" }}
     />
   );
 }

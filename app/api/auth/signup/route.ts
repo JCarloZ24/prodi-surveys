@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
     email?: string;
     password?: string;
     full_name?: string;
+    mobile?: string;
     region?: string;
     organization?: string;
   };
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
   const email = body.email?.toLowerCase().trim();
   const password = body.password ?? "";
   const fullName = body.full_name?.trim() ?? "";
+  const mobile = body.mobile?.trim() ?? "";
 
   if (!role || !SIGNUP_ROLES.includes(role)) {
     return NextResponse.json({ error: "Invalid account type" }, { status: 400 });
@@ -33,6 +35,9 @@ export async function POST(req: NextRequest) {
   }
   if (!fullName) {
     return NextResponse.json({ error: "Full name is required" }, { status: 400 });
+  }
+  if (!mobile) {
+    return NextResponse.json({ error: "Mobile number is required" }, { status: 400 });
   }
 
   const db = createAdminClient();
@@ -52,6 +57,7 @@ export async function POST(req: NextRequest) {
       role,
       full_name: fullName,
       slug,
+      mobile,
       region: body.region?.trim() || null,
       organization: body.organization?.trim() || null,
     },

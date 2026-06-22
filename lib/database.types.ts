@@ -50,6 +50,9 @@ export type Database = {
           full_name: string | null
           id: string
           is_email_verified: boolean
+          mobile: string | null
+          organization: string | null
+          region: string | null
           rejected_reason: string | null
           role: Database["public"]["Enums"]["user_role"]
           slug: string | null
@@ -64,6 +67,9 @@ export type Database = {
           full_name?: string | null
           id: string
           is_email_verified?: boolean
+          mobile?: string | null
+          organization?: string | null
+          region?: string | null
           rejected_reason?: string | null
           role: Database["public"]["Enums"]["user_role"]
           slug?: string | null
@@ -78,6 +84,9 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_email_verified?: boolean
+          mobile?: string | null
+          organization?: string | null
+          region?: string | null
           rejected_reason?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           slug?: string | null

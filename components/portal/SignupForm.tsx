@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createBrowserSupabase } from "@/lib/supabase-browser";
+import { cx } from "@/lib/cx";
 import { AuthShell, authInputClass, authButtonClass } from "@/components/portal/AuthShell";
 
 type Props = {
@@ -18,13 +19,21 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [extra, setExtra] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -35,6 +44,7 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
           role,
           full_name: fullName,
           email,
+          mobile,
           password,
           ...(extraField ? { [extraField.key]: extra } : {}),
         }),
@@ -94,6 +104,18 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
           />
         </div>
 
+        <div>
+          <label className="mb-1.5 block text-[12.5px] font-semibold text-gray-600">Mobile number</label>
+          <input
+            type="tel"
+            value={mobile}
+            onChange={(e) => setMobile(e.target.value)}
+            placeholder="09XX XXX XXXX"
+            autoComplete="tel"
+            className={authInputClass}
+          />
+        </div>
+
         {extraField && (
           <div>
             <label className="mb-1.5 block text-[12.5px] font-semibold text-gray-600">
@@ -121,6 +143,21 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
           />
         </div>
 
+        <div>
+          <label className="mb-1.5 block text-[12.5px] font-semibold text-gray-600">Confirm password</label>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Re-enter your password"
+            autoComplete="new-password"
+            className={cx(authInputClass, passwordsMismatch && "border-red-300 bg-red-50")}
+          />
+          {passwordsMismatch && (
+            <p className="mt-1 text-[12px] font-semibold text-red-600">Passwords do not match.</p>
+          )}
+        </div>
+
         {error && (
           <div className="rounded-[9px] border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] font-semibold text-red-600">
             {error}
@@ -129,7 +166,14 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
 
         <button
           type="submit"
-          disabled={loading || !fullName || !email || password.length < 8}
+          disabled={
+            loading ||
+            !fullName ||
+            !email ||
+            !mobile ||
+            password.length < 8 ||
+            password !== confirmPassword
+          }
           className={authButtonClass}
         >
           {loading ? "Creating account…" : "Create account"}

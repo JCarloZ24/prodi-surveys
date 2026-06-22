@@ -6,7 +6,7 @@ export default function EnumeratorSignupPage() {
       role="enumerator"
       title="Enumerator sign-up"
       subtitle="Create your field account. We'll verify your email, then an administrator approves access."
-      extraField={{ key: "region", label: "Region", placeholder: "e.g. NCR" }}
+      extraField={{ key: "region", label: "Region (optional)", placeholder: "e.g. NCR" }}
     />
   );
 }
