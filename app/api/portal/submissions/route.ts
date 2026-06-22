@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifySession } from "@/lib/portal-auth";
+import { NextResponse } from "next/server";
+import { getProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase-server";
 import { rowToRespondent } from "@/lib/submission-mapper";
 
-export async function GET(req: NextRequest) {
-  const session = verifySession(req);
-  if (!session) {
+export async function GET() {
+  const me = await getProfile();
+  if (!me || me.status !== "approved") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

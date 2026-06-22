@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySession } from "@/lib/portal-auth";
+import { getProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase-server";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = verifySession(req);
-  if (!session) {
+  const me = await getProfile();
+  if (!me || me.status !== "approved") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (session.role === "stakeholder") {
+  if (me.role === "stakeholder") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

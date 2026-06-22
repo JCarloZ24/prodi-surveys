@@ -1,15 +1,11 @@
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { getSession } from "@/lib/portal-auth";
+import { requireApproved } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase-server";
 import { rowToRespondent } from "@/lib/submission-mapper";
 import { PortalApp } from "@/components/portal/PortalApp";
 import type { Respondent } from "@/lib/types";
 
 export default async function PortalPage() {
-  const cookieStore = await cookies();
-  const session = getSession(cookieStore);
-  if (!session) redirect("/portal/login");
+  const profile = await requireApproved();
 
   // Fetch real submissions from Supabase using the service-role client.
   // Falls back to empty array if the DB is unreachable or has no submissions yet.
@@ -29,7 +25,7 @@ export default async function PortalPage() {
 
   return (
     <PortalApp
-      initialRole={session.role}
+      initialRole={profile.role}
       initialRespondents={respondents}
     />
   );

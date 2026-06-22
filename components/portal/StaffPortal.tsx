@@ -26,6 +26,7 @@ import {
 import { emailDefs } from "@/lib/emails";
 import { cx } from "@/lib/cx";
 import { LogoMark } from "@/lib/icons";
+import { createBrowserSupabase } from "@/lib/supabase-browser";
 import type { ViewKey } from "@/lib/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -88,6 +89,7 @@ const NAV: { key: ViewKey; label: string; icon: React.ReactNode }[] = [
   { key: "qa",          label: "QA Review",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> },
   { key: "payouts",     label: "Payouts",      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> },
   { key: "enumerators", label: "Enumerators",  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
+  { key: "approvals",   label: "Approvals",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg> },
   { key: "reports",     label: "Reports / Export", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> },
   { key: "emails",      label: "Emails",        icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
   { key: "audit",       label: "Audit Logs",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="10" y1="17" x2="8" y2="17"/></svg> },
@@ -95,6 +97,7 @@ const NAV: { key: ViewKey; label: string; icon: React.ReactNode }[] = [
 ];
 
 const ALLOWED_STAKEHOLDER: ViewKey[] = ["dashboard", "respondents", "referrals", "reports", "audit"];
+const ADMIN_ONLY: ViewKey[] = ["approvals"];
 
 // ─── Shell ─────────────────────────────────────────────────────────────────────
 
@@ -108,7 +111,8 @@ export function StaffPortal() {
   }, []);
 
   const handleLogout = async () => {
-    await fetch("/api/portal/auth", { method: "DELETE" });
+    const supabase = createBrowserSupabase();
+    await supabase.auth.signOut();
     router.push("/portal/login");
     router.refresh();
   };
@@ -120,9 +124,11 @@ export function StaffPortal() {
   const c           = useMemo(() => counts(state.respondents), [state.respondents]);
   const { totalTarget, overallPct } = useMemo(() => totals(state.targets, c.verified), [state.targets, c.verified]);
 
-  const navItems = NAV.filter((n) =>
-    state.role === "stakeholder" ? ALLOWED_STAKEHOLDER.includes(n.key) : true
-  );
+  const navItems = NAV.filter((n) => {
+    if (state.role === "stakeholder") return ALLOWED_STAKEHOLDER.includes(n.key);
+    if (ADMIN_ONLY.includes(n.key)) return state.role === "admin";
+    return true;
+  });
 
   const roleLabel: Record<string, string> = {
     admin: "Super Admin",
@@ -283,6 +289,7 @@ export function StaffPortal() {
           {state.view === "payouts"     && <PayoutsView />}
           {state.view === "referrals"   && <ReferralsView />}
           {state.view === "enumerators" && <EnumeratorsView />}
+          {state.view === "approvals"   && <ApprovalsView />}
           {state.view === "reports"     && <ReportsView />}
           {state.view === "emails"      && <EmailsView />}
           {state.view === "audit"       && <AuditView />}
@@ -1012,6 +1019,195 @@ function ReferralsView() {
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Approvals ────────────────────────────────────────────────────────────────
+
+type ProfileUser = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: "admin" | "enumerator" | "stakeholder";
+  status: "pending" | "approved" | "rejected";
+  is_email_verified: boolean;
+  slug: string | null;
+  created_at: string;
+};
+
+const APPROVAL_TABS: { key: ProfileUser["status"]; label: string }[] = [
+  { key: "pending", label: "Pending" },
+  { key: "approved", label: "Approved" },
+  { key: "rejected", label: "Rejected" },
+];
+
+function ApprovalsView() {
+  const [tab, setTab] = useState<ProfileUser["status"]>("pending");
+  const [users, setUsers] = useState<ProfileUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/portal/users?status=${tab}`);
+        const data = await res.json();
+        if (active) setUsers(res.ok ? (data.users ?? []) : []);
+      } catch {
+        if (active) setUsers([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [tab]);
+
+  const act = async (id: string, action: "approve" | "reject") => {
+    const reason =
+      action === "reject"
+        ? window.prompt("Reason for rejection (optional):") ?? undefined
+        : undefined;
+    setBusyId(id);
+    setNotice("");
+    try {
+      const res = await fetch(`/api/portal/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, reason }),
+      });
+      if (res.ok) {
+        setUsers((prev) => prev.filter((u) => u.id !== id));
+        setNotice(action === "approve" ? "Account approved." : "Account rejected.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setNotice(data.error ?? "Action failed.");
+      }
+    } catch {
+      setNotice("Network error.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const roleBadge = (role: ProfileUser["role"]) => {
+    const map: Record<string, string> = {
+      admin: "bg-violet-100 text-violet-700",
+      enumerator: "bg-rose-100 text-rose-700",
+      stakeholder: "bg-sky-100 text-sky-700",
+    };
+    return <span className={cx("rounded-md px-2 py-0.5 text-[11.5px] font-bold", map[role])}>{role}</span>;
+  };
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="Account approvals"
+        sub="Review and approve new enumerator and stakeholder accounts before they can access the portal."
+      />
+
+      {/* Tabs */}
+      <div className="flex gap-1 rounded-[9px] border border-[#E4E4E7] bg-white p-1 w-fit">
+        {APPROVAL_TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cx(
+              "rounded-[7px] px-3.5 py-1.5 text-[12px] font-semibold",
+              tab === t.key ? "bg-[#18181B] text-white" : "text-gray-500 hover:text-gray-700",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {notice && (
+        <div className="rounded-[9px] border border-[#E4E4E7] bg-[#F7F7F8] px-3.5 py-2.5 text-[12.5px] font-semibold text-gray-600">
+          {notice}
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white">
+        {loading ? (
+          <div className="py-14 text-center text-[13.5px] text-gray-400">Loading…</div>
+        ) : users.length === 0 ? (
+          <div className="py-14 text-center text-[13.5px] text-gray-400">No {tab} accounts.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px]">
+              <thead>
+                <tr className="border-b border-[#F2F2F4]">
+                  {["USER", "ROLE", "EMAIL VERIFIED", "SLUG", tab === "pending" ? "ACTION" : "STATUS"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.id} className="border-b border-[#F5F5F7] last:border-0">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-[11.5px] font-extrabold text-white" style={{ background: avatarColor(u.full_name || u.email) }}>
+                          {initials(u.full_name || u.email)}
+                        </div>
+                        <div>
+                          <div className="text-[13px] font-bold text-[#18181B]">{u.full_name || "—"}</div>
+                          <div className="text-[11.5px] text-gray-400">{u.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">{roleBadge(u.role)}</td>
+                    <td className="px-4 py-3">
+                      {u.is_email_verified
+                        ? <span className="text-[12.5px] font-semibold text-emerald-700">Verified</span>
+                        : <span className="text-[12.5px] font-semibold text-amber-600">Pending</span>}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-[12px] text-gray-600">{u.slug || "—"}</td>
+                    <td className="px-4 py-3">
+                      {tab === "pending" ? (
+                        <div className="flex gap-1.5">
+                          <button
+                            disabled={busyId === u.id || !u.is_email_verified}
+                            onClick={() => act(u.id, "approve")}
+                            title={u.is_email_verified ? "" : "User must verify their email first"}
+                            className="rounded-[8px] bg-emerald-600 px-3 py-1.5 text-[12px] font-bold text-white hover:bg-emerald-700 disabled:opacity-40"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            disabled={busyId === u.id}
+                            onClick={() => act(u.id, "reject")}
+                            className="rounded-[8px] border border-red-300 bg-red-50 px-3 py-1.5 text-[12px] font-bold text-red-700 hover:bg-red-100 disabled:opacity-40"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <span className={cx(
+                          "rounded-md border px-2 py-0.5 text-[11.5px] font-semibold",
+                          u.status === "approved"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-red-50 text-red-700 border-red-200",
+                        )}>
+                          {u.status}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

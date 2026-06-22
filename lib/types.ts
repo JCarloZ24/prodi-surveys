@@ -37,6 +37,7 @@ export type ViewKey =
   | "qa"
   | "payouts"
   | "enumerators"
+  | "approvals"
   | "reports"
   | "emails"
   | "audit"

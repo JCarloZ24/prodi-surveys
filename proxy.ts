@@ -1,18 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase-ssr";
 
-const SESSION_COOKIE = "prodi_portal_session";
+// Portal paths reachable without an approved session. Full role/status gating
+// happens in the server components (app/portal/page.tsx via requireApproved).
+const PUBLIC_PORTAL_PATHS = [
+  "/portal/login",
+  "/portal/signup",
+  "/portal/verify-email",
+  "/portal/pending",
+];
 
-// Proxy runs in Edge Runtime (no Node.js crypto).
-// We do a lightweight format check here; the server component (app/portal/page.tsx)
-// performs the full HMAC-SHA256 verification and redirects if the token is invalid.
-function hasCookiePresent(req: NextRequest): boolean {
-  const value = req.cookies.get(SESSION_COOKIE)?.value ?? "";
-  // Signed format: <base64url-payload>.<base64url-sig> — both parts non-empty.
-  const dot = value.lastIndexOf(".");
-  return dot > 0 && dot < value.length - 1;
+function isPublicPortal(pathname: string): boolean {
+  return PUBLIC_PORTAL_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
 }
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get("host") ?? "";
 
@@ -26,21 +30,19 @@ export function proxy(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // Early-exit auth gate: reject obviously unauthenticated requests at the edge.
-  // Full cryptographic verification happens in the server component.
-  const isPortalPath = pathname.startsWith("/portal");
-  const isLoginPath = pathname === "/portal/login";
-  const isAuthApi = pathname.startsWith("/api/portal/auth");
+  // Refresh the Supabase auth session (rotates cookies) and resolve the user.
+  const { response, user } = await updateSession(request);
 
-  if (isPortalPath && !isLoginPath && !isAuthApi) {
-    if (!hasCookiePresent(request)) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/portal/login";
-      return NextResponse.redirect(url);
-    }
+  // Early-exit auth gate: bounce unauthenticated requests away from protected
+  // portal pages at the edge. Approval/verification gating is done server-side.
+  const isPortalPath = pathname.startsWith("/portal");
+  if (isPortalPath && !isPublicPortal(pathname) && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/portal/login";
+    return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
