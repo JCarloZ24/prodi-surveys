@@ -1504,6 +1504,7 @@ function Review() {
           payout_details: !isTSI && state.payoutOn ? state.payout : null,
           shipping_details: isTSI ? state.shipping : null,
           referrer_code: state.reg.code || null,
+          enumerator_slug: state.enumeratorSlug || null,
           consent: {
             terms: state.consentTerms,
             privacy: state.consentPrivacy,

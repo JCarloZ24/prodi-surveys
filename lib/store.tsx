@@ -62,6 +62,7 @@ export interface PortalState {
   referredBy: string;
   referredCode: string;
   referralPath: string;
+  enumeratorSlug: string;
   qual: Qual;
   respondents: Respondent[];
   audit: AuditEntry[];
@@ -141,6 +142,7 @@ const FLOW_DRAFT_FIELDS = [
   "referredBy",
   "referredCode",
   "referralPath",
+  "enumeratorSlug",
 ] as const;
 
 function initialState(): PortalState {
@@ -187,6 +189,7 @@ function initialState(): PortalState {
     referredBy: "",
     referredCode: "",
     referralPath: "",
+    enumeratorSlug: "",
     qual: blankQual(),
     respondents: [],
     audit: [],
@@ -287,6 +290,7 @@ export interface PortalActions {
   launchFlow(): void;
   launchReferralFlow(code: string, preview?: boolean): void;
   launchSurveyOnlyFlow(code: string, preview?: boolean, rType?: string): void;
+  launchEnumeratorFlow(slug: string, referralCode?: string, preview?: boolean): void;
   exitFlow(): void;
   flowNext(): void;
   flowBack(): void;
@@ -427,6 +431,7 @@ export function PortalProvider({
       referredBy: "",
       referredCode: "",
       referralPath: "",
+      enumeratorSlug: "",
       qual: blankQual(),
       reg: blankReg(),
       payout: blankPayout(),
@@ -669,6 +674,20 @@ export function PortalProvider({
           referredCode: c,
           referralPath: (preview ? "/preview/r/" : "/r/") + encodeURIComponent(c),
           reg: { ...blankReg(), code: c },
+        });
+      },
+      launchEnumeratorFlow: (slug, referralCode, preview = false) => {
+        const refC = (referralCode || "").trim().toUpperCase();
+        const s = stateRef.current;
+        // Avoid re-init when the flow is already set up for the same enumerator
+        // link + referral code.
+        if (s.mode === "flow" && s.enumeratorSlug === slug && s.reg.code === refC) return;
+        set({
+          ...resetFlow(),
+          enumeratorSlug: slug,
+          handoffMode: preview ? "preview" : "",
+          ...(refC ? { referredBy: "Referral", referredCode: refC } : {}),
+          reg: { ...blankReg(), code: refC },
         });
       },
       launchSurveyOnlyFlow: (surveyCode, preview = false, rType?) => {
