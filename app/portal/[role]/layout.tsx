@@ -29,6 +29,7 @@ export default async function PortalRoleLayout({
       .from("submissions")
       .select("*")
       .neq("survey_type", "lead")
+      .eq("is_survey_completed", true)
       .order("created_at", { ascending: false });
     respondents = rowsToRespondents(
       (data ?? []).map((row) => row as Record<string, unknown>),

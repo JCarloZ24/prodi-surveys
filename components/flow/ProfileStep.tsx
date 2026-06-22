@@ -53,6 +53,11 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 function Req() {
   return <span className="text-brand-pink"> *</span>;
 }
+// Dropdown label for a referrer: "Full Name (PS-XXXX)".
+function referrerLabel(r: { full_name: string; referral_code: string }) {
+  return `${r.full_name} (${r.referral_code})`;
+}
+
 function Branch({ children }: { children: React.ReactNode }) {
   return (
     <div className="mt-3.5 flex flex-col gap-[18px] rounded-2xl border border-line bg-white p-5">
@@ -64,69 +69,56 @@ function Branch({ children }: { children: React.ReactNode }) {
 export function ProfileStep() {
   const { state, actions } = usePortal();
   const q = state.qual;
-  const reg = state.reg;
   const techArr = q.techTypes || [];
   const [showOtherReview, setShowOtherReview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [thanked, setThanked] = useState(false);
 
-  // Optional referral code, shown under "How did you hear about this survey?" when
-  // the respondent picks "Friend or Referral". Validated against existing codes.
-  const [refStatus, setRefStatus] = useState<"idle" | "checking" | "valid" | "invalid" | "error">("idle");
-  const [checkedRefCode, setCheckedRefCode] = useState("");
+  // Referrers for the "Friend or Referral" dropdown, loaded from the referrer
+  // table. Selecting one records its code as the submission's referrer_code.
+  const [referrerList, setReferrerList] = useState<{ full_name: string; referral_code: string }[]>([]);
 
-  const refVisible = q.hearAbout === "Friend or Referral";
-  const normalizedRefCode = reg.code.trim().toUpperCase();
-  const hasReferralCode = refVisible && normalizedRefCode.length > 0;
-  const referralFormatOk = /^PS-[A-Z0-9]{4,}$/.test(normalizedRefCode);
-  const effectiveRefStatus: typeof refStatus = !hasReferralCode
-    ? "idle"
-    : !referralFormatOk
-      ? "invalid"
-      : checkedRefCode === normalizedRefCode
-        ? refStatus
-        : "checking";
-  const referralOk = !hasReferralCode || effectiveRefStatus === "valid";
-  const refChecking = hasReferralCode && effectiveRefStatus === "checking";
-  const referralMessage = !hasReferralCode
-    ? ""
-    : effectiveRefStatus === "checking"
-      ? "Checking referral code..."
-      : effectiveRefStatus === "valid"
-        ? "Referral code is valid."
-        : effectiveRefStatus === "invalid"
-          ? "Referral code is invalid."
-          : effectiveRefStatus === "error"
-            ? "Could not validate this code. Please try again."
-            : "";
-  const referralError = effectiveRefStatus === "invalid" || effectiveRefStatus === "error";
-
+  // Load the referrer list (name + code) from the referrer table for the dropdown.
   useEffect(() => {
-    let cancelled = false;
-    if (!refVisible || !normalizedRefCode || !referralFormatOk) return;
-    const timer = window.setTimeout(async () => {
+    let active = true;
+    const run = async () => {
       try {
-        const res = await fetch("/api/referral/validate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: normalizedRefCode }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (cancelled) return;
-        setCheckedRefCode(normalizedRefCode);
-        setRefStatus(res.ok && data.valid ? "valid" : "invalid");
+        const res = await fetch("/api/referral/referrers");
+        const data = await res.json();
+        if (active && res.ok) setReferrerList(data.referrers ?? []);
       } catch {
-        if (!cancelled) {
-          setCheckedRefCode(normalizedRefCode);
-          setRefStatus("error");
-        }
+        /* ignore — the dropdown just stays empty */
       }
-    }, 350);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
     };
-  }, [refVisible, normalizedRefCode, referralFormatOk]);
+    run();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // When the survey is opened with a ?referral-code that matches a known referrer
+  // (reg.code is already prefilled by launchEnumeratorFlow), pre-select it in the
+  // dropdown once the list has loaded.
+  useEffect(() => {
+    const prefill = () => {
+      const refCode = state.reg.code;
+      if (!refCode || q.hearAbout !== "Friend or Referral" || q.refName) return;
+      const found = referrerList.find((r) => r.referral_code === refCode);
+      if (found) actions.setQual("refName", referrerLabel(found));
+    };
+    prefill();
+  }, [referrerList, state.reg.code, q.hearAbout, q.refName, actions]);
+
+  // Reflect the selected referrer's code in the address bar so the link is
+  // shareable / survives reload. replaceState avoids a navigation that would
+  // remount and reset the flow.
+  const syncReferralUrl = () => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (state.reg.code) url.searchParams.set("referral-code", state.reg.code);
+    else url.searchParams.delete("referral-code");
+    window.history.replaceState(window.history.state, "", url);
+  };
 
   const profileBlocked =
     (q.orgType === "other" && showOtherReview) || (q.orgType === "food" && q.foodMakes === "No");
@@ -139,7 +131,6 @@ export function ProfileStep() {
   else if (q.orgType === "other") ready = !!q.orgName.trim();
   ready = ready && !!q.hearAbout && !profileBlocked;
   if (q.orgType === "other") ready = !!q.orgName.trim() && !showOtherReview;
-  ready = ready && referralOk && !refChecking;
   const showHearAbout = (q.orgType === "gov" || q.orgType === "tech" || q.orgType === "food") && !blockTone;
   const chooseDifferentCategory = () => {
     setShowOtherReview(false);
@@ -420,45 +411,20 @@ export function ProfileStep() {
             />
           </div>
           {q.hearAbout === "Friend or Referral" && (
-            <>
-              <div>
-                <FieldLabel>Referrer</FieldLabel>
-                <CustomSelect
-                  value={q.refName}
-                  onChange={(v) => actions.setQual("refName", v)}
-                  options={state.manualReferrers.map((r) => r.name)}
-                  placeholder="Select a referrer…"
-                />
-              </div>
-              <div>
-                <FieldLabel>
-                  Referral code <span className="font-medium text-gray-400">· optional</span>
-                </FieldLabel>
-                <input
-                  value={reg.code}
-                  onChange={(e) => actions.setReg("code", e.target.value.toUpperCase())}
-                  placeholder="e.g. PS-XXXX"
-                  className={cx(
-                    "h-[42px] w-full rounded-[9px] border px-3 font-mono text-[13.5px] outline-none",
-                    referralError ? "border-red-400" : "border-[#E2E2E6]",
-                  )}
-                />
-                {referralMessage && (
-                  <span
-                    className={cx(
-                      "mt-1 block text-[11.5px]",
-                      referralError
-                        ? "text-red-500"
-                        : effectiveRefStatus === "valid"
-                          ? "text-green-600"
-                          : "text-gray-400",
-                    )}
-                  >
-                    {referralMessage}
-                  </span>
-                )}
-              </div>
-            </>
+            <div>
+              <FieldLabel>Referrer</FieldLabel>
+              <CustomSelect
+                value={q.refName}
+                onChange={(v) => {
+                  actions.setQual("refName", v);
+                  // Selecting a referrer records their code as the referrer_code.
+                  const found = referrerList.find((r) => referrerLabel(r) === v);
+                  actions.setReg("code", found?.referral_code ?? "");
+                }}
+                options={referrerList.map(referrerLabel)}
+                placeholder="Select a referrer…"
+              />
+            </div>
           )}
           {q.hearAbout === "Other" && (
             <div>
@@ -500,6 +466,7 @@ export function ProfileStep() {
               }).catch(() => {});
               return;
             }
+            syncReferralUrl();
             actions.flowNext();
           }}
           disabled={!ready}

@@ -160,6 +160,7 @@ export type Database = {
           created_at: string | null
           enumerator_slug: string | null
           id: string
+          is_survey_completed: boolean
           lead: Json | null
           paid_at: string | null
           payout_details: Json | null
@@ -178,6 +179,7 @@ export type Database = {
           created_at?: string | null
           enumerator_slug?: string | null
           id?: string
+          is_survey_completed?: boolean
           lead?: Json | null
           paid_at?: string | null
           payout_details?: Json | null
@@ -196,6 +198,7 @@ export type Database = {
           created_at?: string | null
           enumerator_slug?: string | null
           id?: string
+          is_survey_completed?: boolean
           lead?: Json | null
           paid_at?: string | null
           payout_details?: Json | null

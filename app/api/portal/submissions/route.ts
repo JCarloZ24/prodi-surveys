@@ -14,6 +14,7 @@ export async function GET() {
     .from("submissions")
     .select("*")
     .neq("survey_type", "lead")
+    .eq("is_survey_completed", true)
     .order("created_at", { ascending: false });
 
   if (error) {

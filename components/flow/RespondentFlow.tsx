@@ -5,7 +5,7 @@ import { usePortal } from "@/lib/store";
 import { classify } from "@/lib/classify";
 import { surveyDef, qCount } from "@/lib/survey";
 import { tok, bon } from "@/lib/selectors";
-import { code, hash, peso, typePillClass, typeShort } from "@/lib/format";
+import { peso, typePillClass, typeShort } from "@/lib/format";
 import { LogoMark } from "@/lib/icons";
 import { cx } from "@/lib/cx";
 import { detectFaceCount, detectFaceInFrame } from "@/lib/faceDetect";
@@ -517,6 +517,35 @@ function Otp() {
     }
   };
 
+  // Create the submission row as soon as the email is verified (is_survey_completed
+  // =false). The final submit updates this same row. Skipped in preview and when a
+  // row already exists (e.g. user navigated back to re-verify). Never blocks verify.
+  const startSubmission = async () => {
+    if (state.submissionId || state.handoffMode === "preview") return;
+    try {
+      const res = await fetch("/api/submit/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          registration: state.reg,
+          qualification: state.qual,
+          survey_type: state.rType,
+          referrer_code: state.reg.code || null,
+          enumerator_slug: state.enumeratorSlug || null,
+          consent: {
+            terms: state.consentTerms,
+            privacy: state.consentPrivacy,
+            accepted_at: state.consentAt || null,
+          },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.id) actions.setSubmissionId(data.id);
+    } catch {
+      // Non-fatal: the final submit will insert a row if none exists.
+    }
+  };
+
   const handleVerify = async () => {
     setVerifying(true);
     setOtpError("");
@@ -528,6 +557,7 @@ function Otp() {
       });
       const data = await res.json().catch(() => ({}));
       if (data.ok) {
+        await startSubmission();
         actions.verifyOtp();
       } else {
         setOtpError("Incorrect or expired code. Please try again.");
@@ -600,8 +630,15 @@ function Handoff() {
   const [emailSent, setEmailSent] = useState(false);
   const picking = state.handoffMode !== "link";
   const who = (state.reg.name || "").trim() || "the respondent";
-  const surveyCode = "PS-" + code(hash(state.reg.email || state.reg.name || "survey"));
-  const surveyLink = publicUrl("/s/" + encodeURIComponent(surveyCode) + "?t=" + encodeURIComponent(state.rType));
+  // The self-service link mirrors the enumerator's own URL (slug + referral code)
+  // plus self-service=true, so the respondent skips Profile/Register/Verify and
+  // starts at the survey. t=<type> preserves the survey type the Profile step
+  // would otherwise have determined.
+  const surveyParams = new URLSearchParams();
+  if (state.reg.code) surveyParams.set("referral-code", state.reg.code);
+  surveyParams.set("self-service", "true");
+  surveyParams.set("t", state.rType);
+  const surveyLink = publicUrl(`/s/${encodeURIComponent(state.enumeratorSlug)}?${surveyParams.toString()}`);
 
   const handleSendEmail = async () => {
     setEmailSending(true);
@@ -702,14 +739,14 @@ function Handoff() {
           <div className="mb-4 flex items-center gap-2 rounded-[9px] border border-line2 bg-muted px-[13px] py-[11px]">
             <span className="flex-1 break-all font-mono text-[13px] text-gray-700">{surveyLink}</span>
             <button
-              onClick={() => actions.copySurveyLink(surveyCode, state.rType)}
+              onClick={() => actions.copySurveyLink(surveyLink)}
               className="rounded-[7px] bg-brand-pink px-[13px] py-[7px] text-[11.5px] font-bold text-white"
             >
               Copy
             </button>
           </div>
           <button
-            onClick={() => actions.previewSurveyOnly(surveyCode, state.rType)}
+            onClick={() => actions.previewSurveyOnly(state.enumeratorSlug, state.rType)}
             className="mb-2.5 h-[46px] w-full rounded-[11px] bg-brand-ink text-sm font-bold text-white"
           >
             Preview the respondent&apos;s survey-only view ↗
@@ -1437,6 +1474,7 @@ function Review() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          id: state.submissionId || null,
           registration: state.reg,
           qualification: state.qual,
           survey_type: state.rType,
