@@ -688,6 +688,9 @@ export function PortalProvider({
           handoffMode: preview ? "preview" : "",
           ...(refC ? { referredBy: "Referral", referredCode: refC } : {}),
           reg: { ...blankReg(), code: refC },
+          // A referral link implies "Friend or Referral" so the prefilled code
+          // surfaces (and validates) in the Profile step.
+          ...(refC ? { qual: { ...blankQual(), hearAbout: "Friend or Referral" } } : {}),
         });
       },
       launchSurveyOnlyFlow: (surveyCode, preview = false, rType?) => {

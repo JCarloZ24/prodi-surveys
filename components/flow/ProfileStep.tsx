@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePortal } from "@/lib/store";
 import { RadioOption, MultiOption } from "./Options";
 import { cx } from "@/lib/cx";
@@ -63,10 +63,69 @@ function Branch({ children }: { children: React.ReactNode }) {
 export function ProfileStep() {
   const { state, actions } = usePortal();
   const q = state.qual;
+  const reg = state.reg;
   const techArr = q.techTypes || [];
   const [showOtherReview, setShowOtherReview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [thanked, setThanked] = useState(false);
+
+  // Optional referral code, shown under "How did you hear about this survey?" when
+  // the respondent picks "Friend or Referral". Validated against existing codes.
+  const [refStatus, setRefStatus] = useState<"idle" | "checking" | "valid" | "invalid" | "error">("idle");
+  const [checkedRefCode, setCheckedRefCode] = useState("");
+
+  const refVisible = q.hearAbout === "Friend or Referral";
+  const normalizedRefCode = reg.code.trim().toUpperCase();
+  const hasReferralCode = refVisible && normalizedRefCode.length > 0;
+  const referralFormatOk = /^PS-[A-Z0-9]{4,}$/.test(normalizedRefCode);
+  const effectiveRefStatus: typeof refStatus = !hasReferralCode
+    ? "idle"
+    : !referralFormatOk
+      ? "invalid"
+      : checkedRefCode === normalizedRefCode
+        ? refStatus
+        : "checking";
+  const referralOk = !hasReferralCode || effectiveRefStatus === "valid";
+  const refChecking = hasReferralCode && effectiveRefStatus === "checking";
+  const referralMessage = !hasReferralCode
+    ? ""
+    : effectiveRefStatus === "checking"
+      ? "Checking referral code..."
+      : effectiveRefStatus === "valid"
+        ? "Referral code is valid."
+        : effectiveRefStatus === "invalid"
+          ? "Referral code is invalid."
+          : effectiveRefStatus === "error"
+            ? "Could not validate this code. Please try again."
+            : "";
+  const referralError = effectiveRefStatus === "invalid" || effectiveRefStatus === "error";
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!refVisible || !normalizedRefCode || !referralFormatOk) return;
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch("/api/referral/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: normalizedRefCode }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        setCheckedRefCode(normalizedRefCode);
+        setRefStatus(res.ok && data.valid ? "valid" : "invalid");
+      } catch {
+        if (!cancelled) {
+          setCheckedRefCode(normalizedRefCode);
+          setRefStatus("error");
+        }
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [refVisible, normalizedRefCode, referralFormatOk]);
 
   const profileBlocked =
     (q.orgType === "other" && showOtherReview) || (q.orgType === "food" && q.foodMakes === "No");
@@ -79,6 +138,7 @@ export function ProfileStep() {
   else if (q.orgType === "other") ready = !!q.orgName.trim();
   ready = ready && !!q.hearAbout && !profileBlocked;
   if (q.orgType === "other") ready = !!q.orgName.trim() && !showOtherReview;
+  ready = ready && referralOk && !refChecking;
   const showHearAbout = (q.orgType === "gov" || q.orgType === "tech" || q.orgType === "food") && !blockTone;
   const chooseDifferentCategory = () => {
     setShowOtherReview(false);
@@ -358,6 +418,7 @@ export function ProfileStep() {
               onChange={(e) => {
                 actions.setQual("hearAbout", e.target.value);
                 actions.setQual("refName", "");
+                if (e.target.value !== "Friend or Referral") actions.setReg("code", "");
               }}
               className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] bg-white px-2.5 text-[13.5px] outline-none"
             >
@@ -368,19 +429,49 @@ export function ProfileStep() {
             </select>
           </div>
           {q.hearAbout === "Friend or Referral" && (
-            <div>
-              <FieldLabel>Referrer</FieldLabel>
-              <select
-                value={q.refName}
-                onChange={(e) => actions.setQual("refName", e.target.value)}
-                className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] bg-white px-2.5 text-[13.5px] outline-none"
-              >
-                <option value="">Select a referrer…</option>
-                {state.manualReferrers.map((r) => (
-                  <option key={r.name} value={r.name}>{r.name}</option>
-                ))}
-              </select>
-            </div>
+            <>
+              <div>
+                <FieldLabel>Referrer</FieldLabel>
+                <select
+                  value={q.refName}
+                  onChange={(e) => actions.setQual("refName", e.target.value)}
+                  className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] bg-white px-2.5 text-[13.5px] outline-none"
+                >
+                  <option value="">Select a referrer…</option>
+                  {state.manualReferrers.map((r) => (
+                    <option key={r.name} value={r.name}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <FieldLabel>
+                  Referral code <span className="font-medium text-gray-400">· optional</span>
+                </FieldLabel>
+                <input
+                  value={reg.code}
+                  onChange={(e) => actions.setReg("code", e.target.value.toUpperCase())}
+                  placeholder="e.g. PS-XXXX"
+                  className={cx(
+                    "h-[42px] w-full rounded-[9px] border px-3 font-mono text-[13.5px] outline-none",
+                    referralError ? "border-red-400" : "border-[#E2E2E6]",
+                  )}
+                />
+                {referralMessage && (
+                  <span
+                    className={cx(
+                      "mt-1 block text-[11.5px]",
+                      referralError
+                        ? "text-red-500"
+                        : effectiveRefStatus === "valid"
+                          ? "text-green-600"
+                          : "text-gray-400",
+                    )}
+                  >
+                    {referralMessage}
+                  </span>
+                )}
+              </div>
+            </>
           )}
           {q.hearAbout === "Other" && (
             <div>
