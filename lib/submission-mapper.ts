@@ -94,6 +94,7 @@ export function rowToRespondent(
     emailV: true,
     surveyDone: true,
     selfie: Boolean(row.selfie_url),
+    selfieUrl: (row.selfie_url as string | null) ?? undefined,
     verified,
     token,
     bonus,

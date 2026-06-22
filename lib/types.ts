@@ -72,6 +72,7 @@ export interface Respondent {
   color: string;
   // Supabase row UUID — present on records fetched from DB, absent on locally-created ones.
   supabaseId?: string;
+  selfieUrl?: string;
   // Added when a respondent is created through the survey flow.
   assignedType?: string;
   qualStatus?: string;
@@ -212,4 +213,6 @@ export interface EmailDef {
   preheader?: string;
   accent: string;
   blocks: EmailBlock[];
+  /** Sample values for {{variable}} placeholders in block text/rows/items */
+  vars?: Record<string, string>;
 }

@@ -773,12 +773,6 @@ function QaView() {
                     ✓ Approve · Verify
                   </button>
                   <button
-                    onClick={() => actions.qaAct(r.id, "follow")}
-                    className="flex-1 rounded-[9px] border border-amber-300 bg-amber-50 py-2.5 text-[13px] font-bold text-amber-700 hover:bg-amber-100"
-                  >
-                    ○ Needs follow-up
-                  </button>
-                  <button
                     onClick={() => actions.qaAct(r.id, "reject")}
                     className="flex-1 rounded-[9px] border border-red-300 bg-red-50 py-2.5 text-[13px] font-bold text-red-700 hover:bg-red-100"
                   >
@@ -1166,6 +1160,30 @@ function ReportsView() {
 
 // ─── Emails ──────────────────────────────────────────────────────────────────
 
+/** Replaces {{varName}} in text with a highlighted span showing the sample value. */
+function renderDynamic(text: string, vars: Record<string, string>, accent: string) {
+  const parts = text.split(/(\{\{[^}]+\}\})/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        const key = part.match(/^\{\{([^}]+)\}\}$/)?.[1];
+        if (key) {
+          return (
+            <span
+              key={i}
+              className="rounded px-[3px] py-[1px] font-semibold"
+              style={{ background: accent + "22", color: accent }}
+            >
+              {vars[key] ?? part}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
+
 function EmailsView() {
   const { state, actions } = usePortal();
   const defs = useMemo(() => emailDefs(), []);
@@ -1228,9 +1246,10 @@ function EmailsView() {
           })}
         </div>
 
-        {/* Preview */}
+        {/* Preview panel */}
         {sel && (
           <div className="flex-1 min-w-0 overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white">
+            {/* Envelope header */}
             <div className="border-b border-[#F2F2F4] px-6 py-4">
               <div className="flex items-center gap-2 mb-2">
                 <span
@@ -1243,41 +1262,128 @@ function EmailsView() {
               </div>
               <div className="text-[15px] font-bold text-[#18181B]">{sel.subject}</div>
               <div className="mt-2 space-y-0.5">
-                <div className="text-[12px] text-gray-500"><span className="font-semibold">From</span>  {sel.from}</div>
-                <div className="text-[12px] text-gray-500"><span className="font-semibold">To</span>  {sel.to === "respondent" ? "maria.delacruz@email.com" : sel.to}</div>
+                <div className="text-[12px] text-gray-500">
+                  <span className="inline-block w-[38px] font-semibold">From</span>{sel.from}
+                </div>
+                <div className="text-[12px] text-gray-500">
+                  <span className="inline-block w-[38px] font-semibold">To</span>
+                  {sel.to === "respondent" ? "maria.delacruz@email.com"
+                    : sel.to === "enumerator" ? "grace.tan@prodigitality.net"
+                    : sel.to === "stakeholder" ? "arianne@prodigitality.net"
+                    : sel.to === "referrer" ? "partner@dti.gov.ph"
+                    : sel.to}
+                </div>
               </div>
             </div>
-            <div className="max-w-[560px] p-6 space-y-4">
-              {sel.blocks.map((b, i) => {
-                if (b.type === "h")    return <h2 key={i} className="text-[20px] font-extrabold text-[#18181B]">{b.text}</h2>;
-                if (b.type === "p")    return <p key={i} className="text-[13.5px] leading-[1.65] text-gray-600">{b.text}</p>;
-                if (b.type === "code") return (
-                  <div key={i} className="flex items-center justify-center rounded-[11px] border border-[#FECDD3] bg-[#FFF1F5] py-5">
-                    <span className="font-mono text-[32px] font-extrabold tracking-[8px] text-[#9D174D]">{b.text}</span>
+
+            {/* Email shell — pixel-matches the real HTML email design */}
+            <div className="overflow-y-auto bg-[#F0F0F3] px-6 py-8">
+              <div className="mx-auto w-full max-w-[540px]">
+                {/* Card */}
+                <div className="overflow-hidden rounded-2xl bg-white" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.08)" }}>
+                  {/* Accent top bar */}
+                  <div className="h-[5px] w-full" style={{ background: sel.accent }} />
+
+                  {/* Logo row — left-aligned, matching the real email header */}
+                  <div className="flex items-center gap-2.5 px-8 pb-0 pt-6">
+                    <LogoMark size={28} gradientId={"email-logo-" + sel.id} />
+                    <span className="text-[14px] font-extrabold tracking-[-0.3px] text-[#18181B]">
+                      Prodi-Surveys
+                    </span>
                   </div>
-                );
-                if (b.type === "note") return <p key={i} className="rounded-[9px] bg-[#F7F7F8] px-4 py-3 text-[12px] leading-[1.6] text-gray-500">{b.text}</p>;
-                if (b.type === "btn")  return (
-                  <div key={i}>
-                    <button className="rounded-[10px] px-6 py-3 text-[13.5px] font-bold text-white" style={{ background: sel.accent }}>{b.text}</button>
+
+                  {/* Body blocks */}
+                  <div className="space-y-4 px-8 pb-2 pt-5">
+                    {sel.blocks.map((b, i) => {
+                      const vars = sel.vars ?? {};
+                      const dyn = (t: string) => renderDynamic(t, vars, sel.accent);
+
+                      if (b.type === "h") return (
+                        <h2 key={i} className="text-[21px] font-extrabold leading-[1.3] text-[#18181B]">
+                          {b.text && dyn(b.text)}
+                        </h2>
+                      );
+                      if (b.type === "p") return (
+                        <p key={i} className="text-[13.5px] leading-[1.7]" style={{ color: sel.accent }}>
+                          {b.text && dyn(b.text)}
+                        </p>
+                      );
+                      if (b.type === "code") return (
+                        <div key={i} className="rounded-xl bg-[#F5F5F7] px-6 py-5 text-center">
+                          <span className="font-mono text-[32px] font-extrabold tracking-[8px] text-[#18181B]">
+                            {b.text && dyn(b.text)}
+                          </span>
+                        </div>
+                      );
+                      if (b.type === "btn") return (
+                        <div key={i} className="pt-1">
+                          <span
+                            className="inline-block rounded-[10px] px-6 py-3 text-[13.5px] font-bold text-white"
+                            style={{ background: sel.accent }}
+                          >
+                            {b.text}
+                          </span>
+                        </div>
+                      );
+                      if (b.type === "linkbox") return (
+                        <div key={i} className="rounded-[9px] border border-[#E4E4E7] bg-[#F7F7F8] px-4 py-3">
+                          <span className="break-all font-mono text-[12px] text-[#4F46E5]">
+                            {b.text && dyn(b.text)}
+                          </span>
+                        </div>
+                      );
+                      if (b.type === "kv" && b.rows) return (
+                        <div key={i} className="overflow-hidden rounded-[10px] border border-[#EBEBED]">
+                          {b.rows.map(([k, v]) => (
+                            <div key={k} className="flex items-center justify-between border-b border-[#F5F5F7] px-4 py-[11px] last:border-0 text-[12.5px]">
+                              <span className="text-[#9CA3AF]">{k}</span>
+                              <span className="font-bold text-[#18181B]">{dyn(v)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                      if (b.type === "bullets" && b.items) return (
+                        <ul key={i} className="space-y-1.5 pl-0">
+                          {b.items.map((item, j) => (
+                            <li key={j} className="flex items-start gap-2 text-[13.5px] leading-[1.65]" style={{ color: sel.accent }}>
+                              <span className="mt-[7px] h-[5px] w-[5px] flex-none rounded-full" style={{ background: sel.accent }} />
+                              {dyn(item)}
+                            </li>
+                          ))}
+                        </ul>
+                      );
+                      if (b.type === "note") return (
+                        <p key={i} className="text-[12px] leading-[1.65] text-[#9CA3AF]">
+                          {b.text && dyn(b.text)}
+                        </p>
+                      );
+                      if (b.type === "divider") return (
+                        <hr key={i} className="border-[#F2F2F4]" />
+                      );
+                      return null;
+                    })}
                   </div>
-                );
-                if (b.type === "kv" && b.rows) return (
-                  <div key={i} className="overflow-hidden rounded-[10px] border border-[#F2F2F4]">
-                    {b.rows.map(([k, v]) => (
-                      <div key={k} className="flex border-b border-[#F5F5F7] px-4 py-2.5 last:border-0 text-[12.5px]">
-                        <span className="w-[120px] flex-none font-semibold text-gray-400">{k}</span>
-                        <span className="text-gray-700">{v}</span>
-                      </div>
-                    ))}
+
+                  {/* Footer — thin border + two lines, no bg change */}
+                  <div className="mt-4 border-t border-[#F2F2F4] px-8 py-5">
+                    <p className="text-[11px] leading-[1.7] text-[#9CA3AF]">
+                      <span className="text-[#6B7280]">Prodigitality</span>
+                      {" · "}
+                      <span className="text-[#4F46E5]">prodigitalitydata.live</span>
+                    </p>
+                    <p className="text-[11px] leading-[1.7] text-[#9CA3AF]">
+                      {"You received this email because you registered for or were added to the "}
+                      <span className="text-[#4F46E5]">Prodigitality</span>
+                      {" baseline survey."}
+                    </p>
                   </div>
-                );
-                if (b.type === "divider") return <hr key={i} className="border-[#F2F2F4]" />;
-                return null;
-              })}
-            </div>
-            <div className="border-t border-[#F2F2F4] px-6 pb-4 pt-3">
-              <p className="text-[11.5px] text-gray-400">{sel.preheader}</p>
+                </div>
+
+                {/* Preheader — sits below the card */}
+                {sel.preheader && (
+                  <p className="mt-3 text-center text-[11px] text-[#ADADB8]">{sel.preheader}</p>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1605,27 +1711,48 @@ function ProfileDrawer() {
             <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.6px] text-gray-400">
               Selfie Verification
             </div>
-            <div className="flex gap-3">
-              <div className="flex h-[72px] w-[72px] flex-none items-center justify-center rounded-[10px] bg-gray-100">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                </svg>
-              </div>
-              <div className="space-y-1 pt-0.5">
-                {r.selfie ? (
-                  <>
-                    <div className="text-[12.5px] text-[#18181B]">
-                      <span className="font-semibold">Captured</span>
-                      <span className="text-gray-500"> {r.createdDays}d ago</span>
-                    </div>
-                    <div className="text-[12px] text-gray-400">IP 124.6.23.21</div>
-                    <div className="text-[12px] text-gray-400">Chrome · Android 13</div>
-                  </>
+            {r.selfie ? (
+              <div className="flex gap-3">
+                {r.selfieUrl ? (
+                  <a href={r.selfieUrl} target="_blank" rel="noreferrer" className="flex-none">
+                    <img
+                      src={r.selfieUrl}
+                      alt="Identity selfie"
+                      className="h-[88px] w-[72px] rounded-[10px] object-cover ring-1 ring-black/10 transition hover:opacity-90"
+                    />
+                  </a>
                 ) : (
-                  <div className="text-[12.5px] text-gray-400">Not submitted</div>
+                  <div className="flex h-[88px] w-[72px] flex-none items-center justify-center rounded-[10px] bg-gray-100">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                  </div>
                 )}
+                <div className="space-y-1 pt-0.5">
+                  <div className="text-[12.5px] font-semibold text-[#18181B]">Submitted</div>
+                  <div className="text-[12px] text-gray-400">{r.createdDays}d ago</div>
+                  {r.selfieUrl && (
+                    <a
+                      href={r.selfieUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block text-[11.5px] font-semibold text-[#4F46E5] hover:underline"
+                    >
+                      Open full size ↗
+                    </a>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex gap-3">
+                <div className="flex h-[88px] w-[72px] flex-none items-center justify-center rounded-[10px] bg-gray-100">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </div>
+                <div className="pt-0.5 text-[12.5px] text-gray-400">Not submitted</div>
+              </div>
+            )}
           </div>
 
           {/* Survey snapshot */}
@@ -1689,12 +1816,6 @@ function ProfileDrawer() {
                 className="flex-1 rounded-[9px] bg-emerald-600 py-2.5 text-[13px] font-bold text-white hover:bg-emerald-700"
               >
                 ✓ Approve
-              </button>
-              <button
-                onClick={() => actions.qaAct(r.id, "follow")}
-                className="flex-1 rounded-[9px] border border-amber-300 py-2.5 text-[13px] font-bold text-amber-700 hover:bg-amber-50"
-              >
-                Follow-up
               </button>
               <button
                 onClick={() => actions.qaAct(r.id, "reject")}

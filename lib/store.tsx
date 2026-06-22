@@ -80,6 +80,7 @@ export interface PortalState {
   selfie: boolean;
   selfieMethod: string;
   selfieUrl: string;
+  selfieFile: File | null;
   payoutOn: boolean;
   surveyOnly: boolean;
   handoffMode: string;
@@ -117,6 +118,7 @@ function blankShipping(): ShippingDetails {
 }
 
 const FLOW_DRAFT_KEY = "prodi-surveys.flowDraft.v1";
+const REFERRERS_KEY = "prodi-surveys.referrers.v1";
 const FLOW_DRAFT_FIELDS = [
   "mode",
   "rStep",
@@ -171,7 +173,14 @@ function initialState(): PortalState {
     showAddEnum: false,
     newEnumName: "",
     newEnumEmail: "",
-    manualReferrers: [{ name: "DOST", kind: "Partner / TSI" }],
+    manualReferrers: (() => {
+      if (typeof window === "undefined") return [{ name: "DOST", kind: "Partner / TSI" }];
+      try {
+        const raw = window.localStorage.getItem(REFERRERS_KEY);
+        if (raw) return JSON.parse(raw) as ManualReferrer[];
+      } catch { /* ignore */ }
+      return [{ name: "DOST", kind: "Partner / TSI" }];
+    })(),
     showAddRef: false,
     newRefName: "",
     newRefKind: "Partner / TSI",
@@ -196,6 +205,7 @@ function initialState(): PortalState {
     selfie: false,
     selfieMethod: "",
     selfieUrl: "",
+    selfieFile: null,
     payoutOn: true,
     surveyOnly: false,
     handoffMode: "",
@@ -225,6 +235,9 @@ function hydrateDraft(base: PortalState): PortalState {
       payout: { ...blankPayout(), ...(draft.payout || {}) },
       shipping: { ...blankShipping(), ...(draft.shipping || {}) },
       otp: "",
+      // In survey-only flows rType is sourced from the URL param, not the draft.
+      // Keep whatever launchSurveyOnlyFlow already set on base.
+      ...(base.surveyOnly ? { rType: base.rType } : {}),
     };
   } catch {
     return base;
@@ -273,7 +286,7 @@ export interface PortalActions {
   setEmail(id: string): void;
   launchFlow(): void;
   launchReferralFlow(code: string, preview?: boolean): void;
-  launchSurveyOnlyFlow(code: string, preview?: boolean): void;
+  launchSurveyOnlyFlow(code: string, preview?: boolean, rType?: string): void;
   exitFlow(): void;
   flowNext(): void;
   flowBack(): void;
@@ -286,12 +299,15 @@ export interface PortalActions {
   takeSelfie(): void;
   uploadSelfie(): void;
   setSelfieUrl(url: string): void;
+  setSelfieFile(file: File | null): void;
+  clearSelfie(): void;
   setPayoutOn(v: boolean): void;
   handoffAssisted(): void;
   handoffSendLink(): void;
-  previewSurveyOnly(code?: string): void;
+  previewSurveyOnly(code?: string, rType?: string): void;
   handoffDone(): void;
-  copySurveyLink(code?: string): void;
+  copySurveyLink(code?: string, rType?: string): void;
+  handoffReset(): void;
   setPayout(k: keyof PayoutDetails, v: string): void;
   setShipping(k: keyof ShippingDetails, v: string | boolean): void;
   setOrg(t: Qual["orgType"]): void;
@@ -404,6 +420,7 @@ export function PortalProvider({
       selfie: false,
       selfieMethod: "",
       selfieUrl: "",
+      selfieFile: null,
       payoutOn: true,
       surveyOnly: false,
       handoffMode: "",
@@ -628,6 +645,7 @@ export function PortalProvider({
         if (!name) return;
         const list = [...s.manualReferrers, { name, kind: s.newRefKind }];
         const c = "PS-" + codeOf(hash(name));
+        try { window.localStorage.setItem(REFERRERS_KEY, JSON.stringify(list)); } catch { /* ignore */ }
         set({
           manualReferrers: list,
           newRefName: "",
@@ -653,16 +671,19 @@ export function PortalProvider({
           reg: { ...blankReg(), code: c },
         });
       },
-      launchSurveyOnlyFlow: (surveyCode, preview = false) => {
+      launchSurveyOnlyFlow: (surveyCode, preview = false, rType?) => {
         const c = surveyCode.trim().toUpperCase();
         const s = stateRef.current;
-        if (s.mode === "flow" && s.surveyOnly && s.reg.code === c) return;
+        // Only skip re-init if the flow is already set up for the same code AND
+        // the same rType — a different ?t= param must re-launch to apply the new type.
+        if (s.mode === "flow" && s.surveyOnly && s.reg.code === c && (!rType || s.rType === (rType as Respondent["type"]))) return;
         set({
           ...resetFlow(),
           rStep: 5,
           surveyOnly: true,
           handoffMode: preview ? "preview" : "",
           reg: { ...blankReg(), code: c },
+          ...(rType ? { rType: rType as Respondent["type"] } : {}),
         });
       },
       exitFlow: () => set(resetFlow()),
@@ -725,6 +746,8 @@ export function PortalProvider({
       takeSelfie: () => set({ selfieMethod: "camera" }),
       uploadSelfie: () => set({ selfieMethod: "upload" }),
       setSelfieUrl: (url) => set({ selfieUrl: url, selfie: true }),
+      setSelfieFile: (file) => set({ selfieFile: file, selfie: !!file }),
+      clearSelfie: () => set({ selfie: false, selfieUrl: "", selfieFile: null }),
       setPayoutOn: (v) => set({ payoutOn: v }),
       handoffAssisted: () => set({ rStep: 5, surveyOnly: false, handoffMode: "" }),
       handoffSendLink: () => {
@@ -735,10 +758,11 @@ export function PortalProvider({
           audit: [logEntry("Survey link sent", "· " + who + " (self-service)", userName()), ...s.audit],
         });
       },
-      previewSurveyOnly: (code) => {
+      previewSurveyOnly: (code, rType?) => {
         const c = (code || "").trim().toUpperCase();
+        const tParam = rType ? "?t=" + encodeURIComponent(rType) : "";
         if (c && typeof window !== "undefined") {
-          window.location.href = "/preview/s/" + encodeURIComponent(c);
+          window.open("/preview/s/" + encodeURIComponent(c) + tParam, "_blank");
           return;
         }
         set({ rStep: 5, surveyOnly: true, handoffMode: "" });
@@ -747,9 +771,10 @@ export function PortalProvider({
         set(resetFlow());
         toast("Self-service survey link sent");
       },
-      copySurveyLink: (code) => {
+      copySurveyLink: (code, rType?) => {
         const c = (code || "").trim().toUpperCase() || "PS-" + codeOf(Date.now() % 99999);
-        const link = publicUrl("/s/" + encodeURIComponent(c));
+        const tParam = rType ? "?t=" + encodeURIComponent(rType) : "";
+        const link = publicUrl("/s/" + encodeURIComponent(c) + tParam);
         try {
           if (navigator.clipboard) navigator.clipboard.writeText(link);
         } catch {
@@ -757,6 +782,7 @@ export function PortalProvider({
         }
         toast("Survey link copied");
       },
+      handoffReset: () => set({ handoffMode: "" }),
       setPayout: (k, v) => set((s) => ({ payout: { ...s.payout, [k]: v } })),
       setShipping: (k, v) => set((s) => ({ shipping: { ...s.shipping, [k]: v } })),
 

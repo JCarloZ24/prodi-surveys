@@ -44,7 +44,7 @@ const TECH_TYPES = [
 ];
 const FOOD_EMP = ["1–9 employees", "10–99 employees", "100–199 employees", "200+ employees"];
 const FOOD_ROLE = ["Owner", "Manager", "Department Head", "Technical Staff", "Administrative Staff", "Other"];
-const HEAR_ABOUT = ["DTI", "DOST", "Philexport", "Food Innovation Center", "Enumerator", "Friend or Referral", "Facebook", "Other"];
+const HEAR_ABOUT = ["Friend or Referral", "Social Media", "Other"];
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="mb-2 block text-[13px] font-bold text-gray-700">{children}</span>;
@@ -65,6 +65,8 @@ export function ProfileStep() {
   const q = state.qual;
   const techArr = q.techTypes || [];
   const [showOtherReview, setShowOtherReview] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [thanked, setThanked] = useState(false);
 
   const profileBlocked =
     (q.orgType === "other" && showOtherReview) || (q.orgType === "food" && q.foodMakes === "No");
@@ -85,48 +87,73 @@ export function ProfileStep() {
 
   // When the respondent doesn't qualify ("Other", or a food business that
   // doesn't make/process food), take over the whole step with a dedicated
-  // notice page instead of an inline message under the cards.
+  // notice page. After they submit, swap to a thank-you screen.
   if (profileBlocked) {
     const isOther = q.orgType === "other";
+
+    if (thanked) {
+      return (
+        <div className="pt-6 text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#15803D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+          </div>
+          <h1 className="mb-2.5 text-[22px] font-extrabold tracking-[-.5px]">Thank you for your interest!</h1>
+          <p className="mx-auto mb-8 max-w-[400px] text-[14px] leading-[1.65] text-gray-500">
+            {isOther
+              ? "Unfortunately, this survey is currently open only to food-processing businesses and the organizations that support them. We've noted your details — our team will reach out if a relevant study becomes available."
+              : "Thanks for your time. Our team may follow up if this survey turns out to apply to your business."}
+          </p>
+          <button
+            onClick={actions.exitFlow}
+            className="mx-auto h-12 w-full max-w-[320px] rounded-[11px] bg-brand-ink text-[15px] font-bold text-white"
+          >
+            Return to start
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="pt-2 text-center">
-        <div
-          className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl"
-          style={{ background: blockTone ? "#FFF7ED" : "#F5F3FF" }}
-        >
-          <span className="text-[30px] leading-none">{blockTone ? "⚠️" : "📋"}</span>
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FFF7ED]">
+          <span className="text-[30px] leading-none">⚠️</span>
         </div>
         <h1 className="mb-2.5 text-[22px] font-extrabold tracking-[-.5px]">
-          {isOther ? "Thanks for your interest" : "This survey may not apply to you"}
+          This survey may not apply to you
         </h1>
         <p className="mx-auto mb-6 max-w-[460px] text-[14px] leading-[1.6] text-gray-500">
-          {isOther
-            ? "Tell us your organization's name and our team will review whether this survey applies to you. We'll reach out if it does."
-            : "This baseline survey is for businesses that make or process food products. Based on your answer it may not apply — but our team can review your details if you believe this is a mistake."}
+          This baseline survey is for businesses that make or process food products. Based on your
+          answer it may not apply — but our team can review your details if you believe this is a
+          mistake.
         </p>
-        {isOther && (
-          <div className="mx-auto mb-6 max-w-[360px] text-left">
-            <FieldLabel>
-              Organization / business name<Req />
-            </FieldLabel>
-            <input
-              value={q.orgName}
-              onChange={(e) => actions.setQual("orgName", e.target.value)}
-              placeholder="Your organization or business name"
-              className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] px-3 text-[13.5px] outline-none"
-            />
-          </div>
-        )}
         <button
-          onClick={actions.exitFlow}
-          disabled={isOther && !q.orgName.trim()}
+          onClick={async () => {
+            setSaving(true);
+            try {
+              await fetch("/api/leads", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  org_type: q.orgType,
+                  org_name: null,
+                  exit_reason: "food_no_processing",
+                }),
+              });
+            } finally {
+              setSaving(false);
+              setThanked(true);
+            }
+          }}
+          disabled={saving}
           className="mx-auto h-12 w-full max-w-[360px] rounded-[11px] text-[15px] font-bold text-white"
           style={{
-            background: isOther && !q.orgName.trim() ? "#D4D4D8" : "#18181B",
-            cursor: isOther && !q.orgName.trim() ? "not-allowed" : "pointer",
+            background: saving ? "#D4D4D8" : "#18181B",
+            cursor: saving ? "not-allowed" : "pointer",
           }}
         >
-          Done — return to start
+          {saving ? "Saving…" : "Done"}
         </button>
         <div className="mt-3.5">
           <button
@@ -328,7 +355,10 @@ export function ProfileStep() {
             <FieldLabel>How did you hear about this survey?<Req /></FieldLabel>
             <select
               value={q.hearAbout}
-              onChange={(e) => actions.setQual("hearAbout", e.target.value)}
+              onChange={(e) => {
+                actions.setQual("hearAbout", e.target.value);
+                actions.setQual("refName", "");
+              }}
               className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] bg-white px-2.5 text-[13.5px] outline-none"
             >
               <option value="">Select…</option>
@@ -339,11 +369,26 @@ export function ProfileStep() {
           </div>
           {q.hearAbout === "Friend or Referral" && (
             <div>
-              <FieldLabel>Referral code or referrer name</FieldLabel>
+              <FieldLabel>Referrer</FieldLabel>
+              <select
+                value={q.refName}
+                onChange={(e) => actions.setQual("refName", e.target.value)}
+                className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] bg-white px-2.5 text-[13.5px] outline-none"
+              >
+                <option value="">Select a referrer…</option>
+                {state.manualReferrers.map((r) => (
+                  <option key={r.name} value={r.name}>{r.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {q.hearAbout === "Other" && (
+            <div>
+              <FieldLabel>Please specify</FieldLabel>
               <input
                 value={q.refName}
                 onChange={(e) => actions.setQual("refName", e.target.value)}
-                placeholder="Who referred you?"
+                placeholder="How did you find out?"
                 className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] px-3 text-[13.5px] outline-none"
               />
             </div>
@@ -362,7 +407,19 @@ export function ProfileStep() {
           onClick={() => {
             if (!ready) return;
             if (q.orgType === "other") {
+              // Skip the notice screen — go straight to the thank-you state and
+              // fire the lead API silently in the background.
               setShowOtherReview(true);
+              setThanked(true);
+              fetch("/api/leads", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  org_type: q.orgType,
+                  org_name: q.orgName.trim() || null,
+                  exit_reason: "other_org_type",
+                }),
+              }).catch(() => {});
               return;
             }
             actions.flowNext();
