@@ -71,21 +71,35 @@ export function SurveyStep() {
       return isAnswered(question, state.survey[question.id as string]);
     }) ?? true;
   const sectionStates = sections.map((_, index) => sectionComplete(index));
+  const sectionFilled = (sectionIndex: number) => {
+    const section = sections[sectionIndex];
+    if (!section) return false;
+    if (/optional/i.test(section.title)) {
+      return section.items.every(({ question }) =>
+        isAnswered(question, state.survey[question.id as string]),
+      );
+    }
+    return sectionStates[sectionIndex];
+  };
   const firstIncompleteSection = sectionStates.findIndex((done) => !done);
   const restoredSection = firstIncompleteSection === -1 ? Math.max(0, sections.length - 1) : firstIncompleteSection;
   const [attempted, setAttempted] = useState(false);
   const [activeSection, setActiveSection] = useState(restoredSection);
   const currentSection = Math.min(activeSection, sections.length - 1);
   const current = sections[currentSection];
-  const completedSections = sections.map((_, index) => index < currentSection && sectionStates[index]);
+  const completedSections = sections.map((_, index) => sectionFilled(index));
   const currentComplete = sectionStates[currentSection] ?? true;
   const maxReachableSection = firstIncompleteSection === -1 ? sections.length - 1 : firstIncompleteSection;
   const complete = firstMissing === -1;
 
+  const scrollTop = () => {
+    (document.getElementById("flow-scroll") ?? document.documentElement).scrollTo({ top: 0, behavior: "smooth" });
+  };
   const handleNext = () => {
     if (currentComplete && currentSection < sections.length - 1) {
       setAttempted(false);
       setActiveSection((value) => value + 1);
+      scrollTop();
       return;
     }
     if (complete && currentSection === sections.length - 1) {
@@ -103,6 +117,7 @@ export function SurveyStep() {
     if (currentSection > 0) {
       setAttempted(false);
       setActiveSection((value) => value - 1);
+      scrollTop();
       return;
     }
     actions.flowBack();
@@ -111,6 +126,7 @@ export function SurveyStep() {
     if (index > maxReachableSection) return;
     setAttempted(false);
     setActiveSection(index);
+    scrollTop();
   };
 
   return (
@@ -129,7 +145,7 @@ export function SurveyStep() {
           {sections.map((section, index) => {
             const active = index === currentSection;
             const reachable = index <= maxReachableSection;
-            const checked = index < activeSection && completedSections[index];
+            const checked = !active && completedSections[index];
             return (
               <button
                 key={section.title}

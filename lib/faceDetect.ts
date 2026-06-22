@@ -56,11 +56,64 @@ async function getDetector(): Promise<FaceDetector> {
       return FaceDetector.createFromOptions(vision, {
         baseOptions: { modelAssetPath: MODEL_URL },
         runningMode: "IMAGE",
-        minDetectionConfidence: 0.5,
+        minDetectionConfidence: 0.80,
       });
     })();
   }
   return detectorPromise;
+}
+
+// BlazeFace returns 6 normalised key points in this order:
+//   0 right eye · 1 left eye · 2 nose tip · 3 mouth centre
+//   4 right ear · 5 left ear
+// A real, unobstructed face satisfies all these geometric constraints:
+//   – eyes are at roughly the same height (Δy < 6 % of image height)
+//   – nose tip is below both eyes
+//   – mouth centre is below nose tip
+//   – eye-to-mouth span is meaningfully larger than eye-to-nose span
+//     (if a hand covers the mouth the model may place the "mouth" keypoint
+//      near the nose, collapsing the ratio)
+// Falls back to true when key points are unavailable so we don't over-reject.
+function hasValidFaceGeometry(kps: Array<{ x: number; y: number }>): boolean {
+  if (kps.length < 4) return true;
+  const [rEye, lEye, nose, mouth] = kps;
+  if (Math.abs(rEye.y - lEye.y) > 0.06) return false;           // eyes unaligned
+  const eyeAvgY = (rEye.y + lEye.y) / 2;
+  if (nose.y <= eyeAvgY) return false;                            // nose above eyes
+  if (mouth.y <= nose.y) return false;                            // mouth above nose
+  const eyeToNose = nose.y - eyeAvgY;
+  const eyeToMouth = mouth.y - eyeAvgY;
+  if (eyeToMouth < eyeToNose * 1.4) return false;                // mouth too close to nose
+  return true;
+}
+
+function countValidFaces(detections: Array<{ keypoints?: Array<{ x: number; y: number }> }>): number {
+  return detections.filter((d) => hasValidFaceGeometry(d.keypoints ?? [])).length;
+}
+
+// Returns the number of faces in a live video frame (for camera preview loop).
+// Uses createImageBitmap on the video element — works on Chrome/Firefox/Safari.
+export async function detectFaceInFrame(video: HTMLVideoElement): Promise<number> {
+  if (video.readyState < 2 || video.videoWidth === 0) return -1;
+  let detector;
+  try {
+    detector = await getDetector();
+  } catch {
+    return -1;
+  }
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(video);
+  } catch {
+    return -1;
+  }
+  try {
+    return countValidFaces(detector.detect(bitmap).detections);
+  } catch {
+    return -1;
+  } finally {
+    bitmap.close();
+  }
 }
 
 // Returns the number of faces detected in the image file.
@@ -87,8 +140,7 @@ export async function detectFaceCount(file: File): Promise<number> {
   }
 
   try {
-    const result = detector.detect(bitmap);
-    return result.detections.length;
+    return countValidFaces(detector.detect(bitmap).detections);
   } catch (err) {
     console.warn("Face detection failed:", err);
     return -1;

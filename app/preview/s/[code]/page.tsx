@@ -1,6 +1,14 @@
 import { SurveyOnlyPageClient } from "../../../s/SurveyOnlyPageClient";
 
-export default async function PreviewSurveyOnlyPage({ params }: { params: Promise<{ code: string }> }) {
+export default async function PreviewSurveyOnlyPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ code: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { code } = await params;
-  return <SurveyOnlyPageClient code={decodeURIComponent(code)} preview />;
+  const sp = await searchParams;
+  const rType = typeof sp.t === "string" ? sp.t : undefined;
+  return <SurveyOnlyPageClient code={decodeURIComponent(code)} rType={rType} preview />;
 }

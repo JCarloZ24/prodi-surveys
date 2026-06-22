@@ -7,8 +7,14 @@ export async function POST(req: NextRequest) {
   const file = formData.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
-  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${crypto.randomUUID()}.${ext}`;
+  if (!file.type.startsWith("image/")) {
+    return NextResponse.json({ error: "Only image files are accepted." }, { status: 400 });
+  }
+
+  const ALLOWED_EXTS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp", "heic", "heif", "avif"]);
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  const safeExt = ALLOWED_EXTS.has(ext) ? ext : "jpg";
+  const path = `${crypto.randomUUID()}.${safeExt}`;
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const db = createAnonClient();

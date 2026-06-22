@@ -8,7 +8,7 @@ import { tok, bon } from "@/lib/selectors";
 import { code, hash, peso, typePillClass, typeShort } from "@/lib/format";
 import { LogoMark } from "@/lib/icons";
 import { cx } from "@/lib/cx";
-import { detectFaceCount } from "@/lib/faceDetect";
+import { detectFaceCount, detectFaceInFrame } from "@/lib/faceDetect";
 import { publicUrl } from "@/lib/public-url";
 import { FlowNav } from "./FlowNav";
 import { ProfileStep } from "./ProfileStep";
@@ -104,7 +104,7 @@ export function RespondentFlow() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-[22px] pt-[34px]">
+      <div id="flow-scroll" className="flex-1 overflow-y-auto px-[22px] pt-[34px]">
         <div key={step} className="animate-flow-step mx-auto w-full max-w-[620px] pb-[120px]">
           {step === 0 && <Welcome />}
           {step === 1 && <ProfileStep />}
@@ -351,7 +351,7 @@ function Register() {
   const mobileLocal = reg.mobile.replace(/^\+63/, "");
   const nameOk = reg.name.trim().length > 0;
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reg.email.trim());
-  const mobileOk = mobileLocal.replace(/\D/g, "").length >= 10;
+  const mobileOk = mobileLocal.replace(/\D/g, "").length === 10;
   const normalizedRefCode = reg.code.trim().toUpperCase();
   const hasReferralCode = normalizedRefCode.length > 0;
   const referralFormatOk = /^PS-[A-Z0-9]{4,}$/.test(normalizedRefCode);
@@ -451,13 +451,13 @@ function Register() {
                 onBlur={() => touch("mobile")}
                 type="tel"
                 inputMode="tel"
-                maxLength={11}
-                placeholder="9XX XXX XXXX"
+                maxLength={10}
+                placeholder="9171234567"
                 className="h-full flex-1 px-3 text-[13.5px] outline-none"
               />
             </div>
             {touched.mobile && !mobileOk && (
-              <span className="mt-1 block text-[11.5px] text-red-500">Enter a valid mobile number.</span>
+              <span className="mt-1 block text-[11.5px] text-red-500">Enter a valid 10-digit mobile number (e.g. 9171234567).</span>
             )}
           </label>
         </div>
@@ -557,12 +557,12 @@ function Otp() {
     const storageKey = otpStorageKey(state.reg.email);
     window.sessionStorage.setItem(storageKey, String(Date.now()));
     sendOtp(false)
-      .then(() => { if (!cancelled) setSent(true); })
+      .then(() => { setSent(true); })
       .catch(() => {
         window.sessionStorage.removeItem(storageKey);
         if (!cancelled) setOtpError("Verification email could not be sent. Please try again in a moment.");
       })
-      .finally(() => { if (!cancelled) setSending(false); });
+      .finally(() => { setSending(false); });
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -659,10 +659,26 @@ function Otp() {
 
 function Handoff() {
   const { state, actions } = usePortal();
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const picking = state.handoffMode !== "link";
   const who = (state.reg.name || "").trim() || "the respondent";
   const surveyCode = "PS-" + code(hash(state.reg.email || state.reg.name || "survey"));
-  const surveyLink = publicUrl("/s/" + encodeURIComponent(surveyCode));
+  const surveyLink = publicUrl("/s/" + encodeURIComponent(surveyCode) + "?t=" + encodeURIComponent(state.rType));
+
+  const handleSendEmail = async () => {
+    setEmailSending(true);
+    try {
+      await fetch("/api/send-survey-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: state.reg.email, name: who, surveyLink }),
+      });
+      setEmailSent(true);
+    } finally {
+      setEmailSending(false);
+    }
+  };
 
   return (
     <div>
@@ -749,17 +765,30 @@ function Handoff() {
           <div className="mb-4 flex items-center gap-2 rounded-[9px] border border-line2 bg-muted px-[13px] py-[11px]">
             <span className="flex-1 break-all font-mono text-[13px] text-gray-700">{surveyLink}</span>
             <button
-              onClick={() => actions.copySurveyLink(surveyCode)}
+              onClick={() => actions.copySurveyLink(surveyCode, state.rType)}
               className="rounded-[7px] bg-brand-pink px-[13px] py-[7px] text-[11.5px] font-bold text-white"
             >
               Copy
             </button>
           </div>
           <button
-            onClick={() => actions.previewSurveyOnly(surveyCode)}
+            onClick={() => actions.previewSurveyOnly(surveyCode, state.rType)}
             className="mb-2.5 h-[46px] w-full rounded-[11px] bg-brand-ink text-sm font-bold text-white"
           >
-            Preview the respondent&apos;s survey-only view
+            Preview the respondent&apos;s survey-only view ↗
+          </button>
+          <button
+            onClick={handleSendEmail}
+            disabled={emailSending || emailSent}
+            className="mb-2.5 h-11 w-full rounded-[11px] border border-[#E2E2E6] bg-white text-[13.5px] font-bold text-gray-700 disabled:opacity-60"
+          >
+            {emailSent ? "✓ Email sent to respondent" : emailSending ? "Sending…" : "Send via respondent's email"}
+          </button>
+          <button
+            onClick={actions.handoffReset}
+            className="mb-2.5 h-11 w-full rounded-[11px] border border-[#E2E2E6] bg-white text-[13.5px] font-bold text-gray-700"
+          >
+            ← Back
           </button>
           <button
             onClick={actions.handoffDone}
@@ -773,6 +802,210 @@ function Handoff() {
   );
 }
 
+type FaceStatus = "loading" | "none" | "ok" | "multi";
+
+function CameraCapture({
+  onCapture,
+  onCancel,
+}: {
+  onCapture: (file: File) => void;
+  onCancel: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [ready, setReady] = useState(false);
+  const [faceStatus, setFaceStatus] = useState<FaceStatus>("loading");
+  const [camError, setCamError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let stream: MediaStream | null = null;
+    setCamError("");
+    setReady(false);
+    setFaceStatus("loading");
+
+    const DENIED_MSG = (
+      "Camera access is blocked for this site.\n" +
+      "To fix it:\n" +
+      "1. Click the lock or camera icon in the address bar\n" +
+      "2. Set Camera to “Allow”\n" +
+      "3. Tap “Try again” below"
+    );
+
+    const start = async () => {
+      // Check permission state before calling getUserMedia so we can show
+      // actionable instructions when the browser would silently deny the request.
+      if (navigator.permissions) {
+        try {
+          const perm = await navigator.permissions.query({ name: "camera" as PermissionName });
+          if (perm.state === "denied" && !cancelled) {
+            setCamError(DENIED_MSG);
+            return;
+          }
+        } catch {
+          // Permissions API not supported — fall through to getUserMedia
+        }
+      }
+
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+        });
+        if (cancelled) { s.getTracks().forEach((t) => t.stop()); return; }
+        stream = s;
+        const video = videoRef.current;
+        if (!video) return;
+        video.srcObject = s;
+        video.onloadedmetadata = () => {
+          video.play().then(() => { if (!cancelled) setReady(true); }).catch(() => {});
+        };
+      } catch (err) {
+        if (!cancelled) setCamError(
+          err instanceof DOMException && err.name === "NotAllowedError"
+            ? DENIED_MSG
+            : "Camera could not be started. Make sure no other app is using it, then tap Try again.",
+        );
+        console.warn("Camera:", err);
+      }
+    };
+
+    start();
+    return () => {
+      cancelled = true;
+      stream?.getTracks().forEach((t) => t.stop());
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retryKey]);
+
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled) return;
+      const video = videoRef.current;
+      if (video) {
+        const count = await detectFaceInFrame(video);
+        if (!cancelled) {
+          setFaceStatus(count === 1 ? "ok" : count > 1 ? "multi" : count === 0 ? "none" : "loading");
+        }
+      }
+      if (!cancelled) setTimeout(tick, 400);
+    };
+    tick();
+    return () => { cancelled = true; };
+  }, [ready]);
+
+  const capture = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0);
+    canvas.toBlob(
+      (blob) => { if (blob) onCapture(new File([blob], "selfie.jpg", { type: "image/jpeg" })); },
+      "image/jpeg",
+      0.92,
+    );
+  };
+
+  const borderColor =
+    faceStatus === "ok" ? "#22C55E" : faceStatus === "multi" ? "#EF4444" : "rgba(255,255,255,0.45)";
+  const statusText =
+    faceStatus === "ok" ? "Face detected — tap to capture"
+    : faceStatus === "multi" ? "Multiple faces detected — one face only"
+    : faceStatus === "none" ? "No face detected — position your face in the oval"
+    : "Starting camera…";
+  const statusColor =
+    faceStatus === "ok" ? "#4ADE80" : faceStatus === "multi" ? "#F87171" : "#6B7280";
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center bg-black">
+      <div className="flex w-full max-w-[420px] flex-1 flex-col items-center px-4 pt-10">
+        <h2 className="mb-1 text-[18px] font-bold text-white">Take your selfie</h2>
+        <p className="mb-6 text-[12.5px] text-gray-400">Look straight at the camera</p>
+
+        {camError ? (
+          <div className="mx-auto w-full max-w-[320px] rounded-2xl bg-red-950/60 p-6 text-left">
+            <p className="mb-3 text-[13px] font-semibold text-red-300">Camera blocked</p>
+            <ol className="space-y-1.5 text-[12.5px] leading-snug text-red-200">
+              {camError.split("\n").filter(l => /^\d\./.test(l)).map((line, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className="shrink-0 font-bold">{i + 1}.</span>
+                  <span>{line.replace(/^\d\.\s*/, "")}</span>
+                </li>
+              ))}
+            </ol>
+            <button
+              onClick={() => setRetryKey((k) => k + 1)}
+              className="mt-5 w-full rounded-xl bg-white/10 py-2.5 text-[13px] font-semibold text-white hover:bg-white/20"
+            >
+              Try again
+            </button>
+          </div>
+        ) : (
+          <div className="relative w-full overflow-hidden rounded-3xl" style={{ maxWidth: 340, aspectRatio: "3/4" }}>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ transform: "scaleX(-1)" }}
+            />
+            <svg
+              className="absolute inset-0 h-full w-full"
+              viewBox="0 0 300 400"
+              xmlns="http://www.w3.org/2000/svg"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <mask id="face-oval-mask">
+                  <rect width="300" height="400" fill="white" />
+                  <ellipse cx="150" cy="182" rx="108" ry="142" fill="black" />
+                </mask>
+              </defs>
+              <rect width="300" height="400" fill="rgba(0,0,0,0.5)" mask="url(#face-oval-mask)" />
+              <ellipse cx="150" cy="182" rx="108" ry="142" fill="none" stroke={borderColor} strokeWidth="3" />
+            </svg>
+          </div>
+        )}
+
+        {!camError && (
+          <p className="mt-4 text-center text-[12.5px] font-semibold" style={{ color: statusColor }}>
+            {statusText}
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col items-center gap-4 pb-12">
+        <button
+          onClick={capture}
+          disabled={faceStatus !== "ok"}
+          aria-label="Capture selfie"
+          className="flex h-[70px] w-[70px] items-center justify-center rounded-full border-[3px] transition-all disabled:opacity-30"
+          style={{ borderColor: faceStatus === "ok" ? "#22C55E" : "#fff" }}
+        >
+          <div
+            className="h-[54px] w-[54px] rounded-full transition-colors"
+            style={{ background: faceStatus === "ok" ? "#22C55E" : "#fff" }}
+          />
+        </button>
+        <button onClick={onCancel} className="text-[13px] font-semibold text-gray-400 underline underline-offset-2">
+          Cancel
+        </button>
+      </div>
+
+      <canvas ref={canvasRef} className="hidden" />
+    </div>
+  );
+}
+
 function Selfie() {
   const { state, actions } = usePortal();
   const done = state.selfie;
@@ -780,34 +1013,54 @@ function Selfie() {
   const [uploading, setUploading] = useState(false);
   const [busyMsg, setBusyMsg] = useState("Uploading…");
   const [uploadError, setUploadError] = useState("");
-  const cameraRef = useRef<HTMLInputElement>(null);
+  const [uploadFailed, setUploadFailed] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const previewUrlRef = useRef("");
   const uploadRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = async (file: File) => {
+  useEffect(() => {
+    return () => { if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current); };
+  }, []);
+
+  const setPreview = (url: string) => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = url;
+    setPreviewUrl(url);
+  };
+
+  const handleFile = async (file: File, alreadyVerified = false) => {
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Only image files are accepted (JPG, PNG, WEBP, etc.).");
+      return;
+    }
+    const localUrl = URL.createObjectURL(file);
+    setPreview(localUrl);
     setUploading(true);
     setUploadError("");
+    setUploadFailed(false);
+    actions.clearSelfie();
     try {
-      // Verify the photo actually shows a single face before uploading. A count
-      // of -1 means detection couldn't run (model/CDN unavailable) — fail open
-      // so an outage never blocks a respondent from finishing the survey.
-      setBusyMsg("Checking photo…");
-      const faces = await detectFaceCount(file);
-      if (faces === 0) {
-        throw new Error("We couldn't detect a face. Use a clear, well-lit photo showing your face.");
+      if (!alreadyVerified) {
+        // Verify the photo actually shows a single face. A count of -1 means the
+        // detector couldn't load (CDN down) — fail open so an outage never blocks
+        // a respondent from finishing the survey.
+        setBusyMsg("Checking photo…");
+        const faces = await detectFaceCount(file);
+        if (faces === 0) {
+          setUploadFailed(true);
+          throw new Error("We couldn't detect a face. Make sure your full face is visible and well-lit.");
+        }
+        if (faces > 1) {
+          setUploadFailed(true);
+          throw new Error("Multiple faces detected. Make sure only your face is in the photo.");
+        }
       }
-      if (faces > 1) {
-        throw new Error("More than one face detected. Make sure only your face is visible.");
-      }
-
-      setBusyMsg("Uploading…");
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/selfie", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.error || "Upload failed");
-      actions.setSelfieUrl(data.url);
+      // Store the file locally — actual upload to storage happens at submit time
+      // so no orphaned files are created if the respondent abandons the survey.
+      actions.setSelfieFile(file);
     } catch (e: unknown) {
-      setUploadError(e instanceof Error ? e.message : "Upload failed. Please try again.");
+      setUploadError(e instanceof Error ? e.message : "Photo check failed. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -819,95 +1072,123 @@ function Selfie() {
       active ? "border-brand-pink bg-brand-pinkSoft text-[#9D174D]" : "border-[#E2E2E6] bg-white text-gray-700",
     );
 
+  const handleCameraCapture = (file: File) => {
+    setCameraOpen(false);
+    actions.takeSelfie();
+    handleFile(file, true); // face was already verified by the camera detection loop
+  };
+
   return (
-    <div className="pt-2 text-center">
-      <h1 className="mb-2 text-[22px] font-extrabold tracking-[-.5px]">Identity selfie</h1>
-      <p className="mx-auto mb-6 max-w-[420px] text-[13.5px] text-gray-500">
-        A quick selfie confirms a real person completed this survey. Make sure your face is clearly
-        visible and well-lit. Used for audit &amp; quality control only.
-      </p>
-      <div
-        className="mx-auto flex h-[180px] w-full max-w-[320px] items-center justify-center rounded-2xl border-2 border-dashed"
-        style={{
-          borderColor: done ? "#86EFAC" : "#D4D4D8",
-          background: done ? "#F0FDF4" : "#FAFAFA",
-        }}
-      >
-        {uploading ? (
-          <div className="text-center">
-            <div className="text-[13.5px] font-semibold text-gray-400">{busyMsg}</div>
-          </div>
-        ) : done ? (
-          <div className="text-center">
-            <div className="mx-auto mb-3 flex h-[58px] w-[58px] items-center justify-center rounded-full bg-green-100">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#15803D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 6L9 17l-5-5" />
-              </svg>
+    <>
+      {cameraOpen && (
+        <CameraCapture
+          onCapture={handleCameraCapture}
+          onCancel={() => setCameraOpen(false)}
+        />
+      )}
+      <div className="pt-2 text-center">
+        <h1 className="mb-2 text-[22px] font-extrabold tracking-[-.5px]">Identity selfie</h1>
+        <p className="mx-auto mb-6 max-w-[420px] text-[13.5px] text-gray-500">
+          A quick selfie confirms a real person completed this survey. Make sure your face is clearly
+          visible and well-lit. Used for audit &amp; quality control only.
+        </p>
+        <div
+          className="relative mx-auto w-full max-w-[320px] overflow-hidden rounded-2xl border-2 border-dashed"
+          style={{
+            aspectRatio: previewUrl ? "3/4" : undefined,
+            height: previewUrl ? undefined : 180,
+            borderColor: done ? "#86EFAC" : uploadFailed ? "#FCA5A5" : "#D4D4D8",
+            background: previewUrl ? "#000" : done ? "#F0FDF4" : uploadFailed ? "#FEF2F2" : "#FAFAFA",
+          }}
+        >
+          {previewUrl && (
+            <img src={previewUrl} alt="Selfie preview" className="absolute inset-0 h-full w-full object-cover" style={{ filter: uploadFailed ? "brightness(0.4)" : undefined }} />
+          )}
+          {uploading ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <div className="text-[13.5px] font-semibold text-white">{busyMsg}</div>
             </div>
-            <div className="text-sm font-bold text-green-700">{methodLabel}</div>
-            <div className="mt-[3px] text-[12px] text-gray-400">Identity image attached</div>
-          </div>
-        ) : (
-          <div className="text-center">
-            <svg className="mx-auto" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="11" r="3.4" />
-              <path d="M5 20a7 7 0 0 1 14 0" />
-              <path d="M9 4h6l1 2h2a2 2 0 0 1 2 2" />
+          ) : uploadFailed && previewUrl ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </div>
+              <div className="text-[12.5px] font-bold text-white">Not accepted</div>
+            </div>
+          ) : done && previewUrl ? (
+            <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-1.5 bg-gradient-to-t from-black/70 to-transparent pb-5 pt-10">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-500">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+              </div>
+              <div className="text-[12.5px] font-bold text-white">{methodLabel}</div>
+            </div>
+          ) : done ? (
+            <div className="flex h-full flex-col items-center justify-center">
+              <div className="mb-3 flex h-[58px] w-[58px] items-center justify-center rounded-full bg-green-100">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#15803D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+              </div>
+              <div className="text-sm font-bold text-green-700">{methodLabel}</div>
+              <div className="mt-[3px] text-[12px] text-gray-400">Identity image attached</div>
+            </div>
+          ) : !previewUrl ? (
+            <div className="flex h-full flex-col items-center justify-center">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="11" r="3.4" />
+                <path d="M5 20a7 7 0 0 1 14 0" />
+                <path d="M9 4h6l1 2h2a2 2 0 0 1 2 2" />
+              </svg>
+              <div className="mt-3 text-[13.5px] font-semibold text-gray-500">No image yet</div>
+            </div>
+          ) : null}
+        </div>
+        {uploadError && <p className="mt-2 text-[12px] text-red-500">{uploadError}</p>}
+        <div className="mx-auto mt-4 grid max-w-[360px] grid-cols-2 gap-2.5">
+          <button
+            onClick={() => setCameraOpen(true)}
+            disabled={uploading}
+            className={methodBtn(state.selfieMethod === "camera")}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
             </svg>
-            <div className="mt-3 text-[13.5px] font-semibold text-gray-500">No image yet</div>
-          </div>
-        )}
+            Take a selfie
+          </button>
+          <button
+            onClick={() => { actions.uploadSelfie(); uploadRef.current?.click(); }}
+            disabled={uploading}
+            className={methodBtn(state.selfieMethod === "upload")}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <path d="M17 8l-5-5-5 5" />
+              <path d="M12 3v12" />
+            </svg>
+            Upload an image
+          </button>
+        </div>
+        <input
+          ref={uploadRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
+        />
+        <div className="mt-4 flex flex-wrap justify-center gap-3.5 text-[11.5px] text-gray-400">
+          <span>🔒 Timestamp recorded</span>
+          <span>IP &amp; device logged</span>
+        </div>
+        <div className="mt-6">
+          <FlowNav disabled={!done || uploading} />
+        </div>
       </div>
-      {uploadError && <p className="mt-2 text-[12px] text-red-500">{uploadError}</p>}
-      <div className="mx-auto mt-4 grid max-w-[360px] grid-cols-2 gap-2.5">
-        <button
-          onClick={() => { actions.takeSelfie(); cameraRef.current?.click(); }}
-          disabled={uploading}
-          className={methodBtn(state.selfieMethod === "camera")}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-            <circle cx="12" cy="13" r="4" />
-          </svg>
-          Take a selfie
-        </button>
-        <button
-          onClick={() => { actions.uploadSelfie(); uploadRef.current?.click(); }}
-          disabled={uploading}
-          className={methodBtn(state.selfieMethod === "upload")}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <path d="M17 8l-5-5-5 5" />
-            <path d="M12 3v12" />
-          </svg>
-          Upload an image
-        </button>
-      </div>
-      {/* Hidden file inputs — camera uses capture="user" for front-facing on mobile */}
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="image/*"
-        capture="user"
-        className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
-      />
-      <input
-        ref={uploadRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
-      />
-      <div className="mt-4 flex flex-wrap justify-center gap-3.5 text-[11.5px] text-gray-400">
-        <span>🔒 Timestamp recorded</span>
-        <span>IP &amp; device logged</span>
-      </div>
-      <div className="mt-6">
-        <FlowNav disabled={!done || uploading} />
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -1199,6 +1480,17 @@ function Review() {
     setSubmitting(true);
     setSubmitError("");
     try {
+      // Upload the selfie now (deferred from the selfie step so no orphaned
+      // files are stored when a respondent abandons mid-survey).
+      let selfieUrl: string | null = state.selfieUrl || null;
+      if (state.selfieFile) {
+        const fd = new FormData();
+        fd.append("file", state.selfieFile);
+        const sr = await fetch("/api/selfie", { method: "POST", body: fd });
+        const sd = await sr.json().catch(() => ({}));
+        if (sr.ok && sd.url) selfieUrl = sd.url;
+      }
+
       const isTSI = state.rType === "TSI";
       const res = await fetch("/api/submit", {
         method: "POST",
@@ -1208,7 +1500,7 @@ function Review() {
           qualification: state.qual,
           survey_type: state.rType,
           answers: state.survey,
-          selfie_url: state.selfieUrl || null,
+          selfie_url: selfieUrl,
           payout_details: !isTSI && state.payoutOn ? state.payout : null,
           shipping_details: isTSI ? state.shipping : null,
           referrer_code: state.reg.code || null,
@@ -1257,7 +1549,7 @@ function Review() {
 
 function Success() {
   const { state, actions } = usePortal();
-  const thanks = (state.reg.name && state.reg.name.trim()) ? "Thanks, " + state.reg.name.trim() + "." : "Thanks!";
+  const firstName = (state.reg.name || "").trim().split(" ")[0];
   const tokenLabel = state.payoutOn ? peso(tok(state.incentives, state.rType)) : "No token";
   const referralPath = state.referralPath || "/r/" + encodeURIComponent(state.newCode || "");
   const referralUrl = publicUrl(referralPath);
@@ -1268,10 +1560,13 @@ function Success() {
           <path d="M20 6L9 17l-5-5" />
         </svg>
       </div>
-      <h1 className="mb-2.5 text-[26px] font-extrabold tracking-[-.6px]">Submitted!</h1>
+      <h1 className="mb-2.5 text-[26px] font-extrabold tracking-[-.6px]">
+        {firstName ? "Thank you, " + firstName + "!" : "Thank you!"}
+      </h1>
       <p className="mx-auto mb-6 max-w-[440px] text-[14.5px] leading-[1.6] text-gray-500">
-        {thanks} Your response is now <b className="text-orange-800">pending QA review</b>. You&apos;ll
-        be notified once verified and your token is processed.
+        Your response has been submitted and is now{" "}
+        <b className="text-orange-800">pending QA review</b>. You&apos;ll be notified once verified
+        and your token is processed.
       </p>
       <div className="mb-3.5 rounded-2xl border border-line bg-white p-5 text-left">
         <div className="mb-1.5 flex items-center justify-between">

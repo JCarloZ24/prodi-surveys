@@ -1,20 +1,13 @@
-import nodemailer from "nodemailer";
 import { createAdminClient } from "@/lib/supabase-server";
-import { requireAnyEnv } from "@/lib/env";
+import {
+  createTransporter,
+  FROM_ADDRESS,
+  LOGO_ATTACHMENT,
+  TRANSACTIONAL_HEADERS,
+} from "@/lib/mailer";
 
 // OTP codes are written/verified server-side with the service-role client so the
 // anon role needs no access to the otp_codes table (no anon RLS policies).
-function createTransporter() {
-  return nodemailer.createTransport({
-    host: requireAnyEnv(["SMTP_HOST"]),
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_PORT === "465",
-    auth: {
-      user: requireAnyEnv(["SMTP_USER"]),
-      pass: requireAnyEnv(["SMTP_PASS"]),
-    },
-  });
-}
 
 function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -33,64 +26,70 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
-function renderOtpEmail(code: string, email: string) {
+function renderOtpEmail(code: string) {
   const safeCode = escapeHtml(code);
-  const safeEmail = escapeHtml(email);
+  const accent = "#4F46E5";
+  const logoImg = `<img src="cid:logomark" width="28" height="28" alt="P" style="display:inline-block;vertical-align:middle;border:0"/>`;
 
-  return `
-    <!doctype html>
-    <html>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Verify your email</title>
-      </head>
-      <body style="margin:0;background:#F6F6F7;padding:0;font-family:Inter,Arial,sans-serif;color:#18181B">
-        <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">
-          Use this 6-digit code to continue your Prodi-Surveys response.
-        </div>
-        <div style="padding:32px 16px">
-          <div style="margin:0 auto;max-width:520px;overflow:hidden;border:1px solid #E4E4E7;border-radius:18px;background:#FFFFFF">
-            <div style="padding:28px 28px 18px;text-align:center">
-              <div style="margin:0 auto 18px;width:48px;height:48px;border-radius:14px;background:#FCE7F0;color:#E0195F;font-size:22px;font-weight:900;line-height:48px;text-align:center">
-                P
-              </div>
-              <div style="margin-bottom:8px;color:#71717A;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">
-                Prodi-Surveys
-              </div>
-              <h1 style="margin:0;color:#18181B;font-size:24px;line-height:1.25;font-weight:900">
-                Verify your email
-              </h1>
-              <p style="margin:12px auto 0;max-width:390px;color:#52525B;font-size:14px;line-height:1.6">
-                Enter this code to continue for <strong style="color:#18181B">${safeEmail}</strong>.
-              </p>
-            </div>
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/>
+  <title>Your Prodi-Surveys verification code</title>
+</head>
+<body style="margin:0;padding:0;background:#F0F0F3;font-family:Inter,-apple-system,BlinkMacSystemFont,Arial,sans-serif;color:#18181B">
+  <div style="display:none;max-height:0;overflow:hidden;color:transparent;opacity:0">Enter this code to verify your email and continue.</div>
 
-            <div style="padding:0 28px 26px">
-              <div style="border-radius:16px;background:#18181B;padding:22px;text-align:center">
-                <div style="margin-bottom:8px;color:#A1A1AA;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">
-                  Verification code
-                </div>
-                <div style="color:#FFFFFF;font-family:'SFMono-Regular',Consolas,'Liberation Mono',monospace;font-size:38px;line-height:1;font-weight:900;letter-spacing:10px">
-                  ${safeCode}
-                </div>
-              </div>
+  <div style="padding:32px 16px">
+    <div style="margin:0 auto;max-width:540px;overflow:hidden;border-radius:18px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08)">
 
-              <p style="margin:18px 0 0;color:#52525B;font-size:13px;line-height:1.6;text-align:center">
-                This code expires in <strong style="color:#18181B">15 minutes</strong>. For your security, do not share it with anyone.
-              </p>
-            </div>
+      <div style="height:5px;background:${accent}"></div>
 
-            <div style="border-top:1px solid #F0F0F2;background:#FAFAFA;padding:18px 28px;text-align:center">
-              <p style="margin:0;color:#71717A;font-size:12px;line-height:1.6">
-                If you did not request this code, you can safely ignore this email.
-              </p>
-            </div>
+      <div style="padding:24px 32px 0">
+        <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+          <tr>
+            <td style="vertical-align:middle;padding-right:10px">${logoImg}</td>
+            <td style="vertical-align:middle;font-size:14px;font-weight:800;letter-spacing:-.3px;color:#18181B;font-family:Inter,-apple-system,BlinkMacSystemFont,Arial,sans-serif">Prodi-Surveys</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="padding:20px 32px 8px">
+        <h1 style="margin:0 0 12px;font-size:22px;font-weight:900;line-height:1.3;color:#18181B">
+          Verify your email address
+        </h1>
+        <p style="margin:0 0 20px;font-size:13.5px;line-height:1.7;color:${accent}">
+          Thanks for registering for the Prodigitality baseline survey. Enter the code below to verify your email and continue to your survey.
+        </p>
+
+        <div style="border-radius:12px;background:#F5F5F7;padding:22px;text-align:center">
+          <div style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',monospace;font-size:34px;font-weight:900;letter-spacing:10px;color:#18181B">
+            ${safeCode}
           </div>
         </div>
-      </body>
-    </html>
-  `;
+
+        <p style="margin:16px 0 0;font-size:12px;line-height:1.65;color:#9CA3AF">
+          This code expires in 15 minutes. If you didn&rsquo;t request it, you can safely ignore this email.
+        </p>
+      </div>
+
+      <div style="margin-top:16px;border-top:1px solid #F2F2F4;padding:20px 32px">
+        <p style="margin:0;font-size:11px;line-height:1.7;color:#9CA3AF">
+          <span style="color:#6B7280">Prodigitality</span> &middot; <a href="https://prodigitalitydata.live" style="color:${accent};text-decoration:none">prodigitalitydata.live</a>
+        </p>
+        <p style="margin:0;font-size:11px;line-height:1.7;color:#9CA3AF">
+          You received this email because you registered for or were added to the <a href="https://prodigitalitydata.live" style="color:${accent};text-decoration:none">Prodigitality</a> baseline survey.
+        </p>
+      </div>
+    </div>
+
+    <p style="margin:12px 0 0;text-align:center;font-size:11px;color:#ADADB8">
+      Enter this code to verify your email and continue.
+    </p>
+  </div>
+</body>
+</html>`;
 }
 
 export type SendOtpResult = { ok: true; reused?: boolean };
@@ -133,19 +132,24 @@ export async function sendOtp(
   }
 
   await createTransporter().sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    from: FROM_ADDRESS,
     to: email,
     subject: "Your Prodi-Surveys verification code",
+    headers: TRANSACTIONAL_HEADERS,
     text: [
-      "Verify your email for Prodi-Surveys",
+      "Prodi-Surveys — Verify your email address",
       "",
-      `Your verification code is: ${code}`,
+      "Thanks for registering for the Prodigitality baseline survey.",
+      "Enter the code below to verify your email and continue to your survey.",
       "",
-      "This code expires in 15 minutes. Do not share it with anyone.",
+      `Your verification code: ${code}`,
       "",
-      "If you did not request this code, you can safely ignore this email.",
+      "This code expires in 15 minutes. For your security, do not share it with anyone.",
+      "",
+      "Prodigitality · prodigitalitydata.live",
     ].join("\n"),
-    html: renderOtpEmail(code, email),
+    html: renderOtpEmail(code),
+    attachments: [LOGO_ATTACHMENT],
   });
 
   return { ok: true };
