@@ -517,6 +517,35 @@ function Otp() {
     }
   };
 
+  // Create the submission row as soon as the email is verified (is_survey_completed
+  // =false). The final submit updates this same row. Skipped in preview and when a
+  // row already exists (e.g. user navigated back to re-verify). Never blocks verify.
+  const startSubmission = async () => {
+    if (state.submissionId || state.handoffMode === "preview") return;
+    try {
+      const res = await fetch("/api/submit/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          registration: state.reg,
+          qualification: state.qual,
+          survey_type: state.rType,
+          referrer_code: state.reg.code || null,
+          enumerator_slug: state.enumeratorSlug || null,
+          consent: {
+            terms: state.consentTerms,
+            privacy: state.consentPrivacy,
+            accepted_at: state.consentAt || null,
+          },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.id) actions.setSubmissionId(data.id);
+    } catch {
+      // Non-fatal: the final submit will insert a row if none exists.
+    }
+  };
+
   const handleVerify = async () => {
     setVerifying(true);
     setOtpError("");
@@ -528,6 +557,7 @@ function Otp() {
       });
       const data = await res.json().catch(() => ({}));
       if (data.ok) {
+        await startSubmission();
         actions.verifyOtp();
       } else {
         setOtpError("Incorrect or expired code. Please try again.");
@@ -1437,6 +1467,7 @@ function Review() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          id: state.submissionId || null,
           registration: state.reg,
           qualification: state.qual,
           survey_type: state.rType,

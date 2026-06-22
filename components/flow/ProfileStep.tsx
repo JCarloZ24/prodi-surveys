@@ -96,6 +96,30 @@ export function ProfileStep() {
     };
   }, []);
 
+  // When the survey is opened with a ?referral-code that matches a known referrer
+  // (reg.code is already prefilled by launchEnumeratorFlow), pre-select it in the
+  // dropdown once the list has loaded.
+  useEffect(() => {
+    const prefill = () => {
+      const refCode = state.reg.code;
+      if (!refCode || q.hearAbout !== "Friend or Referral" || q.refName) return;
+      const found = referrerList.find((r) => r.referral_code === refCode);
+      if (found) actions.setQual("refName", referrerLabel(found));
+    };
+    prefill();
+  }, [referrerList, state.reg.code, q.hearAbout, q.refName, actions]);
+
+  // Reflect the selected referrer's code in the address bar so the link is
+  // shareable / survives reload. replaceState avoids a navigation that would
+  // remount and reset the flow.
+  const syncReferralUrl = () => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (state.reg.code) url.searchParams.set("referral-code", state.reg.code);
+    else url.searchParams.delete("referral-code");
+    window.history.replaceState(window.history.state, "", url);
+  };
+
   const profileBlocked =
     (q.orgType === "other" && showOtherReview) || (q.orgType === "food" && q.foodMakes === "No");
   const blockTone = q.orgType === "food" && q.foodMakes === "No";
@@ -442,6 +466,7 @@ export function ProfileStep() {
               }).catch(() => {});
               return;
             }
+            syncReferralUrl();
             actions.flowNext();
           }}
           disabled={!ready}

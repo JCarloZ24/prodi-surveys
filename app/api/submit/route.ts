@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase-server";
 // SELECT policy on this table).
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { registration, qualification, survey_type, answers, selfie_url, payout_details, shipping_details, referrer_code, enumerator_slug, consent } = body;
+  const { id, registration, qualification, survey_type, answers, selfie_url, payout_details, shipping_details, referrer_code, enumerator_slug, consent } = body;
 
   if (!registration || !qualification || !survey_type || !answers) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   // Only include shipping_details when it's actually provided (the column may
   // not exist yet if migration 003 hasn't been applied; omitting null values
   // keeps the insert backward-compatible with the pre-migration schema).
-  const insertPayload: Record<string, unknown> = {
+  const payload: Record<string, unknown> = {
     registration: savedRegistration,
     qualification,
     survey_type,
@@ -36,19 +36,23 @@ export async function POST(req: NextRequest) {
     enumerator_slug: enumerator_slug || null,
     consent: consent || null,
     status: "submitted",
+    is_survey_completed: true,
   };
-  if (shipping_details) insertPayload.shipping_details = shipping_details;
+  if (shipping_details) payload.shipping_details = shipping_details;
 
-  const { data, error } = await db
-    .from("submissions")
-    .insert(insertPayload)
-    .select("id")
-    .single();
+  // When an id is supplied, the row was already created at the verify step — flip
+  // it to completed in place so there's one row per respondent. Otherwise (e.g.
+  // a survey-only link that skips verify) insert a fresh completed row.
+  const query = id
+    ? db.from("submissions").update(payload).eq("id", id).select("id").single()
+    : db.from("submissions").insert(payload).select("id").single();
+
+  const { data, error } = await query;
 
   if (error) {
-    console.error("Submission insert error:", error);
+    console.error("Submission save error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ id: data.id, referral_code: generatedReferralCode });
+  return NextResponse.json({ id: data?.id, referral_code: generatedReferralCode });
 }

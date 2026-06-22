@@ -63,6 +63,7 @@ export interface PortalState {
   referredCode: string;
   referralPath: string;
   enumeratorSlug: string;
+  submissionId: string;
   qual: Qual;
   respondents: Respondent[];
   audit: AuditEntry[];
@@ -143,6 +144,7 @@ const FLOW_DRAFT_FIELDS = [
   "referredCode",
   "referralPath",
   "enumeratorSlug",
+  "submissionId",
 ] as const;
 
 function initialState(): PortalState {
@@ -190,6 +192,7 @@ function initialState(): PortalState {
     referredCode: "",
     referralPath: "",
     enumeratorSlug: "",
+    submissionId: "",
     qual: blankQual(),
     respondents: [],
     audit: [],
@@ -295,6 +298,7 @@ export interface PortalActions {
   flowNext(): void;
   flowBack(): void;
   verifyOtp(): void;
+  setSubmissionId(id: string): void;
   setReg(k: keyof Registration, v: string): void;
   setOtp(v: string): void;
   setAnswer(id: string, v: string): void;
@@ -432,6 +436,7 @@ export function PortalProvider({
       referredCode: "",
       referralPath: "",
       enumeratorSlug: "",
+      submissionId: "",
       qual: blankQual(),
       reg: blankReg(),
       payout: blankPayout(),
@@ -738,6 +743,7 @@ export function PortalProvider({
         set({ rStep: n });
       },
       verifyOtp: () => set({ rStep: 4 }),
+      setSubmissionId: (id) => set({ submissionId: id }),
       setReg: (k, v) => {
         if (k === "type") set((s) => ({ reg: { ...s.reg, type: v as Respondent["type"] }, rType: v as Respondent["type"] }));
         else set((s) => ({ reg: { ...s.reg, [k]: v } }));
