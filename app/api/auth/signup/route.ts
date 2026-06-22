@@ -1,11 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
-import { generateUniqueSlug } from "@/lib/slug";
+import { isValidSlug } from "@/lib/slug";
+import { isSlugAvailable } from "@/lib/slug-server";
 import { sendOtp } from "@/lib/otp";
 
 // Only self-service roles may sign up. Admins are seeded, never created here.
 const SIGNUP_ROLES = ["enumerator", "stakeholder"] as const;
 type SignupRole = (typeof SIGNUP_ROLES)[number];
+
+type PayoutDetails = {
+  method?: string;
+  acctName?: string;
+  acctNum?: string;
+  bank?: string;
+};
+
+const PAYOUT_METHODS = ["GCash", "Maya", "Bank transfer", "Other"];
+
+// Mirror the survey flow's payout validation: every method needs an account
+// name + number; Bank transfer additionally needs the bank name.
+function validatePayout(p: PayoutDetails | undefined): string | null {
+  if (!p || typeof p !== "object") return "Payout details are required";
+  const method = (p.method ?? "").trim();
+  if (!PAYOUT_METHODS.includes(method)) return "Choose a payout method";
+  if (!(p.acctName ?? "").trim()) return "Account name is required";
+  if (!(p.acctNum ?? "").trim()) return "Account / mobile number is required";
+  if (method === "Bank transfer" && !(p.bank ?? "").trim()) return "Bank name is required";
+  return null;
+}
 
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as {
@@ -16,6 +38,8 @@ export async function POST(req: NextRequest) {
     mobile?: string;
     region?: string;
     organization?: string;
+    slug?: string;
+    payout_details?: PayoutDetails;
   };
 
   const role = body.role as SignupRole | undefined;
@@ -40,10 +64,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Mobile number is required" }, { status: 400 });
   }
 
-  const db = createAdminClient();
+  // Enumerators choose a unique slug and provide payout details.
+  let slug: string | null = null;
+  let payoutDetails: PayoutDetails | null = null;
+  if (role === "enumerator") {
+    slug = body.slug?.toLowerCase().trim() ?? "";
+    if (!isValidSlug(slug)) {
+      return NextResponse.json({ error: "Choose a valid handle" }, { status: 400 });
+    }
+    if (!(await isSlugAvailable(slug))) {
+      return NextResponse.json({ error: "That handle is already taken." }, { status: 409 });
+    }
 
-  // Enumerators get a unique slug for their referral links.
-  const slug = role === "enumerator" ? await generateUniqueSlug(fullName) : null;
+    const payoutError = validatePayout(body.payout_details);
+    if (payoutError) {
+      return NextResponse.json({ error: payoutError }, { status: 400 });
+    }
+    payoutDetails = {
+      method: body.payout_details!.method!.trim(),
+      acctName: body.payout_details!.acctName!.trim(),
+      acctNum: body.payout_details!.acctNum!.trim(),
+      bank: (body.payout_details!.bank ?? "").trim(),
+    };
+  }
+
+  const db = createAdminClient();
 
   // email_confirm: true marks the address confirmed in Supabase so password
   // login works regardless of the dashboard "Confirm email" setting. Our own
@@ -60,6 +105,7 @@ export async function POST(req: NextRequest) {
       mobile,
       region: body.region?.trim() || null,
       organization: body.organization?.trim() || null,
+      payout_details: payoutDetails,
     },
   });
 

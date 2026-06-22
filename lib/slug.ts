@@ -1,4 +1,5 @@
-import { createAdminClient } from "@/lib/supabase-server";
+// Pure, isomorphic slug helpers (safe to import in client components).
+// Server-only helpers that touch the DB live in lib/slug-server.ts.
 
 // Turn a name into a URL-safe slug: lowercase, ASCII words joined by hyphens.
 export function slugify(input: string): string {
@@ -11,22 +12,30 @@ export function slugify(input: string): string {
     .slice(0, 48);
 }
 
-// Produce a slug from `name` that does not collide with an existing
-// profiles.slug, appending -2, -3, … on conflict. The unique constraint on
-// profiles.slug is the final backstop against races.
-export async function generateUniqueSlug(name: string): Promise<string> {
-  const base = slugify(name) || "enumerator";
-  const db = createAdminClient();
+// Valid handle: lowercase alphanumerics in hyphen-separated groups, 3–48 chars.
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export function isValidSlug(slug: string): boolean {
+  return slug.length >= 3 && slug.length <= 48 && SLUG_RE.test(slug);
+}
 
-  const { data } = await db
-    .from("profiles")
-    .select("slug")
-    .ilike("slug", `${base}%`);
+// Suggest a few candidate handles derived from a full name, e.g.
+// "Maria Santos" → ["maria-santos", "msantos", "maria-s", "santos-maria"].
+export function slugSuggestions(fullName: string): string[] {
+  const base = slugify(fullName);
+  if (!base) return [];
 
-  const taken = new Set((data ?? []).map((r) => r.slug).filter(Boolean));
-  if (!taken.has(base)) return base;
+  const parts = base.split("-").filter(Boolean);
+  const first = parts[0] ?? "";
+  const last = parts.length > 1 ? parts[parts.length - 1] : "";
 
-  let n = 2;
-  while (taken.has(`${base}-${n}`)) n++;
-  return `${base}-${n}`;
+  const candidates = [base];
+  if (first && last) {
+    candidates.push(`${first[0]}${last}`);
+    candidates.push(`${first}-${last[0]}`);
+    candidates.push(`${last}-${first}`);
+  }
+  candidates.push(`${base}-1`);
+
+  // Dedupe, keep only valid handles, cap to a small set.
+  return [...new Set(candidates)].filter(isValidSlug).slice(0, 4);
 }
