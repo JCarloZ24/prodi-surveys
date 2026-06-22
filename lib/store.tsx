@@ -254,6 +254,20 @@ function logEntry(action: string, target: string, by: string): AuditEntry {
   return [action, target, by, "just now", "#EDE9FE", "#5B21B6", "user"];
 }
 
+// Data carried into a self-service survey flow. When the link includes the
+// enumerator's partial submission id, the page loads that row and prefills the
+// respondent's identity/qualification/consent so the final submit UPDATES the
+// same row (rather than creating a second, identity-less one).
+export interface SelfServiceLaunch {
+  referralCode?: string;
+  rType?: string;
+  reg?: Partial<Registration>;
+  qual?: Partial<Qual>;
+  consent?: { terms?: boolean; privacy?: boolean; accepted_at?: string | null } | null;
+  submissionId?: string;
+  preview?: boolean;
+}
+
 export interface PortalActions {
   setLoginEmail(v: string): void;
   setLoginPw(v: string): void;
@@ -294,7 +308,7 @@ export interface PortalActions {
   launchReferralFlow(code: string, preview?: boolean): void;
   launchSurveyOnlyFlow(code: string, preview?: boolean, rType?: string): void;
   launchEnumeratorFlow(slug: string, referralCode?: string, preview?: boolean): void;
-  launchEnumeratorSelfServiceFlow(slug: string, referralCode?: string, rType?: string, preview?: boolean): void;
+  launchEnumeratorSelfServiceFlow(slug: string, opts?: SelfServiceLaunch): void;
   exitFlow(): void;
   flowNext(): void;
   flowBack(): void;
@@ -700,23 +714,36 @@ export function PortalProvider({
         });
       },
       // Enumerator-attributed self-service link (/s/<slug>?...&self-service=true):
-      // the respondent skips Profile/Register/Verify and starts at the survey, but
-      // the submission is still attributed to the enumerator slug + referral code.
-      // rType comes from the URL (?t=) since the type-determining Profile step is
-      // skipped.
-      launchEnumeratorSelfServiceFlow: (slug, referralCode, rType?, preview = false) => {
-        const refC = (referralCode || "").trim().toUpperCase();
+      // the respondent skips Profile/Register/Verify and starts at the survey. When
+      // the link carries the enumerator's partial submission (sid), reg/qual/consent
+      // are prefilled from it and submissionId is set so the final submit UPDATES
+      // that same row (one identified row per respondent). Without a row, rType comes
+      // from the URL (?t=) and a fresh row is created on submit.
+      launchEnumeratorSelfServiceFlow: (slug, opts = {}) => {
+        const { referralCode, rType, reg, qual, consent, submissionId, preview = false } = opts;
+        const refC =
+          (referralCode || "").trim().toUpperCase() || (reg?.code || "").trim().toUpperCase();
+        const sid = submissionId || "";
         const s = stateRef.current;
-        if (s.mode === "flow" && s.surveyOnly && s.enumeratorSlug === slug && s.reg.code === refC) return;
+        if (s.mode === "flow" && s.surveyOnly && s.enumeratorSlug === slug && s.submissionId === sid && s.reg.code === refC) return;
         set({
           ...resetFlow(),
           rStep: 5,
           surveyOnly: true,
           enumeratorSlug: slug,
+          submissionId: sid,
           handoffMode: preview ? "preview" : "",
           ...(refC ? { referredBy: "Referral", referredCode: refC } : {}),
-          reg: { ...blankReg(), code: refC },
+          reg: { ...blankReg(), ...(reg || {}), code: refC },
+          qual: { ...blankQual(), ...(qual || {}) },
           ...(rType ? { rType: rType as Respondent["type"] } : {}),
+          ...(consent
+            ? {
+                consentTerms: !!consent.terms,
+                consentPrivacy: !!consent.privacy,
+                consentAt: consent.accepted_at || "",
+              }
+            : {}),
         });
       },
       launchSurveyOnlyFlow: (surveyCode, preview = false, rType?) => {

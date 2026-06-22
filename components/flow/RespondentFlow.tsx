@@ -638,6 +638,10 @@ function Handoff() {
   if (state.reg.code) surveyParams.set("referral-code", state.reg.code);
   surveyParams.set("self-service", "true");
   surveyParams.set("t", state.rType);
+  // The partial submission id (created at the verify step) lets the self-service
+  // session continue the same row — inheriting the respondent's identity instead
+  // of starting blank. Falls back to the t/referral-code params if it's absent.
+  if (state.submissionId) surveyParams.set("sid", state.submissionId);
   const surveyLink = publicUrl(`/s/${encodeURIComponent(state.enumeratorSlug)}?${surveyParams.toString()}`);
 
   const handleSendEmail = async () => {
@@ -1178,9 +1182,11 @@ function Shipping() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
 
-  // In a survey-only / self-service flow the Register step was skipped, so there
-  // are no "my details" — the respondent must enter the recipient name + phone.
-  const useMine = !state.surveyOnly && s.useMyDetails;
+  // "Use my details" only works when we actually have registration details on file
+  // (the assisted flow, or a self-service link that prefilled them from the partial
+  // row). Without them, the respondent must enter the recipient name + phone.
+  const hasMyDetails = !!((state.reg.name || "").trim() && (state.reg.mobile || "").trim());
+  const useMine = hasMyDetails && s.useMyDetails;
   const effectiveName = useMine ? state.reg.name : s.recipientName;
   const effectivePhone = useMine ? state.reg.mobile : s.recipientPhone;
   const nameOk = effectiveName.trim().length > 0;
@@ -1225,8 +1231,8 @@ function Shipping() {
         </div>
 
         {/* Use my own details toggle — only when registration details exist
-            (hidden in survey-only / self-service, where there are none). */}
-        {!state.surveyOnly && (
+            (hidden when we have none, e.g. a self-service link without prefill). */}
+        {hasMyDetails && (
           <div>
             <span className="mb-2 block text-[12px] font-bold text-gray-700">Recipient</span>
             <div className="flex items-center gap-0.5 rounded-[9px] bg-gray-100 p-[3px]">
@@ -1448,7 +1454,7 @@ function Review() {
   const isTSIpath = state.rType === "TSI";
   if (isTSIpath) {
     const colorLabel = { grey: "Light Grey", blue: "Navy Blue", black: "Matte Black" }[state.shipping.color] ?? state.shipping.color;
-    const recipient = (!state.surveyOnly && state.shipping.useMyDetails) ? state.reg.name : state.shipping.recipientName;
+    const recipient = (state.shipping.useMyDetails && (state.reg.name || "").trim()) ? state.reg.name : state.shipping.recipientName;
     items.push(
       ["Free token", "Tumbler giveaway · " + colorLabel],
       ["Ship to", recipient || "—"],

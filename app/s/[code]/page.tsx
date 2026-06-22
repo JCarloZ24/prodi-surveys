@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { SurveyPageClient } from "../SurveyPageClient";
 import { InvalidSurveyLink } from "../InvalidSurveyLink";
+import type { SelfServiceLaunch } from "@/lib/store";
 
 // /s/<enumerator-slug>?referral-code=<code> — the canonical survey link.
 // The path segment is an approved enumerator's slug; the referral code is optional.
@@ -37,12 +38,37 @@ export default async function SurveyPage({
     return <InvalidSurveyLink />;
   }
 
+  // Self-service links carry ?sid=<partial submission id> created when the
+  // enumerator verified the respondent's email. Load that row (only if it belongs
+  // to this enumerator) and prefill the respondent's identity/qualification/consent
+  // so the final submit UPDATES it instead of creating a duplicate, identity-less row.
+  let prefill: SelfServiceLaunch | undefined;
+  const sid = typeof sp["sid"] === "string" ? (sp["sid"] as string) : undefined;
+  if (selfService && sid) {
+    const { data: row } = await db
+      .from("submissions")
+      .select("registration, qualification, consent, survey_type, referrer_code, enumerator_slug")
+      .eq("id", sid)
+      .maybeSingle();
+    if (row && row.enumerator_slug === (enumerator.slug ?? slug)) {
+      prefill = {
+        submissionId: sid,
+        reg: (row.registration as SelfServiceLaunch["reg"]) ?? undefined,
+        qual: (row.qualification as SelfServiceLaunch["qual"]) ?? undefined,
+        consent: (row.consent as SelfServiceLaunch["consent"]) ?? undefined,
+        rType: row.survey_type ?? rType,
+        referralCode: row.referrer_code ?? referralCode,
+      };
+    }
+  }
+
   return (
     <SurveyPageClient
       slug={enumerator.slug ?? slug}
       referralCode={referralCode}
       selfService={selfService}
       rType={rType}
+      prefill={prefill}
     />
   );
 }
