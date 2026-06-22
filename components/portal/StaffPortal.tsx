@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { usePortal, USER_NAMES } from "@/lib/store";
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
+import { usePortal, USER_NAMES, PortalProvider } from "@/lib/store";
 import {
   counts,
   filteredRows,
@@ -26,7 +27,8 @@ import { emailDefs } from "@/lib/emails";
 import { cx } from "@/lib/cx";
 import { LogoMark } from "@/lib/icons";
 import { createBrowserSupabase } from "@/lib/supabase-browser";
-import type { ViewKey } from "@/lib/types";
+import { allowedViews } from "@/lib/portal-views";
+import type { Respondent, Role, ViewKey } from "@/lib/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -95,14 +97,61 @@ const NAV: { key: ViewKey; label: string; icon: React.ReactNode }[] = [
   { key: "settings",    label: "Settings",      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> },
 ];
 
-const ALLOWED_STAKEHOLDER: ViewKey[] = ["dashboard", "respondents", "referrals", "reports", "audit"];
-const ADMIN_ONLY: ViewKey[] = ["enumerators", "stakeholders"];
+const roleLabel: Record<string, string> = {
+  admin: "Super Admin",
+  enumerator: "Enumerator",
+  stakeholder: "Stakeholder",
+};
 
 // ─── Shell ─────────────────────────────────────────────────────────────────────
 
-export function StaffPortal() {
+// Persistent portal chrome (sidebar + header + drawer). Rendered by the role
+// layout; the active page is provided as `children` by the routed `[view]` page.
+export function PortalShell({
+  role,
+  initialRespondents,
+  children,
+}: {
+  role: Role;
+  initialRespondents: Respondent[];
+  children: React.ReactNode;
+}) {
+  return (
+    <PortalProvider initialMode="portal" initialRole={role} initialRespondents={initialRespondents}>
+      <PortalChrome role={role}>{children}</PortalChrome>
+    </PortalProvider>
+  );
+}
+
+// Switch a view key to its component. Rendered by app/portal/[role]/[view]/page.
+export function PortalView({ view }: { view: ViewKey }) {
+  switch (view) {
+    case "respondents":  return <RespondentsView />;
+    case "qa":           return <QaView />;
+    case "payouts":      return <PayoutsView />;
+    case "referrals":    return <ReferralsView />;
+    case "enumerators":  return <EnumeratorsView />;
+    case "stakeholders": return <StakeholdersView />;
+    case "reports":      return <ReportsView />;
+    case "emails":       return <EmailsView />;
+    case "audit":        return <AuditView />;
+    case "settings":     return <SettingsView />;
+    case "dashboard":
+    default:             return <Dashboard />;
+  }
+}
+
+// Navigate to another view under the current role's URL space.
+function useGoView() {
+  const router = useRouter();
+  const { state } = usePortal();
+  return (view: ViewKey) => router.push(`/portal/${state.role}/${view}`);
+}
+
+function PortalChrome({ role, children }: { role: Role; children: React.ReactNode }) {
   const { state, actions } = usePortal();
   const router = useRouter();
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [surveyHref, setSurveyHref] = useState("https://www.prodigitalitydata.live");
   useEffect(() => {
@@ -116,24 +165,16 @@ export function StaffPortal() {
     router.refresh();
   };
 
-  const userName    = USER_NAMES[state.role];
+  const activeView  = pathname.split("/").filter(Boolean).pop();
+  const userName    = USER_NAMES[role];
   const userInits   = initials(userName);
   const userColor   = avatarColor(userName);
   const pendingQa   = state.respondents.filter((r) => r.status === "Pending QA" || r.status === "Needs Follow-up").length;
   const c           = useMemo(() => counts(state.respondents), [state.respondents]);
   const { totalTarget, overallPct } = useMemo(() => totals(state.targets, c.verified), [state.targets, c.verified]);
 
-  const navItems = NAV.filter((n) => {
-    if (state.role === "stakeholder") return ALLOWED_STAKEHOLDER.includes(n.key);
-    if (ADMIN_ONLY.includes(n.key)) return state.role === "admin";
-    return true;
-  });
-
-  const roleLabel: Record<string, string> = {
-    admin: "Super Admin",
-    enumerator: "Enumerator",
-    stakeholder: "Stakeholder",
-  };
+  const allowed  = allowedViews(role);
+  const navItems = NAV.filter((n) => allowed.includes(n.key));
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "#F7F7F8" }}>
@@ -167,12 +208,13 @@ export function StaffPortal() {
             Menu
           </div>
           {navItems.map((item) => {
-            const active = state.view === item.key;
+            const active = activeView === item.key;
             const badge  = item.key === "qa" && pendingQa > 0 ? pendingQa : 0;
             return (
-              <button
+              <Link
                 key={item.key}
-                onClick={() => { actions.setView(item.key); setSidebarOpen(false); }}
+                href={`/portal/${role}/${item.key}`}
+                onClick={() => setSidebarOpen(false)}
                 className={cx(
                   "flex w-full items-center gap-3 rounded-[9px] px-3 py-[9px] text-[12.5px] font-semibold transition-colors",
                   active
@@ -187,7 +229,7 @@ export function StaffPortal() {
                     {badge}
                   </span>
                 )}
-              </button>
+              </Link>
             );
           })}
         </nav>
@@ -240,7 +282,7 @@ export function StaffPortal() {
           <div className="flex-1" />
 
           {/* Respondent flow button */}
-          {state.role !== "stakeholder" && (
+          {role !== "stakeholder" && (
             <a
               href={surveyHref}
               target="_blank"
@@ -264,7 +306,7 @@ export function StaffPortal() {
             </div>
             <div className="hidden md:block">
               <div className="text-[12.5px] font-bold text-[#18181B] leading-tight">{userName}</div>
-              <div className="text-[11px] text-gray-400 leading-tight">{roleLabel[state.role]}</div>
+              <div className="text-[11px] text-gray-400 leading-tight">{roleLabel[role]}</div>
             </div>
             <button
               onClick={handleLogout}
@@ -280,20 +322,8 @@ export function StaffPortal() {
           </div>
         </header>
 
-        {/* View content */}
-        <main className="flex-1 overflow-y-auto p-6">
-          {state.view === "dashboard"   && <Dashboard />}
-          {state.view === "respondents" && <RespondentsView />}
-          {state.view === "qa"          && <QaView />}
-          {state.view === "payouts"     && <PayoutsView />}
-          {state.view === "referrals"   && <ReferralsView />}
-          {state.view === "enumerators" && <EnumeratorsView />}
-          {state.view === "stakeholders" && <StakeholdersView />}
-          {state.view === "reports"     && <ReportsView />}
-          {state.view === "emails"      && <EmailsView />}
-          {state.view === "audit"       && <AuditView />}
-          {state.view === "settings"    && <SettingsView />}
-        </main>
+        {/* View content (provided by the routed page) */}
+        <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
 
       {/* Profile drawer */}
@@ -353,7 +383,8 @@ function StatCard({ label, value, sub, color, dark }: {
 // ─── Dashboard ─────────────────────────────────────────────────────────────────
 
 function Dashboard() {
-  const { state, actions } = usePortal();
+  const { state } = usePortal();
+  const go = useGoView();
   const c = useMemo(() => counts(state.respondents), [state.respondents]);
   const grps = useMemo(() => groups(state.respondents, state.targets), [state.respondents, state.targets]);
   const { totalTarget, remaining } = useMemo(() => totals(state.targets, c.verified), [state.targets, c.verified]);
@@ -436,7 +467,7 @@ function Dashboard() {
         <div className="rounded-2xl border border-[#E4E4E7] bg-white p-5">
           <div className="mb-4 flex items-center justify-between">
             <span className="text-[13.5px] font-bold text-[#18181B]">QA review</span>
-            <button onClick={() => actions.setView("qa")} className="text-[12px] font-semibold text-[#E0195F] hover:underline">
+            <button onClick={() => go("qa")} className="text-[12px] font-semibold text-[#E0195F] hover:underline">
               Open queue →
             </button>
           </div>
@@ -467,7 +498,7 @@ function Dashboard() {
         <div className="rounded-2xl border border-[#E4E4E7] bg-white p-5">
           <div className="mb-4 flex items-center justify-between">
             <span className="text-[13.5px] font-bold text-[#18181B]">Referrals</span>
-            <button onClick={() => actions.setView("referrals")} className="text-[12px] font-semibold text-[#E0195F] hover:underline">
+            <button onClick={() => go("referrals")} className="text-[12px] font-semibold text-[#E0195F] hover:underline">
               View all →
             </button>
           </div>
@@ -491,7 +522,7 @@ function Dashboard() {
                   ADMIN
                 </span>
               </div>
-              <button onClick={() => actions.setView("payouts")} className="text-[12px] font-semibold text-white/50 hover:text-white/80">
+              <button onClick={() => go("payouts")} className="text-[12px] font-semibold text-white/50 hover:text-white/80">
                 Manage →
               </button>
             </div>
