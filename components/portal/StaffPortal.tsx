@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { usePortal, USER_NAMES } from "@/lib/store";
 import {
   counts,
-  enumCards,
   filteredRows,
   funnel,
   groups,
@@ -89,7 +88,7 @@ const NAV: { key: ViewKey; label: string; icon: React.ReactNode }[] = [
   { key: "qa",          label: "QA Review",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> },
   { key: "payouts",     label: "Payouts",      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> },
   { key: "enumerators", label: "Enumerators",  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
-  { key: "approvals",   label: "Approvals",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg> },
+  { key: "stakeholders", label: "Stakeholders", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg> },
   { key: "reports",     label: "Reports / Export", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> },
   { key: "emails",      label: "Emails",        icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
   { key: "audit",       label: "Audit Logs",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="10" y1="17" x2="8" y2="17"/></svg> },
@@ -97,7 +96,7 @@ const NAV: { key: ViewKey; label: string; icon: React.ReactNode }[] = [
 ];
 
 const ALLOWED_STAKEHOLDER: ViewKey[] = ["dashboard", "respondents", "referrals", "reports", "audit"];
-const ADMIN_ONLY: ViewKey[] = ["approvals"];
+const ADMIN_ONLY: ViewKey[] = ["enumerators", "stakeholders"];
 
 // ─── Shell ─────────────────────────────────────────────────────────────────────
 
@@ -289,7 +288,7 @@ export function StaffPortal() {
           {state.view === "payouts"     && <PayoutsView />}
           {state.view === "referrals"   && <ReferralsView />}
           {state.view === "enumerators" && <EnumeratorsView />}
-          {state.view === "approvals"   && <ApprovalsView />}
+          {state.view === "stakeholders" && <StakeholdersView />}
           {state.view === "reports"     && <ReportsView />}
           {state.view === "emails"      && <EmailsView />}
           {state.view === "audit"       && <AuditView />}
@@ -1024,7 +1023,7 @@ function ReferralsView() {
   );
 }
 
-// ─── Approvals ────────────────────────────────────────────────────────────────
+// ─── Accounts (Enumerators / Stakeholders) ─────────────────────────────────────
 
 type ProfileUser = {
   id: string;
@@ -1034,16 +1033,30 @@ type ProfileUser = {
   status: "pending" | "approved" | "rejected";
   is_email_verified: boolean;
   slug: string | null;
+  mobile: string | null;
+  region: string | null;
+  organization: string | null;
+  payout_details: { method?: string; acctName?: string; acctNum?: string; bank?: string } | null;
   created_at: string;
 };
 
-const APPROVAL_TABS: { key: ProfileUser["status"]; label: string }[] = [
+const ACCOUNT_TABS: { key: ProfileUser["status"]; label: string }[] = [
   { key: "pending", label: "Pending" },
   { key: "approved", label: "Approved" },
   { key: "rejected", label: "Rejected" },
 ];
 
-function ApprovalsView() {
+// Shared account-management list for a single role, with status tabs and
+// approve/reject actions. Used by the Enumerators and Stakeholders pages.
+function AccountsList({
+  role,
+  title,
+  sub,
+}: {
+  role: "enumerator" | "stakeholder";
+  title: string;
+  sub: string;
+}) {
   const [tab, setTab] = useState<ProfileUser["status"]>("pending");
   const [users, setUsers] = useState<ProfileUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1055,7 +1068,7 @@ function ApprovalsView() {
     const load = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/portal/users?status=${tab}`);
+        const res = await fetch(`/api/portal/users?role=${role}&status=${tab}`);
         const data = await res.json();
         if (active) setUsers(res.ok ? (data.users ?? []) : []);
       } catch {
@@ -1068,7 +1081,7 @@ function ApprovalsView() {
     return () => {
       active = false;
     };
-  }, [tab]);
+  }, [tab, role]);
 
   const act = async (id: string, action: "approve" | "reject") => {
     const reason =
@@ -1097,25 +1110,23 @@ function ApprovalsView() {
     }
   };
 
-  const roleBadge = (role: ProfileUser["role"]) => {
-    const map: Record<string, string> = {
-      admin: "bg-violet-100 text-violet-700",
-      enumerator: "bg-rose-100 text-rose-700",
-      stakeholder: "bg-sky-100 text-sky-700",
-    };
-    return <span className={cx("rounded-md px-2 py-0.5 text-[11.5px] font-bold", map[role])}>{role}</span>;
+  const isEnum = role === "enumerator";
+  const headers = isEnum
+    ? ["USER", "MOBILE", "REGION", "SLUG", "EMAIL VERIFIED", "PAYOUT", tab === "pending" ? "ACTION" : "STATUS"]
+    : ["USER", "MOBILE", "ORGANIZATION", "EMAIL VERIFIED", tab === "pending" ? "ACTION" : "STATUS"];
+
+  const payoutLabel = (p: ProfileUser["payout_details"]) => {
+    if (!p || !p.method) return "—";
+    return p.acctNum ? `${p.method} · ${p.acctNum}` : p.method;
   };
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title="Account approvals"
-        sub="Review and approve new enumerator and stakeholder accounts before they can access the portal."
-      />
+      <PageHeader title={title} sub={sub} />
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-[9px] border border-[#E4E4E7] bg-white p-1 w-fit">
-        {APPROVAL_TABS.map((t) => (
+        {ACCOUNT_TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
@@ -1140,13 +1151,13 @@ function ApprovalsView() {
         {loading ? (
           <div className="py-14 text-center text-[13.5px] text-gray-400">Loading…</div>
         ) : users.length === 0 ? (
-          <div className="py-14 text-center text-[13.5px] text-gray-400">No {tab} accounts.</div>
+          <div className="py-14 text-center text-[13.5px] text-gray-400">No {tab} {role}s.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px]">
+            <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="border-b border-[#F2F2F4]">
-                  {["USER", "ROLE", "EMAIL VERIFIED", "SLUG", tab === "pending" ? "ACTION" : "STATUS"].map((h) => (
+                  {headers.map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{h}</th>
                   ))}
                 </tr>
@@ -1165,13 +1176,23 @@ function ApprovalsView() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">{roleBadge(u.role)}</td>
+                    <td className="px-4 py-3 text-[12.5px] text-gray-600">{u.mobile || "—"}</td>
+                    {isEnum ? (
+                      <>
+                        <td className="px-4 py-3 text-[12.5px] text-gray-600">{u.region || "—"}</td>
+                        <td className="px-4 py-3 font-mono text-[12px] text-gray-600">{u.slug || "—"}</td>
+                      </>
+                    ) : (
+                      <td className="px-4 py-3 text-[12.5px] text-gray-600">{u.organization || "—"}</td>
+                    )}
                     <td className="px-4 py-3">
                       {u.is_email_verified
                         ? <span className="text-[12.5px] font-semibold text-emerald-700">Verified</span>
                         : <span className="text-[12.5px] font-semibold text-amber-600">Pending</span>}
                     </td>
-                    <td className="px-4 py-3 font-mono text-[12px] text-gray-600">{u.slug || "—"}</td>
+                    {isEnum && (
+                      <td className="px-4 py-3 text-[12.5px] text-gray-600">{payoutLabel(u.payout_details)}</td>
+                    )}
                     <td className="px-4 py-3">
                       {tab === "pending" ? (
                         <div className="flex gap-1.5">
@@ -1213,103 +1234,23 @@ function ApprovalsView() {
   );
 }
 
-// ─── Enumerators ──────────────────────────────────────────────────────────────
-
 function EnumeratorsView() {
-  const { state, actions } = usePortal();
-  const cards = useMemo(
-    () => enumCards(state.enumerators, state.respondents, initials),
-    [state.enumerators, state.respondents],
-  );
-
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Enumerators"
-        sub="Field team collection performance. Edit names & emails inline, or add new enumerators."
-        action={
-          state.role === "admin" ? (
-            <button
-              onClick={() => actions.setShowAddEnum(!state.showAddEnum)}
-              className="flex items-center gap-1.5 rounded-[9px] bg-[#18181B] px-3.5 py-2.5 text-[12.5px] font-bold text-white"
-            >
-              + Add enumerator
-            </button>
-          ) : undefined
-        }
-      />
+    <AccountsList
+      role="enumerator"
+      title="Enumerators"
+      sub="Field enumerator accounts. Review and approve new signups before they can access the portal."
+    />
+  );
+}
 
-      {state.showAddEnum && (
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-[#E4E4E7] bg-[#F7F7F8] p-5">
-          <input
-            value={state.newEnumName}
-            onChange={(e) => actions.setNewEnumName(e.target.value)}
-            placeholder="Full name"
-            className="h-10 flex-1 min-w-[160px] rounded-[9px] border border-[#E4E4E7] bg-white px-3.5 text-[13px] focus:border-[#18181B] focus:outline-none"
-          />
-          <input
-            value={state.newEnumEmail}
-            onChange={(e) => actions.setNewEnumEmail(e.target.value)}
-            placeholder="Email address"
-            type="email"
-            className="h-10 flex-1 min-w-[200px] rounded-[9px] border border-[#E4E4E7] bg-white px-3.5 text-[13px] focus:border-[#18181B] focus:outline-none"
-          />
-          <button onClick={actions.addEnumerator} className="h-10 rounded-[9px] bg-[#18181B] px-5 text-[13px] font-bold text-white">Add</button>
-          <button onClick={() => actions.setShowAddEnum(false)} className="h-10 rounded-[9px] border border-[#E4E4E7] bg-white px-4 text-[13px] text-gray-500">Cancel</button>
-        </div>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {cards.map((e, i) => (
-          <div key={e.name} className="rounded-2xl border border-[#E4E4E7] bg-white p-5">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full text-[13px] font-extrabold text-white" style={{ background: e.avatarBg }}>
-                {e.initials}
-              </div>
-              <div className="flex-1 min-w-0">
-                <input
-                  value={e.name}
-                  onChange={(ev) => actions.renameEnumerator(i, ev.target.value)}
-                  className="block w-full text-[14px] font-bold text-[#18181B] outline-none"
-                />
-                <input
-                  value={e.email}
-                  onChange={(ev) => actions.setEnumEmail(i, ev.target.value)}
-                  type="email"
-                  placeholder="email@example.com"
-                  className="block w-full text-[12px] text-gray-400 outline-none"
-                />
-              </div>
-              {state.role === "admin" && (
-                <button onClick={() => actions.removeEnumerator(i)} className="flex-none text-gray-300 hover:text-red-400">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/>
-                  </svg>
-                </button>
-              )}
-            </div>
-            <div className="mb-3 text-[11.5px] text-gray-400">{e.assigned} assigned respondents</div>
-            <div className="mb-3 grid grid-cols-3 gap-2 text-center">
-              <div>
-                <div className="text-[18px] font-extrabold text-[#18181B]">{e.completed}</div>
-                <div className="text-[11px] text-gray-400">Completed</div>
-              </div>
-              <div>
-                <div className="text-[18px] font-extrabold text-orange-600">{e.followups}</div>
-                <div className="text-[11px] text-gray-400">Follow-ups</div>
-              </div>
-              <div>
-                <div className="text-[18px] font-extrabold text-[#18181B]">{e.rate}%</div>
-                <div className="text-[11px] text-gray-400">Completion</div>
-              </div>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-[#F0F0F2]">
-              <div className="h-full rounded-full" style={{ width: `${e.rate}%`, background: "#E0195F" }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+function StakeholdersView() {
+  return (
+    <AccountsList
+      role="stakeholder"
+      title="Stakeholders"
+      sub="Stakeholder accounts. Review and approve new signups before they can access the portal."
+    />
   );
 }
 
