@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createBrowserSupabase } from "@/lib/supabase-browser";
 import { cx } from "@/lib/cx";
 import { isValidSlug, slugSuggestions } from "@/lib/slug";
+import { PAYOUT_METHODS, payoutError, payoutNumberLabel } from "@/lib/payout";
 import { AuthShell, authInputClass, authButtonClass } from "@/components/portal/AuthShell";
 import { VerifyEmailFields } from "@/components/portal/VerifyEmailForm";
 import type { PayoutDetails } from "@/lib/types";
@@ -17,8 +18,6 @@ type Props = {
   // Optional role-specific field (region for enumerators, organization for stakeholders).
   extraField?: { key: "region" | "organization"; label: string; placeholder: string };
 };
-
-const PAYOUT_METHODS = ["GCash", "Maya", "Bank transfer", "Other"];
 
 type StepKey = "details" | "payout" | "slug" | "verify";
 type SlugStatus = "idle" | "checking" | "available" | "taken";
@@ -37,17 +36,6 @@ function passwordStrength(pw: string): { bars: number; label: string; color: str
   return { bars: 3, label: "Strong", color: "#10B981", hint: "" };
 }
 
-function payoutError(p: PayoutDetails): string | null {
-  if (!PAYOUT_METHODS.includes(p.method)) return "Choose a payout method";
-  if (!p.acctName.trim()) return "Account name is required";
-  if (!p.acctNum.trim()) return "Account / mobile number is required";
-  if ((p.method === "GCash" || p.method === "Maya")) {
-    const digits = p.acctNum.replace(/\D/g, "");
-    if (digits.length !== 11 || !digits.startsWith("09")) return "Enter a valid 11-digit mobile number starting with 09";
-  }
-  if (p.method === "Bank transfer" && !p.bank.trim()) return "Bank name is required";
-  return null;
-}
 
 export function SignupForm({ role, title, subtitle, extraField }: Props) {
   const router = useRouter();
@@ -207,12 +195,7 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
     }
   };
 
-  const numberLabel =
-    payout.method === "GCash" || payout.method === "Maya"
-      ? "Mobile number"
-      : payout.method === "Bank transfer"
-        ? "Account number"
-        : "Account / reference number";
+  const numberLabel = payoutNumberLabel(payout.method);
 
   return (
     <AuthShell>

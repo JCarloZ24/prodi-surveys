@@ -342,8 +342,6 @@ function Register() {
   const { state, actions } = usePortal();
   const reg = state.reg;
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [refStatus, setRefStatus] = useState<"idle" | "checking" | "valid" | "invalid" | "error">("idle");
-  const [checkedRefCode, setCheckedRefCode] = useState("");
   const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
 
   // Mobile is stored as "+63" + the local digits the user types (leading 0
@@ -352,59 +350,7 @@ function Register() {
   const nameOk = reg.name.trim().length > 0;
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reg.email.trim());
   const mobileOk = mobileLocal.replace(/\D/g, "").length === 10;
-  const normalizedRefCode = reg.code.trim().toUpperCase();
-  const hasReferralCode = normalizedRefCode.length > 0;
-  const referralFormatOk = /^PS-[A-Z0-9]{4,}$/.test(normalizedRefCode);
-  const effectiveRefStatus: typeof refStatus = !hasReferralCode
-    ? "idle"
-    : !referralFormatOk
-      ? "invalid"
-      : checkedRefCode === normalizedRefCode
-        ? refStatus
-        : "checking";
-  const referralOk = !hasReferralCode || effectiveRefStatus === "valid";
-  const canContinue = nameOk && emailOk && mobileOk && referralOk && effectiveRefStatus !== "checking";
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!normalizedRefCode || !referralFormatOk) return;
-
-    const timer = window.setTimeout(async () => {
-      try {
-        const res = await fetch("/api/referral/validate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: normalizedRefCode }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (cancelled) return;
-        setCheckedRefCode(normalizedRefCode);
-        setRefStatus(res.ok && data.valid ? "valid" : "invalid");
-      } catch {
-        if (!cancelled) {
-          setCheckedRefCode(normalizedRefCode);
-          setRefStatus("error");
-        }
-      }
-    }, 350);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [normalizedRefCode, referralFormatOk]);
-
-  const referralMessage =
-    effectiveRefStatus === "checking"
-      ? "Checking referral code..."
-      : effectiveRefStatus === "valid"
-        ? "Referral code is valid."
-        : effectiveRefStatus === "invalid"
-          ? "Referral code is invalid."
-          : effectiveRefStatus === "error"
-            ? "Could not validate this code. Please try again."
-            : "";
-  const referralError = effectiveRefStatus === "invalid" || effectiveRefStatus === "error";
+  const canContinue = nameOk && emailOk && mobileOk;
 
   return (
     <div>
@@ -461,15 +407,6 @@ function Register() {
             )}
           </label>
         </div>
-        <Field
-          label={<>Referral code <span className="font-medium text-gray-400">· optional</span></>}
-          value={reg.code}
-          onChange={(v) => actions.setReg("code", v.toUpperCase())}
-          placeholder="e.g. PS-XXXX"
-          mono
-          hint={!referralError ? referralMessage : ""}
-          error={referralError ? referralMessage : ""}
-        />
         {state.rType === "TSI" ? (
           <div className="border-t border-[#F2F2F4] pt-4">
             <div className="flex items-start gap-2.5 rounded-[9px] border border-brand-pinkLine bg-brand-pinkSoft2 px-3.5 py-3 text-[12.5px] leading-[1.5] text-[#9D174D]">

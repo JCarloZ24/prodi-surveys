@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isValidSlug } from "@/lib/slug";
 import { isSlugAvailable } from "@/lib/slug-server";
+import { payoutError } from "@/lib/payout";
 import { sendOtp } from "@/lib/otp";
 
 // Only self-service roles may sign up. Admins are seeded, never created here.
@@ -15,18 +16,15 @@ type PayoutDetails = {
   bank?: string;
 };
 
-const PAYOUT_METHODS = ["GCash", "Maya", "Bank transfer", "Other"];
-
-// Mirror the survey flow's payout validation: every method needs an account
-// name + number; Bank transfer additionally needs the bank name.
+// Validate using the shared payout rules (coercing optional fields to strings).
 function validatePayout(p: PayoutDetails | undefined): string | null {
   if (!p || typeof p !== "object") return "Payout details are required";
-  const method = (p.method ?? "").trim();
-  if (!PAYOUT_METHODS.includes(method)) return "Choose a payout method";
-  if (!(p.acctName ?? "").trim()) return "Account name is required";
-  if (!(p.acctNum ?? "").trim()) return "Account / mobile number is required";
-  if (method === "Bank transfer" && !(p.bank ?? "").trim()) return "Bank name is required";
-  return null;
+  return payoutError({
+    method: (p.method ?? "").trim(),
+    acctName: (p.acctName ?? "").trim(),
+    acctNum: (p.acctNum ?? "").trim(),
+    bank: (p.bank ?? "").trim(),
+  });
 }
 
 export async function POST(req: NextRequest) {

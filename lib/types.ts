@@ -33,11 +33,11 @@ export type PayStatus =
 export type ViewKey =
   | "dashboard"
   | "respondents"
-  | "referrals"
   | "qa"
   | "payouts"
   | "enumerators"
   | "stakeholders"
+  | "referrers"
   | "reports"
   | "emails"
   | "audit"
