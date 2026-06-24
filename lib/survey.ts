@@ -5,7 +5,7 @@ import type { RespondentType, SurveyQuestion } from "./types";
 
 export function surveyDef(type: RespondentType | string): SurveyQuestion[] {
   const scale5 = ["Very low", "Low", "Moderate", "High", "Very high"];
-  const country = ["Indonesia", "The Philippines", "Other"];
+  const country = ["The Philippines"];
   const gender = ["Woman", "Man", "Non-binary", "Prefer not to say", "Other"];
   const age = [
     "18–24 years",
@@ -27,7 +27,6 @@ export function surveyDef(type: RespondentType | string): SurveyQuestion[] {
       { kind: "section", title: "Section A · Respondent information" },
       { id: "a_country", label: "What country do you work in?", kind: "radio", opts: country },
       { id: "a_sector", label: "What is the primary sector of your business?", kind: "radio", opts: ["Processed Food / Agri-food sector", "Primary Agriculture", "Agri-technology", "Other"] },
-      { id: "a_position", label: "What is your current position?", kind: "radio", opts: ["SME staff", "SME manager", "SME Board member", "Other"] },
       { id: "a_gender", label: "Which gender do you identify with?", kind: "radio", opts: gender },
       { id: "a_age", label: "What age group do you belong to?", kind: "radio", opts: age },
       { id: "a_underrep", label: "Do you consider yourself a member of an underrepresented group? (e.g. Women, PWDs, Indigenous people, Youth)", kind: "radio", opts: ["Yes", "No"] },
@@ -55,7 +54,7 @@ export function surveyDef(type: RespondentType | string): SurveyQuestion[] {
     return [
       { kind: "section", title: "Section A · Respondent information" },
       { id: "a_country", label: "What country do you work in?", kind: "radio", opts: country },
-      { id: "a_position", label: "What is your current position?", kind: "radio", opts: ["ATP staff", "ATP manager", "ATP Board member", "Organizational leader", "Other"] },
+      { id: "a_position", label: "What is your current position?", kind: "radio", opts: ["Staff", "Manager", "Board member", "Organizational leader", "Other"] },
       { id: "a_gender", label: "Which gender do you identify with?", kind: "radio", opts: gender },
       { id: "a_age", label: "What age group do you belong to?", kind: "radio", opts: age },
       { id: "a_underrep", label: "Do you consider yourself a member of an underrepresented group?", kind: "radio", opts: ["Yes", "No"] },
@@ -79,7 +78,7 @@ export function surveyDef(type: RespondentType | string): SurveyQuestion[] {
   return [
     { kind: "section", title: "Section A · Respondent information" },
     { id: "a_country", label: "What country do you work in?", kind: "radio", opts: country },
-    { id: "a_position", label: "What is your current position?", kind: "radio", opts: ["TSI staff", "TSI manager", "TSI Board member", "Organizational leader", "Other"] },
+    { id: "a_position", label: "What is your current position?", kind: "radio", opts: ["Staff", "Manager", "Board member", "Organizational leader", "Other"] },
     { id: "a_gender", label: "Which gender do you identify with?", kind: "radio", opts: gender },
     { id: "a_age", label: "What age group do you belong to?", kind: "radio", opts: age },
     { id: "a_underrep", label: "Do you consider yourself a member of an underrepresented group?", kind: "radio", opts: ["Yes", "No"] },

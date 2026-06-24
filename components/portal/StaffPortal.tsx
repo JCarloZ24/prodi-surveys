@@ -78,7 +78,7 @@ function payBadge(s: string) {
 }
 
 function tokenDisplay(type: string, incentives: { TSI: { token: number }; AgriTech: { token: number }; SME: { token: number } }) {
-  if (type === "TSI") return <span className="font-semibold text-[13px] text-gray-700">Tumbler</span>;
+  if (type === "TSI") return <span className="font-semibold text-[13px] text-gray-700">Small token</span>;
   const amt = tok(incentives as Parameters<typeof tok>[0], type as Parameters<typeof tok>[1]);
   return <span className="font-semibold text-[13px] text-[#18181B]">{peso(amt)}</span>;
 }
@@ -1125,7 +1125,7 @@ function PayoutsView() {
                       </td>
                       <td className="px-4 py-3">
                         {r.type === "TSI"
-                          ? <span className="text-[13px] font-semibold text-gray-700">Tumbler</span>
+                          ? <span className="text-[13px] font-semibold text-gray-700">Small token</span>
                           : <span className="text-[13px] font-semibold text-[#18181B]">{peso(tokenAmt)}</span>
                         }
                       </td>
@@ -2983,7 +2983,7 @@ function ProfileDrawer() {
               </div>
               <div className="space-y-2.5">
                 {([
-                  ["Respondent token", r.type === "TSI" ? "Tumbler giveaway" : peso(tokenAmt)],
+                  ["Respondent token", r.type === "TSI" ? "Small Token" : peso(tokenAmt)],
                   ["Referral bonus",   bonusAmt > 0 ? peso(bonusAmt) : "Not eligible"],
                   ["Method",          r.method && r.method !== "—" ? `${r.method}${r.acct && r.acct !== "—" ? " " + r.acct : ""}`.trim() : "—"],
                   ["Payout status",   r.payStatus || "—"],
@@ -3050,7 +3050,7 @@ function ProfileDrawer() {
               onClick={() => actions.markPaid(r.id)}
               className="w-full rounded-[10px] bg-emerald-600 py-3 text-[13.5px] font-bold text-white hover:bg-emerald-700"
             >
-              Mark as paid · {r.type === "TSI" ? "Tumbler" : peso(tokenAmt)}
+              Mark as paid · {r.type === "TSI" ? "Small token" : peso(tokenAmt)}
             </button>
           </div>
         )}

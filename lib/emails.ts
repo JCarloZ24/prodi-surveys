@@ -47,12 +47,20 @@ export function emailDefs(): EmailDef[] {
       to: "respondent",
       preheader: "Your token is now being processed.",
       accent: "#15803D",
-      vars: { firstName: "Maria", tokenAmount: "₱200", payoutMethod: "GCash •••• 412" },
+      vars: {
+        firstName: "Maria",
+        tokenAmount: "₱200",
+        payoutMethod: "GCash •••• 412",
+        tokenLine: " Your respondent token is now being processed for payout.",
+        closingLine: "You'll receive another email once your token has been sent.",
+      },
       blocks: [
         { type: "h", text: "Your response has been verified 🎉" },
-        { type: "p", text: "Thank you, {{firstName}}. Our QA team has reviewed and verified your submission. Your respondent token is now being processed for payout." },
+        // {{tokenLine}} and the token/payout rows are blank for paths that don't get
+        // a cash payout (e.g. TSI small-token), so they drop out of the email.
+        { type: "p", text: "Thank you, {{firstName}}. Our QA team has reviewed and verified your submission.{{tokenLine}}" },
         { type: "kv", rows: [["Respondent token", "{{tokenAmount}}"], ["Payout method", "{{payoutMethod}}"], ["Status", "Processing"]] },
-        { type: "p", text: "You'll receive another email once your token has been sent." },
+        { type: "p", text: "{{closingLine}}" },
       ],
     },
     {
@@ -91,18 +99,18 @@ export function emailDefs(): EmailDef[] {
     {
       id: "paid-tumbler",
       audience: "Respondent",
-      name: "Token sent — tumbler",
-      subject: "Your tumbler is on its way",
+      name: "Token sent — small token",
+      subject: "Your small token is on its way",
       from: "Prodi-Surveys <no-reply@prodigitality.net>",
       to: "respondent",
-      preheader: "Your branded tumbler has been dispatched.",
+      preheader: "Your small token is on its way.",
       accent: "#15803D",
-      vars: { item: "Branded tumbler (Matte Black)", shippedTo: "Juan Dela Cruz", estDelivery: "7–14 business days" },
+      vars: { item: "Small token", shippedTo: "Juan Dela Cruz", estDelivery: "7–14 business days" },
       blocks: [
-        { type: "h", text: "Your tumbler is on its way 📦" },
-        { type: "p", text: "Your branded tumbler has been dispatched to the shipping address you provided. Thank you for participating in the Prodigitality baseline survey." },
-        { type: "kv", rows: [["Item", "{{item}}"], ["Shipped to", "{{shippedTo}}"], ["Est. delivery", "{{estDelivery}}"]] },
-        { type: "note", text: "If you have questions about your shipment, reply to this email." },
+        { type: "h", text: "Your small token is on its way 🎁" },
+        { type: "p", text: "Good news — your small token has been processed. Thank you for participating in the Prodigitality baseline survey." },
+        { type: "kv", rows: [["Item", "{{item}}"], ["Recipient", "{{shippedTo}}"], ["Est. delivery", "{{estDelivery}}"]] },
+        { type: "note", text: "Our team will coordinate the details with you. If you have any questions, reply to this email." },
       ],
     },
     {

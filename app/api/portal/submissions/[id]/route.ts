@@ -10,32 +10,38 @@ const DEFAULT_TOKEN: Record<string, number> = { SME: 200, AgriTech: 300, TSI: 0 
 function buildVerifiedVars(row: Record<string, unknown>): Record<string, string> {
   const reg = (row.registration as Record<string, string>) ?? {};
   const pay = (row.payout_details as Record<string, string> | null) ?? null;
-  const ship = (row.shipping_details as Record<string, string> | null) ?? null;
   const surveyType = (row.survey_type as string) ?? "SME";
 
   const firstName = (reg.name ?? "").split(" ")[0] || "there";
-  const colorLabels: Record<string, string> = { grey: "Charcoal grey", blue: "Sky blue", black: "Black" };
 
-  let tokenAmount: string;
-  let payoutMethod: string;
-
-  if (surveyType === "TSI" && ship) {
-    // TSI: token row shows tumbler color, payout method row is hidden (empty = skipped by renderer)
-    tokenAmount = `Tumbler · ${colorLabels[ship.color] ?? ship.color ?? "Grey"}`;
-    payoutMethod = "";
-  } else {
-    const tokenAmt = DEFAULT_TOKEN[surveyType] ?? 0;
-    tokenAmount = tokenAmt > 0 ? `₱${tokenAmt}` : "—";
-    if (pay?.acctNum) {
-      payoutMethod = `${pay.method ?? ""} •••• ${String(pay.acctNum).slice(-3)}`;
-    } else if (pay?.method) {
-      payoutMethod = pay.method;
-    } else {
-      payoutMethod = "—";
-    }
+  // TSI receives a small token (not a cash payout). Blank the token/payout rows
+  // (skipped by the renderer) and drop the payout wording; show a generic closing.
+  if (surveyType === "TSI") {
+    return {
+      firstName,
+      tokenAmount: "",
+      payoutMethod: "",
+      tokenLine: "",
+      closingLine: "Our team will be in touch with the next steps.",
+    };
   }
 
-  return { firstName, tokenAmount, payoutMethod };
+  const tokenAmt = DEFAULT_TOKEN[surveyType] ?? 0;
+  const tokenAmount = tokenAmt > 0 ? `₱${tokenAmt}` : "—";
+  let payoutMethod = "—";
+  if (pay?.acctNum) {
+    payoutMethod = `${pay.method ?? ""} •••• ${String(pay.acctNum).slice(-3)}`;
+  } else if (pay?.method) {
+    payoutMethod = pay.method;
+  }
+
+  return {
+    firstName,
+    tokenAmount,
+    payoutMethod,
+    tokenLine: " Your respondent token is now being processed for payout.",
+    closingLine: "You'll receive another email once your token has been sent.",
+  };
 }
 
 async function sendEmail(
@@ -87,15 +93,12 @@ function buildPaidVars(row: Record<string, unknown>, id: string): Record<string,
 
 function buildTumblerVars(row: Record<string, unknown>): Record<string, string> {
   const reg = (row.registration as Record<string, string>) ?? {};
-  const ship = (row.shipping_details as Record<string, string> | null) ?? null;
-
-  const shippedTo = reg.name ?? "—";
-  const colorLabels: Record<string, string> = { grey: "Charcoal grey", blue: "Sky blue", black: "Black" };
-  const color = ship?.color ?? "grey";
-  const item = `Branded tumbler · ${colorLabels[color] ?? color}`;
-  const estDelivery = "7–14 business days";
-
-  return { shippedTo, item, estDelivery };
+  // TSI incentive is described generically as a "small token" — no tumbler/colour.
+  return {
+    shippedTo: reg.name ?? "—",
+    item: "Small token",
+    estDelivery: "7–14 business days",
+  };
 }
 
 export async function PATCH(

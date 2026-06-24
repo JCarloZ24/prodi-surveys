@@ -15,9 +15,10 @@ import { ProfileStep } from "./ProfileStep";
 import { SurveyStep } from "./SurveyStep";
 
 // Wizard step numbers (the gaps are intentional — they mirror the design's
-// branching, where Handoff(4) sits between Verify and Survey and survey-only
-// respondents enter at Survey(5)):
-//   0 Welcome · 1 Profile · 2 Register · 3 Verify · 4 Handoff
+// branching, where Handoff(4) sits before Survey and survey-only respondents
+// enter at Survey(5)). Step 3 (Verify/OTP) has been removed — Register(2) goes
+// straight to Handoff(4):
+//   0 Welcome · 1 Profile · 2 Register · 4 Handoff
 //   5 Survey · 6 Selfie · 7 Payout · 8 Review · 9 Success
 export function RespondentFlow() {
   const { state, actions } = usePortal();
@@ -28,10 +29,10 @@ export function RespondentFlow() {
   // and the Payout pip drops out when no token is offered.
   const isTSI = state.rType === "TSI";
   const stepDefs: [string, number][] = [];
-  if (!state.surveyOnly) stepDefs.push(["Profile", 1], ["Register", 2], ["Verify", 3]);
+  if (!state.surveyOnly) stepDefs.push(["Profile", 1], ["Register", 2], ["Handoff", 4]);
   stepDefs.push(["Survey", 5], ["Selfie", 6]);
-  if (isTSI) stepDefs.push(["Free Token", 7]);
-  else if (state.payoutOn) stepDefs.push(["Payout", 7]);
+  // TSI no longer has a Free Token / shipping step; only non-TSI paths show Payout.
+  if (!isTSI && state.payoutOn) stepDefs.push(["Payout", 7]);
   stepDefs.push(["Submit", 8]);
   const showSteps = state.surveyOnly ? step >= 5 && step <= 8 : step >= 1 && step <= 8;
   const activeIdx = stepDefs.findIndex(([, t]) => step === t);
@@ -71,29 +72,45 @@ export function RespondentFlow() {
           <div className="hidden justify-center px-[22px] py-3 sm:flex">
             <div className="flex w-full max-w-[760px] items-center gap-[5px]">
               {stepDefs.map(([label, t], i) => {
-                const done = step > t;
                 const active = step === t;
+                // A step is "completed" (green check) only once you've validly
+                // advanced PAST it (t < furthest reached). Any step already reached
+                // (t <= furthest reached) can be navigated to by clicking its pip —
+                // forward or backward — so completing a step opens the next one.
+                const done = t < state.rMaxStep && !active;
+                const clickable = t <= state.rMaxStep && !active;
                 return (
                   <div key={label} className="flex flex-1 items-center gap-[5px]">
-                    <div
-                      className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-[11.5px] font-extrabold"
-                      style={{
-                        background: done ? "#15803D" : active ? "#E0195F" : "#E7E7EA",
-                        color: done || active ? "#fff" : "#9CA3AF",
-                      }}
+                    <button
+                      type="button"
+                      onClick={clickable ? () => actions.goStep(t) : undefined}
+                      disabled={!clickable}
+                      title={clickable ? `Back to ${label}` : label}
+                      className={cx(
+                        "flex items-center gap-[5px] rounded-full transition-opacity",
+                        clickable ? "cursor-pointer hover:opacity-70" : "cursor-default",
+                      )}
                     >
-                      {done ? "✓" : i + 1}
-                    </div>
-                    <span
-                      className="whitespace-nowrap text-[11.5px] font-semibold"
-                      style={{ color: active ? "#18181B" : done ? "#15803D" : "#9CA3AF" }}
-                    >
-                      {label}
-                    </span>
+                      <span
+                        className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-[11.5px] font-extrabold"
+                        style={{
+                          background: done ? "#15803D" : active ? "#E0195F" : "#E7E7EA",
+                          color: done || active ? "#fff" : "#9CA3AF",
+                        }}
+                      >
+                        {done ? "✓" : i + 1}
+                      </span>
+                      <span
+                        className="whitespace-nowrap text-[11.5px] font-semibold"
+                        style={{ color: active ? "#18181B" : done ? "#15803D" : "#9CA3AF" }}
+                      >
+                        {label}
+                      </span>
+                    </button>
                     {i < stepDefs.length - 1 && (
                       <div
                         className="mx-1 h-0.5 flex-1 rounded-sm"
-                        style={{ background: step > t ? "#15803D" : "#E7E7EA" }}
+                        style={{ background: t < state.rMaxStep ? "#15803D" : "#E7E7EA" }}
                       />
                     )}
                   </div>
@@ -352,6 +369,12 @@ function Register() {
   const mobileOk = mobileLocal.replace(/\D/g, "").length === 10;
   const canContinue = nameOk && emailOk && mobileOk;
 
+  // OTP step removed: create the submission row here, then advance to Handoff.
+  const onContinue = () => {
+    void actions.startSubmission();
+    actions.flowNext();
+  };
+
   return (
     <div>
       <h1 className="mb-1.5 text-[22px] font-extrabold tracking-[-.5px]">Register your details</h1>
@@ -412,8 +435,8 @@ function Register() {
             <div className="flex items-start gap-2.5 rounded-[9px] border border-brand-pinkLine bg-brand-pinkSoft2 px-3.5 py-3 text-[12.5px] leading-[1.5] text-[#9D174D]">
               <span className="mt-[1px] flex-none">🎁</span>
               <span>
-                As a government / TSI organization, your free token is a <b>tumbler giveaway</b>{" "}
-                (shipped to you). You&apos;ll provide your shipping address in the next step.
+                As a government / TSI organization, your free token is a <b>tumbler giveaway</b>.
+                Our team will coordinate delivery details with you after your response is verified.
               </span>
             </div>
           </div>
@@ -452,7 +475,7 @@ function Register() {
           </div>
         )}
       </div>
-      <FlowNav nextLabel="Continue" disabled={!canContinue} />
+      <FlowNav nextLabel="Continue" disabled={!canContinue} onNext={onContinue} />
     </div>
   );
 }
@@ -667,7 +690,7 @@ function Handoff() {
             <path d="M20 6L9 17l-5-5" />
           </svg>
         </div>
-        <h1 className="mb-2 text-[22px] font-extrabold tracking-[-.5px]">Email verified</h1>
+        <h1 className="mb-2 text-[22px] font-extrabold tracking-[-.5px]">Registration complete</h1>
         <p className="mx-auto max-w-[430px] text-[13.5px] text-gray-500">
           How should <b className="text-gray-700">{who}</b> complete the survey?
         </p>
@@ -1457,13 +1480,7 @@ function Review() {
   ];
   const isTSIpath = state.rType === "TSI";
   if (isTSIpath) {
-    const colorLabel = { grey: "Light Grey", blue: "Navy Blue", black: "Matte Black" }[state.shipping.color] ?? state.shipping.color;
-    const recipient = (state.shipping.useMyDetails && (state.reg.name || "").trim()) ? state.reg.name : state.shipping.recipientName;
-    items.push(
-      ["Free token", "Tumbler giveaway · " + colorLabel],
-      ["Ship to", recipient || "—"],
-      ["Shipping address", state.shipping.address || "—"],
-    );
+    // TSI no longer surfaces a free-token / tumbler line in the review.
   } else if (state.payoutOn) {
     items.push(["Payout method", state.payout.method], ["Token", peso(tok(state.incentives, state.rType))]);
   } else {
@@ -1497,7 +1514,8 @@ function Review() {
           answers: state.survey,
           selfie_url: selfieUrl,
           payout_details: !isTSI && state.payoutOn ? state.payout : null,
-          shipping_details: isTSI ? state.shipping : null,
+          // TSI no longer collects shipping in-flow; delivery is coordinated post-verify.
+          shipping_details: null,
           referrer_code: state.reg.code || null,
           enumerator_slug: state.enumeratorSlug || null,
           consent: {
@@ -1549,6 +1567,9 @@ function Success() {
   const tokenLabel = state.payoutOn ? peso(tok(state.incentives, state.rType)) : "No token";
   const referralPath = state.referralPath || "/r/" + encodeURIComponent(state.newCode || "");
   const referralUrl = publicUrl(referralPath);
+  // The referral link is only generated/shown if the respondent opts in to
+  // recommend someone. null = not asked yet, true = referring, false = declined.
+  const [refer, setRefer] = useState<boolean | null>(null);
   return (
     <div className="pt-[18px] text-center">
       <div className="mx-auto mb-[22px] flex h-[72px] w-[72px] items-center justify-center rounded-full bg-green-100">
@@ -1564,49 +1585,95 @@ function Success() {
         <b className="text-orange-800">pending QA review</b>. You&apos;ll be notified once verified
         and your token is processed.
       </p>
-      <div className="mb-3.5 rounded-2xl border border-line bg-white p-5 text-left">
-        <div className="mb-1.5 flex items-center justify-between">
-          <div className="text-[12px] font-bold uppercase tracking-[.4px] text-gray-400">
-            Your referral link
+
+      {/* Ask before generating a referral link. */}
+      {refer === null && (
+        <div className="mb-3.5 rounded-2xl border border-line bg-white p-5">
+          <div className="mb-1.5 text-[15.5px] font-extrabold tracking-[-.3px] text-brand-ink">
+            Who else could you recommend?
           </div>
-          <span className={typePillClass(state.rType)}>{typeShort(state.rType)} path</span>
+          <p className="mx-auto mb-4 max-w-[400px] text-[13px] leading-[1.55] text-gray-500">
+            Know someone in your group who could take part? Refer them with your own link
+            {state.surveyOnly ? "." : " and earn a bonus once they're verified."}
+          </p>
+          <div className="flex gap-2.5">
+            <button
+              onClick={() => setRefer(false)}
+              className="h-[46px] flex-1 rounded-[11px] border border-[#E2E2E6] bg-white text-sm font-bold text-gray-700"
+            >
+              No, thanks
+            </button>
+            <button
+              onClick={() => setRefer(true)}
+              className="h-[46px] flex-1 rounded-[11px] bg-brand-ink text-sm font-bold text-white"
+            >
+              Yes, refer someone
+            </button>
+          </div>
         </div>
-        <p className="mb-3 text-[13px] leading-[1.55] text-gray-500">
-          Refer others in your group and earn a bonus once they&apos;re verified.
-        </p>
-        <div className="flex items-center gap-2 rounded-[9px] border border-line2 bg-muted px-[13px] py-2.5">
-          <span className="flex-1 break-all text-left font-mono text-[13px] text-gray-700">
-            {referralUrl}
-          </span>
+      )}
+
+      {refer === true && (
+        <>
+          <div className="mb-3.5 rounded-2xl border border-line bg-white p-5 text-left">
+            <div className="mb-1.5 flex items-center justify-between">
+              <div className="text-[12px] font-bold uppercase tracking-[.4px] text-gray-400">
+                Your referral link
+              </div>
+              <span className={typePillClass(state.rType)}>{typeShort(state.rType)} path</span>
+            </div>
+            <p className="mb-3 text-[13px] leading-[1.55] text-gray-500">
+              Share this link with others in your group and earn a bonus once they&apos;re verified.
+            </p>
+            <div className="flex items-center gap-2 rounded-[9px] border border-line2 bg-muted px-[13px] py-2.5">
+              <span className="flex-1 break-all text-left font-mono text-[13px] text-gray-700">
+                {referralUrl}
+              </span>
+              <button
+                onClick={actions.copyReferral}
+                className="rounded-[7px] bg-brand-pink px-[13px] py-[7px] text-[11.5px] font-bold text-white"
+              >
+                Copy
+              </button>
+            </div>
+            {state.rType !== "TSI" && (
+              <div className="mt-3.5 flex justify-between text-[13px]">
+                <span className="font-semibold text-gray-400">Your token (after verify)</span>
+                <span className="font-bold">{tokenLabel}</span>
+              </div>
+            )}
+            {!state.surveyOnly && (
+              <div className="mt-[7px] flex justify-between text-[13px]">
+                <span className="font-semibold text-gray-400">Referral bonus (per verified)</span>
+                <span className="font-bold">{peso(bon(state.incentives, state.rType))}</span>
+              </div>
+            )}
+            <div className="mt-[9px] text-[11px] text-[#B0B0B8]">
+              Token &amp; bonus amounts depend on your respondent path.
+            </div>
+          </div>
           <button
-            onClick={actions.copyReferral}
-            className="rounded-[7px] bg-brand-pink px-[13px] py-[7px] text-[11.5px] font-bold text-white"
+            onClick={actions.previewReferral}
+            className="flex h-[46px] w-full items-center justify-center gap-2 rounded-[11px] bg-brand-ink text-sm font-bold text-white"
           >
-            Copy
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5" />
+              <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5" />
+            </svg>
+            Preview the referral link as a new respondent
           </button>
-        </div>
-        <div className="mt-3.5 flex justify-between text-[13px]">
-          <span className="font-semibold text-gray-400">Your token (after verify)</span>
-          <span className="font-bold">{tokenLabel}</span>
-        </div>
-        <div className="mt-[7px] flex justify-between text-[13px]">
-          <span className="font-semibold text-gray-400">Referral bonus (per verified)</span>
-          <span className="font-bold">{peso(bon(state.incentives, state.rType))}</span>
-        </div>
-        <div className="mt-[9px] text-[11px] text-[#B0B0B8]">
-          Token &amp; bonus amounts depend on your respondent path.
-        </div>
-      </div>
-      <button
-        onClick={actions.previewReferral}
-        className="flex h-[46px] w-full items-center justify-center gap-2 rounded-[11px] bg-brand-ink text-sm font-bold text-white"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5" />
-          <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5" />
-        </svg>
-        Preview the referral link as a new respondent
-      </button>
+        </>
+      )}
+
+      {refer === false && (
+        <p className="mx-auto max-w-[400px] text-[13px] leading-[1.55] text-gray-500">
+          No problem — thanks again for taking part.{" "}
+          <button onClick={() => setRefer(true)} className="font-semibold text-brand-pink underline">
+            Changed your mind? Refer someone
+          </button>
+        </p>
+      )}
+
       <p className="mt-3.5 text-[12px] text-gray-400">You can now safely close this window.</p>
     </div>
   );

@@ -43,7 +43,7 @@ const TECH_TYPES = [
   "Food Innovation Center", "Product Development Services", "Agriculture Technology Provider",
   "Technical Consulting Services", "Other",
 ];
-const FOOD_EMP = ["1–9 employees", "10–99 employees", "100–199 employees", "200+ employees"];
+const FOOD_EMP = ["10–99 employees", "100–199 employees", "200+ employees"];
 const FOOD_ROLE = ["Owner", "Manager", "Department Head", "Technical Staff", "Administrative Staff", "Other"];
 const HEAR_ABOUT = ["Friend or Referral", "Social Media", "Other"];
 
@@ -70,6 +70,13 @@ export function ProfileStep() {
   const { state, actions } = usePortal();
   const q = state.qual;
   const techArr = q.techTypes || [];
+  // Organization / business name captured at the top of the tech & food branches.
+  // Stored on the qualification and mirrored to registration.org so it surfaces in
+  // the portal respondent list.
+  const setOrgName = (v: string) => {
+    actions.setQual("orgName", v);
+    actions.setReg("org", v);
+  };
   const [showOtherReview, setShowOtherReview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [thanked, setThanked] = useState(false);
@@ -326,6 +333,18 @@ export function ProfileStep() {
         <Branch>
           <div>
             <FieldLabel>
+              Organization / business name{" "}
+              <span className="font-medium text-gray-400">(optional)</span>
+            </FieldLabel>
+            <input
+              value={q.orgName}
+              onChange={(e) => setOrgName(e.target.value)}
+              placeholder="Your organization or business name"
+              className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] px-3 text-[13.5px] outline-none"
+            />
+          </div>
+          <div>
+            <FieldLabel>
               Which best describes your organization?<Req />{" "}
               <span className="font-medium text-gray-400">(select all that apply)</span>
             </FieldLabel>
@@ -355,6 +374,18 @@ export function ProfileStep() {
 
       {q.orgType === "food" && (
         <Branch>
+          <div>
+            <FieldLabel>
+              Organization / business name{" "}
+              <span className="font-medium text-gray-400">(optional)</span>
+            </FieldLabel>
+            <input
+              value={q.orgName}
+              onChange={(e) => setOrgName(e.target.value)}
+              placeholder="Your business name"
+              className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] px-3 text-[13.5px] outline-none"
+            />
+          </div>
           <div>
             <span className="mb-1 block text-[13px] font-bold text-gray-700">
               Does your business make, process, manufacture, or package food products?<Req />

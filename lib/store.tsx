@@ -79,6 +79,9 @@ export interface PortalState {
   paid: Record<number, string>;
   toast: string | null;
   rStep: number;
+  // Furthest step validly reached — the stepper allows jumping to any step up to
+  // this (forward or backward), since everything up to here has been filled in.
+  rMaxStep: number;
   rType: Respondent["type"];
   reg: Registration;
   otp: string;
@@ -124,10 +127,14 @@ function blankShipping(): ShippingDetails {
 }
 
 const FLOW_DRAFT_KEY = "prodi-surveys.flowDraft.v1";
+// Transient hand-off so a self-service preview tab can show the respondent's
+// prefilled identity (the real /s/ link carries it via the sid submission row).
+const PREVIEW_SELF_SERVICE_KEY = "prodi-surveys.previewSelfService";
 const REFERRERS_KEY = "prodi-surveys.referrers.v1";
 const FLOW_DRAFT_FIELDS = [
   "mode",
   "rStep",
+  "rMaxStep",
   "rType",
   "reg",
   "qual",
@@ -209,6 +216,7 @@ function initialState(): PortalState {
     paid: {},
     toast: null,
     rStep: 0,
+    rMaxStep: 0,
     rType: "SME",
     reg: blankReg(),
     otp: "",
@@ -328,7 +336,9 @@ export interface PortalActions {
   exitFlow(): void;
   flowNext(): void;
   flowBack(): void;
+  goStep(n: number): void;
   verifyOtp(): void;
+  startSubmission(): Promise<void>;
   setSubmissionId(id: string): void;
   setReg(k: keyof Registration, v: string): void;
   setOtp(v: string): void;
@@ -457,6 +467,7 @@ export function PortalProvider({
     const resetFlow = (): Partial<PortalState> => ({
       mode: "flow",
       rStep: 0,
+      rMaxStep: 0,
       otp: "",
       survey: {},
       selfie: false,
@@ -821,6 +832,7 @@ export function PortalProvider({
         set({
           ...resetFlow(),
           rStep: 5,
+          rMaxStep: 5,
           surveyOnly: true,
           enumeratorSlug: slug,
           submissionId: sid,
@@ -845,45 +857,105 @@ export function PortalProvider({
         // Only skip re-init if the flow is already set up for the same code AND
         // the same rType — a different ?t= param must re-launch to apply the new type.
         if (s.mode === "flow" && s.surveyOnly && s.reg.code === c && (!rType || s.rType === (rType as Respondent["type"]))) return;
+        // In preview, pick up the respondent identity stashed by previewSurveyOnly so
+        // the preview shows the same prefilled name/email/mobile a real link carries.
+        let stash: { reg?: Partial<Registration>; qual?: Partial<Qual>; rType?: string; payoutOn?: boolean } = {};
+        if (preview && typeof window !== "undefined") {
+          try {
+            const raw = window.localStorage.getItem(PREVIEW_SELF_SERVICE_KEY);
+            if (raw) stash = JSON.parse(raw);
+          } catch {
+            /* ignore malformed/absent stash */
+          }
+        }
         set({
           ...resetFlow(),
           rStep: 5,
+          rMaxStep: 5,
           surveyOnly: true,
           handoffMode: preview ? "preview" : "",
-          reg: { ...blankReg(), code: c },
-          ...(rType ? { rType: rType as Respondent["type"] } : {}),
+          reg: { ...blankReg(), ...(stash.reg || {}), code: c },
+          ...(stash.qual ? { qual: { ...blankQual(), ...stash.qual } } : {}),
+          ...((rType || stash.rType) ? { rType: (rType || stash.rType) as Respondent["type"] } : {}),
+          ...(typeof stash.payoutOn === "boolean" ? { payoutOn: stash.payoutOn } : {}),
         });
       },
       exitFlow: () => set(resetFlow()),
-      // Branching wizard: Welcome(0) → Profile(1) → Register(2) → Verify(3) →
-      // Handoff(4) → Survey(5) → Selfie(6) → Payout or Shipping(7) → Review(8) → Success(9).
-      // TSI respondents always see step 7 (Shipping/tumbler); others see Payout only when payoutOn.
+      // Branching wizard: Welcome(0) → Profile(1) → Register(2) → Handoff(4) →
+      // Survey(5) → Selfie(6) → Payout or Shipping(7) → Review(8) → Success(9).
+      // The OTP/email-verify step (3) has been removed: Register goes straight to
+      // Handoff. TSI respondents always see step 7 (Shipping/tumbler); others see
+      // Payout only when payoutOn.
       flowNext: () => {
         const s = stateRef.current;
         let n = s.rStep;
         if (n === 6) {
           if (!s.selfie) return;
           const isTSI = s.rType === "TSI";
-          n = isTSI || s.payoutOn ? 7 : 8;
+          // TSI has no Free Token/shipping step (7) anymore — go straight to Review.
+          n = !isTSI && s.payoutOn ? 7 : 8;
         } else if (n === 8) {
           n = 9;
+        } else if (n === 2) {
+          n = 4; // skip the removed OTP step
         } else {
           n = Math.min(9, n + 1);
         }
-        set({ rStep: n });
+        set({ rStep: n, rMaxStep: Math.max(s.rMaxStep, n) });
       },
       flowBack: () => {
         const s = stateRef.current;
         let n = s.rStep;
         const isTSI = s.rType === "TSI";
-        if (n === 8) n = isTSI || s.payoutOn ? 7 : 6;
+        if (n === 8) n = !isTSI && s.payoutOn ? 7 : 6;
         else if (n === 5) n = s.surveyOnly ? 5 : 4;
+        else if (n === 4) n = 2; // skip the removed OTP step
         else n = Math.max(0, n - 1);
         // Survey-only respondents never see steps before the survey.
         if (s.surveyOnly && n < 5) n = 5;
         set({ rStep: n });
       },
+      // Jump to any step already reached (t <= rMaxStep) — forward or backward.
+      // Steps beyond the furthest reached aren't filled in yet, so they stay locked.
+      goStep: (n) => {
+        const s = stateRef.current;
+        let target = n;
+        if (s.surveyOnly && target < 5) target = 5;
+        if (target === s.rStep || target > s.rMaxStep) return;
+        set({ rStep: target });
+      },
       verifyOtp: () => set({ rStep: 4 }),
+      // Create the submission row (is_survey_completed=false) when the respondent
+      // leaves Register. Previously fired after OTP verify; the OTP step is removed
+      // so this runs on Register → Handoff. Non-fatal: the final submit inserts a
+      // row if none exists. Skipped in preview and when a row already exists.
+      startSubmission: async () => {
+        const s = stateRef.current;
+        if (s.submissionId || s.handoffMode === "preview") return;
+        try {
+          const res = await fetch("/api/submit/start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              registration: { ...s.reg, type: s.rType },
+              qualification: s.qual,
+              survey_type: s.rType,
+              referrer_code: s.reg.code || null,
+              enumerator_slug: s.enumeratorSlug || null,
+              payout_offered: s.payoutOn,
+              consent: {
+                terms: s.consentTerms,
+                privacy: s.consentPrivacy,
+                accepted_at: s.consentAt || null,
+              },
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.id) set({ submissionId: data.id });
+        } catch {
+          // Non-fatal: the final submit will insert a row if none exists.
+        }
+      },
       setSubmissionId: (id) => set({ submissionId: id }),
       setReg: (k, v) => {
         if (k === "type") set((s) => ({ reg: { ...s.reg, type: v as Respondent["type"] }, rType: v as Respondent["type"] }));
@@ -918,7 +990,10 @@ export function PortalProvider({
       setSelfieFile: (file) => set({ selfieFile: file, selfie: !!file }),
       clearSelfie: () => set({ selfie: false, selfieUrl: "", selfieFile: null }),
       setPayoutOn: (v) => set({ payoutOn: v }),
-      handoffAssisted: () => set({ rStep: 5, surveyOnly: false, handoffMode: "" }),
+      handoffAssisted: () => {
+        const s = stateRef.current;
+        set({ rStep: 5, rMaxStep: Math.max(s.rMaxStep, 5), surveyOnly: false, handoffMode: "" });
+      },
       handoffSendLink: () => {
         const s = stateRef.current;
         const who = (s.reg.name || "").trim() || "respondent";
@@ -931,10 +1006,21 @@ export function PortalProvider({
         const c = (code || "").trim().toUpperCase();
         const tParam = rType ? "?t=" + encodeURIComponent(rType) : "";
         if (c && typeof window !== "undefined") {
+          // Stash the respondent's identity so the preview tab shows it prefilled,
+          // mirroring a real self-service link (which carries it via the sid row).
+          try {
+            const s = stateRef.current;
+            window.localStorage.setItem(
+              PREVIEW_SELF_SERVICE_KEY,
+              JSON.stringify({ reg: s.reg, qual: s.qual, rType: rType || s.rType, payoutOn: s.payoutOn }),
+            );
+          } catch {
+            /* localStorage unavailable — preview just shows blanks */
+          }
           window.open("/preview/s/" + encodeURIComponent(c) + tParam, "_blank");
           return;
         }
-        set({ rStep: 5, surveyOnly: true, handoffMode: "" });
+        set({ rStep: 5, rMaxStep: 5, surveyOnly: true, handoffMode: "" });
       },
       handoffDone: () => {
         set(resetFlow());
@@ -958,10 +1044,12 @@ export function PortalProvider({
           // Keep reg.type in lockstep with the survey path (rType) so the stored
           // registration never disagrees with survey_type.
           const newType = (map[t] || s.rType) as Respondent["type"];
+          // Reset the org/business name when switching categories so it never
+          // leaks across selections (the tech/food/other branches each re-capture it).
           return {
-            qual: { ...s.qual, orgType: t },
+            qual: { ...s.qual, orgType: t, orgName: "" },
             rType: newType,
-            reg: { ...s.reg, type: newType },
+            reg: { ...s.reg, type: newType, org: "" },
           };
         });
       },
@@ -1013,6 +1101,7 @@ export function PortalProvider({
         set({
           mode: "flow",
           rStep: 0,
+          rMaxStep: 0,
           referredBy: "Referral",
           referredCode: c,
           referralPath: "/preview/r/" + encodeURIComponent(c),
