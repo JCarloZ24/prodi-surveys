@@ -1,0 +1,131 @@
+// Client-side report generation for the Reports / Export page. Builds real CSV
+// content from the live portal state, role-aware: stakeholders never receive any
+// monetary columns or the payout report.
+
+import { tok, bon } from "./selectors";
+import type { AuditEntry, Incentives, Respondent, Role } from "./types";
+
+function csvEscape(value: unknown): string {
+  const s = value == null ? "" : String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function toCsv(headers: string[], rows: (string | number)[][]): string {
+  const lines = [headers.map(csvEscape).join(",")];
+  for (const row of rows) lines.push(row.map(csvEscape).join(","));
+  // BOM so Excel renders UTF-8 (the peso sign ₱) correctly.
+  return "﻿" + lines.join("\r\n");
+}
+
+function slugify(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+export interface ReportInput {
+  respondents: Respondent[];
+  audit: AuditEntry[];
+  incentives: Incentives;
+  role: Role;
+}
+
+// Returns the file to download, or null when the report isn't available for the
+// caller's role (e.g. a stakeholder requesting the payout report).
+export function buildReport(
+  name: string,
+  fmt: string,
+  { respondents, audit, incentives, role }: ReportInput,
+): { filename: string; content: string } | null {
+  const money = role !== "stakeholder";
+  const ext = fmt === "Excel" ? "xls" : "csv";
+  const filename = `${slugify(name)}-${new Date().toISOString().slice(0, 10)}.${ext}`;
+
+  // Shared respondent-list builder (financial columns appended only when allowed).
+  const respondentTable = (list: Respondent[]): string => {
+    const headers = [
+      "Name", "Organization", "Type", "Region", "Position",
+      "Email", "Mobile", "Mode", "Enumerator", "Status", "Referred by",
+    ];
+    if (money) headers.push("Token", "Bonus", "Payout status", "Bonus status", "Method");
+    const rows = list.map((r) => {
+      const base: (string | number)[] = [
+        r.name, r.org, r.type, r.region, r.position,
+        r.email, r.mobile, r.mode, r.enumerator, r.status, r.referredBy ?? "",
+      ];
+      if (money) {
+        base.push(
+          tok(incentives, r.type),
+          r.referred ? bon(incentives, r.type) : 0,
+          r.payStatus ?? "—",
+          r.referred ? (r.referrerPayStatus ?? "—") : "—",
+          r.method ?? "—",
+        );
+      }
+      return base;
+    });
+    return toCsv(headers, rows);
+  };
+
+  switch (name) {
+    case "Full respondent list":
+      return { filename, content: respondentTable(respondents) };
+
+    case "Verified respondents":
+      return { filename, content: respondentTable(respondents.filter((r) => r.verified)) };
+
+    case "Survey answers": {
+      // KoboToolbox-style wide format: one row per submission, one column per
+      // question label seen across all answered snapshots.
+      const labels: string[] = [];
+      const seen = new Set<string>();
+      for (const r of respondents) {
+        for (const [label] of r.snapshot ?? []) {
+          if (!seen.has(label)) { seen.add(label); labels.push(label); }
+        }
+      }
+      const headers = ["Name", "Organization", "Type", "Status", ...labels];
+      const rows = respondents.map((r) => {
+        const map = new Map((r.snapshot ?? []).map(([l, v]) => [l, v]));
+        return [r.name, r.org, r.type, r.status, ...labels.map((l) => map.get(l) ?? "")];
+      });
+      return { filename, content: toCsv(headers, rows) };
+    }
+
+    case "Referral report": {
+      const list = respondents.filter((r) => r.referred);
+      const headers = ["Referral code", "Referrer", "Respondent", "Organization", "Type", "Status", "Verified"];
+      if (money) headers.push("Bonus", "Bonus status");
+      const rows = list.map((r) => {
+        const base: (string | number)[] = [
+          r.referrer ?? "", r.referredBy ?? "", r.name, r.org, r.type, r.status, r.verified ? "Yes" : "No",
+        ];
+        if (money) base.push(bon(incentives, r.type), r.referrerPayStatus ?? "—");
+        return base;
+      });
+      return { filename, content: toCsv(headers, rows) };
+    }
+
+    case "Payout report": {
+      // Financial report — not available to stakeholders.
+      if (!money) return null;
+      const list = respondents.filter((r) => r.verified);
+      const headers = ["Name", "Type", "Method", "Token", "Payout status", "Referred", "Bonus", "Bonus status"];
+      const rows = list.map((r) => [
+        r.name, r.type, r.method ?? "—",
+        tok(incentives, r.type), r.payStatus ?? "—",
+        r.referred ? "Yes" : "No",
+        r.referred ? bon(incentives, r.type) : 0,
+        r.referred ? (r.referrerPayStatus ?? "—") : "—",
+      ]);
+      return { filename, content: toCsv(headers, rows) };
+    }
+
+    case "Audit log": {
+      const headers = ["Action", "Target", "By", "Time"];
+      const rows = audit.map((a) => [a[0], a[1], a[2], a[3]]);
+      return { filename, content: toCsv(headers, rows) };
+    }
+
+    default:
+      return null;
+  }
+}

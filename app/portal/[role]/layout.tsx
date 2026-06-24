@@ -34,12 +34,21 @@ export default async function PortalRoleLayout({
     respondents = rowsToRespondents(
       (data ?? []).map((row) => row as Record<string, unknown>),
     );
+    // Full payout numbers + account names are admin-only — strip them for other
+    // roles so they never reach the client payload.
+    if (profile.role !== "admin") {
+      respondents = respondents.map((r) => ({ ...r, acctNum: "", acctName: "" }));
+    }
   } catch {
     // DB unavailable — portal loads with an empty respondent list.
   }
 
   return (
-    <PortalShell role={profile.role} initialRespondents={respondents}>
+    <PortalShell
+      role={profile.role}
+      initialRespondents={respondents}
+      userName={profile.full_name ?? undefined}
+    >
       {children}
     </PortalShell>
   );

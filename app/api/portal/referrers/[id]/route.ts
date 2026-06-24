@@ -3,14 +3,14 @@ import { getProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase-server";
 import { validateReferrer } from "@/lib/referrer";
 
-// PATCH /api/portal/referrers/[id] — admin-only update (the referral_code is kept).
+// PATCH /api/portal/referrers/[id] — update (admin + enumerator; referral_code kept).
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const me = await getProfile();
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (me.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (me.role === "stakeholder") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
@@ -30,14 +30,14 @@ export async function PATCH(
   return NextResponse.json({ referrer: data });
 }
 
-// DELETE /api/portal/referrers/[id] — admin-only delete.
+// DELETE /api/portal/referrers/[id] — delete (admin + enumerator).
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const me = await getProfile();
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (me.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (me.role === "stakeholder") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
   const db = createAdminClient();

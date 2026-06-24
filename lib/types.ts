@@ -65,12 +65,26 @@ export interface Respondent {
   mode: CollectionMode;
   enumerator: string;
   payStatus: PayStatus | string;
+  // Referral-bonus payout status, tracked independently of the token payStatus.
+  // "—" when the respondent isn't a referral. Paid only after the respondent.
+  referrerPayStatus?: PayStatus | string;
   method: string;
   acct: string;
+  // Full payout number (mobile / account / reference) + account name. Admin-only:
+  // redacted to "" for non-admin viewers before the record reaches the client.
+  acctNum?: string;
+  acctName?: string;
   compMin: number;
   flags: string[];
   code: string;
+  // Live survey answers for the QA drawer snapshot — [question label, answer text].
+  snapshot?: [string, string][];
+  // Raw survey answers keyed by question id (the JSONB blob) — used by the survey
+  // responses report for option-level / matrix aggregation. Survey content only.
+  answers?: Record<string, unknown>;
   createdDays: number;
+  // ISO timestamp of submission (created_at) — used by the reports date dimension.
+  submittedAt?: string;
   color: string;
   // Supabase row UUID — present on records fetched from DB, absent on locally-created ones.
   supabaseId?: string;

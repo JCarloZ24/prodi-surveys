@@ -3,11 +3,11 @@ import { getProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase-server";
 import { validateReferrer, generateReferrerCode } from "@/lib/referrer";
 
-// GET /api/portal/referrers — admin-only list of managed referrers.
+// GET /api/portal/referrers — list of managed referrers (admin + enumerator).
 export async function GET() {
   const me = await getProfile();
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (me.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (me.role === "stakeholder") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const db = createAdminClient();
   const { data, error } = await db
@@ -23,7 +23,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const me = await getProfile();
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (me.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (me.role === "stakeholder") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
   const result = validateReferrer(body);

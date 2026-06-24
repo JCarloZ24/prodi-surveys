@@ -17,6 +17,7 @@ import {
 import { blankQual } from "./classify";
 import { code as codeOf, hash } from "./format";
 import { publicUrl } from "./public-url";
+import { buildReport } from "./reports";
 import type {
   AppMode,
   AuditEntry,
@@ -42,6 +43,9 @@ type SurveyAnswers = Record<
 export interface PortalState {
   mode: AppMode;
   role: Role;
+  // Signed-in user's display name (from their profile). Falls back to the
+  // role-default name when not provided (e.g. the standalone flow preview).
+  userName: string;
   view: ViewKey;
   loginEmail: string;
   loginPw: string;
@@ -151,6 +155,7 @@ function initialState(): PortalState {
   return {
     mode: "login",
     role: "admin",
+    userName: "",
     view: "dashboard",
     loginEmail: "",
     loginPw: "",
@@ -293,6 +298,9 @@ export interface PortalActions {
   approvePayout(id: number): void;
   holdPayout(id: number): void;
   markPaid(id: number): void;
+  approveReferrerPayout(id: number): void;
+  holdReferrerPayout(id: number): void;
+  markReferrerPaid(id: number): void;
   doExport(name: string, fmt: string): void;
   setTarget(path: keyof Targets, val: string): void;
   setIncentive(path: keyof Incentives, field: "token" | "bonus", val: string): void;
@@ -367,17 +375,20 @@ export function PortalProvider({
   initialRespondents,
   initialRole,
   initialMode,
+  initialUserName,
 }: {
   children: React.ReactNode;
   initialRespondents?: Respondent[];
   initialRole?: Role;
   initialMode?: AppMode;
+  initialUserName?: string;
 }) {
   const [state, setState] = useState<PortalState>(() => {
     const s = initialState();
     if (initialRespondents) s.respondents = initialRespondents;
     if (initialRole) s.role = initialRole;
     if (initialMode) s.mode = initialMode;
+    if (initialUserName) s.userName = initialUserName;
     return s;
   });
   // Mirror the latest state into a ref so action handlers (which always run
@@ -440,7 +451,7 @@ export function PortalProvider({
   }, []);
 
   const actions: PortalActions = useMemo(() => {
-    const userName = () => USER_NAMES[stateRef.current.role];
+    const userName = () => stateRef.current.userName || USER_NAMES[stateRef.current.role];
     const prependLog = (action: string, target: string, by?: string) =>
       [logEntry(action, target, by || userName()), ...stateRef.current.audit];
     const resetFlow = (): Partial<PortalState> => ({
@@ -582,9 +593,82 @@ export function PortalProvider({
         }
       },
 
+      approveReferrerPayout: (id) => {
+        const s = stateRef.current;
+        const rec = s.respondents.find((r) => r.id === id);
+        set({
+          respondents: s.respondents.map((r) => r.id === id ? { ...r, referrerPayStatus: "Approved" } : r),
+          audit: [logEntry("Referrer payout approved", "· " + (rec?.referredBy ?? rec?.name ?? ""), userName()), ...s.audit],
+        });
+        toast("Referrer payout approved · " + (rec?.referredBy ?? rec?.name ?? ""));
+        if (rec?.supabaseId) {
+          fetch(`/api/portal/submissions/${rec.supabaseId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ referrer_pay_status: "approved" }),
+          }).catch(() => toast("Saved locally — DB sync failed"));
+        }
+      },
+
+      holdReferrerPayout: (id) => {
+        const s = stateRef.current;
+        const rec = s.respondents.find((r) => r.id === id);
+        set({
+          respondents: s.respondents.map((r) => r.id === id ? { ...r, referrerPayStatus: "On Hold" } : r),
+          audit: [logEntry("Referrer payout put on hold", "· " + (rec?.referredBy ?? rec?.name ?? ""), userName()), ...s.audit],
+        });
+        toast("Referrer payout on hold · " + (rec?.referredBy ?? rec?.name ?? ""));
+        if (rec?.supabaseId) {
+          fetch(`/api/portal/submissions/${rec.supabaseId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ referrer_pay_status: "on_hold" }),
+          }).catch(() => toast("Saved locally — DB sync failed"));
+        }
+      },
+
+      markReferrerPaid: (id) => {
+        const s = stateRef.current;
+        const rec = s.respondents.find((r) => r.id === id);
+        set({
+          respondents: s.respondents.map((r) => r.id === id ? { ...r, referrerPayStatus: "Paid" } : r),
+          audit: [logEntry("Referrer payout marked paid", "· " + (rec?.referredBy ?? rec?.name ?? ""), userName()), ...s.audit],
+        });
+        toast("Referrer payout marked paid · " + (rec?.referredBy ?? rec?.name ?? ""));
+        if (rec?.supabaseId) {
+          fetch(`/api/portal/submissions/${rec.supabaseId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ referrer_pay_status: "paid" }),
+          }).catch(() => toast("Saved locally — DB sync failed"));
+        }
+      },
+
       doExport: (name, fmt) => {
+        const s = stateRef.current;
+        const report = buildReport(name, fmt, {
+          respondents: s.respondents,
+          audit: s.audit,
+          incentives: s.incentives,
+          role: s.role,
+        });
+        if (!report) {
+          toast(name + " isn't available for your role");
+          return;
+        }
+        if (typeof window !== "undefined") {
+          const blob = new Blob([report.content], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = report.filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        }
         set({ audit: prependLog("Data exported", "· " + name + " (" + fmt + ")") });
-        toast("Exporting " + name + " as " + fmt + "…");
+        toast("Exported " + name + " as " + fmt);
       },
 
       setTarget: (path, val) => {

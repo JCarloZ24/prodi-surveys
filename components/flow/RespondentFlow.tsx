@@ -1403,7 +1403,10 @@ function Payout() {
           <Field
             label={numLabel}
             value={p.acctNum}
-            onChange={(v) => actions.setPayout("acctNum", v)}
+            onChange={(v) =>
+              // GCash/Maya numbers are PH mobile numbers — accept digits only, max 11.
+              actions.setPayout("acctNum", isEwallet ? v.replace(/\D/g, "").slice(0, 11) : v)
+            }
             onBlur={() => touch("acctNum")}
             error={numError}
             type={isEwallet ? "tel" : "text"}

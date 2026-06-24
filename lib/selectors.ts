@@ -96,10 +96,81 @@ export function groups(all: Respondent[], targets: Targets): GroupProgress[] {
   ];
 }
 
+// Per-group stage breakdown for the detailed "Progress by respondent group" report.
+export interface GroupBreakdown {
+  type: Respondent["type"];
+  label: string;
+  color: string;
+  target: number;
+  pct: number;
+  registered: number;
+  emailV: number;
+  surveyDone: number;
+  selfie: number;
+  verified: number;
+  pendingQa: number;
+  rejected: number;
+}
+
+export function groupBreakdown(all: Respondent[], targets: Targets): GroupBreakdown[] {
+  const row = (
+    type: Respondent["type"],
+    target: number,
+    color: string,
+    label: string,
+  ): GroupBreakdown => {
+    const g = all.filter((r) => r.type === type);
+    const verified = g.filter((r) => r.verified).length;
+    return {
+      type,
+      label,
+      color,
+      target,
+      pct: target ? Math.min(100, Math.round((verified / target) * 100)) : 0,
+      registered: g.length,
+      emailV: g.filter((r) => r.emailV).length,
+      surveyDone: g.filter((r) => r.surveyDone).length,
+      selfie: g.filter((r) => r.selfie).length,
+      verified,
+      pendingQa: g.filter((r) => r.status === "Pending QA").length,
+      rejected: g.filter((r) => r.status === "Rejected").length,
+    };
+  };
+  return [
+    row("TSI", targets.TSI, "#7C3AED", "Trade Support Institutions"),
+    row("AgriTech", targets.AgriTech, "#059669", "Agri-Tech Providers"),
+    row("SME", targets.SME, "#E0195F", "Food Processing SMEs"),
+  ];
+}
+
 export interface FunnelStep {
   label: string;
   value: number;
   pct: number;
+}
+
+// Detailed funnel: each stage with its share of registered (pctOfTotal) and the
+// step-to-step conversion vs the previous stage (stepPct). Built on funnel().
+export interface FunnelDetailStep extends FunnelStep {
+  pctOfTotal: number;
+  stepPct: number;
+}
+
+export function funnelDetail(
+  all: Respondent[],
+  c: Counts,
+  totalTarget = 114,
+): FunnelDetailStep[] {
+  const steps = funnel(all, c, totalTarget);
+  const registered = steps[0]?.value || 0;
+  return steps.map((s, i) => {
+    const prev = i === 0 ? s.value : steps[i - 1].value;
+    return {
+      ...s,
+      pctOfTotal: registered ? Math.round((s.value / registered) * 100) : 0,
+      stepPct: prev ? Math.round((s.value / prev) * 100) : 0,
+    };
+  });
 }
 
 export function funnel(all: Respondent[], c: Counts, totalTarget = 114): FunnelStep[] {
@@ -217,12 +288,18 @@ export function payoutTotals(all: Respondent[], inc: Incentives): PayoutTotals {
       .filter((r) => r.verified && r.payStatus !== "Paid")
       .reduce((s, r) => s + tok(inc, r.type), 0),
     bonusPending: all
-      .filter((r) => r.verified && r.referred && r.payStatus !== "Paid")
+      .filter((r) => r.verified && r.referred && r.referrerPayStatus !== "Paid")
       .reduce((s, r) => s + bon(inc, r.type), 0),
-    paidTotal: all
-      .filter((r) => r.payStatus === "Paid")
-      .reduce((s, r) => s + tok(inc, r.type) + (r.referred ? bon(inc, r.type) : 0), 0),
-    onHold: all.filter((r) => r.payStatus === "On Hold").length,
+    paidTotal: all.reduce(
+      (s, r) =>
+        s +
+        (r.payStatus === "Paid" ? tok(inc, r.type) : 0) +
+        (r.referred && r.referrerPayStatus === "Paid" ? bon(inc, r.type) : 0),
+      0,
+    ),
+    onHold:
+      all.filter((r) => r.payStatus === "On Hold").length +
+      all.filter((r) => r.referred && r.referrerPayStatus === "On Hold").length,
   };
 }
 
@@ -233,7 +310,9 @@ export function filteredRows(
   opts: { filterType: string; filterStatus: string; flaggedOnly: boolean; search: string },
 ): Respondent[] {
   let rows = all;
-  if (role === "enumerator") rows = rows.filter((r) => r.enumerator === "Maria Santos");
+  // Enumerators see the full respondent list (consistent with their dashboard's
+  // global counts), including self-service submissions with no assigned enumerator.
+  void role;
   if (opts.filterType !== "all") rows = rows.filter((r) => r.type === opts.filterType);
   if (opts.filterStatus !== "all") rows = rows.filter((r) => r.status === opts.filterStatus);
   if (opts.flaggedOnly) rows = rows.filter((r) => r.flags.length > 0);

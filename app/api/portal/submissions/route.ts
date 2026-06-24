@@ -21,9 +21,13 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const respondents = rowsToRespondents(
+  let respondents = rowsToRespondents(
     (data ?? []).map((row) => row as Record<string, unknown>),
   );
+  // Full payout numbers + account names are admin-only — strip for other roles.
+  if (me.role !== "admin") {
+    respondents = respondents.map((r) => ({ ...r, acctNum: "", acctName: "" }));
+  }
 
   return NextResponse.json({ respondents });
 }

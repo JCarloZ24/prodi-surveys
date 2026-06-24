@@ -114,6 +114,7 @@ export async function PATCH(
   const body = await req.json().catch(() => ({})) as {
     status?: string;
     pay_status?: string;
+    referrer_pay_status?: string;
   };
   const updates: Record<string, string | null> = {};
 
@@ -133,6 +134,15 @@ export async function PATCH(
     }
   }
 
+  // Referral-bonus payout status (migration 013), tracked separately from the
+  // respondent's own token payout.
+  if (body.referrer_pay_status && validPayStatuses.includes(body.referrer_pay_status)) {
+    updates.referrer_payout_status = body.referrer_pay_status;
+    if (body.referrer_pay_status === "paid") {
+      updates.referrer_paid_at = new Date().toISOString();
+    }
+  }
+
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
@@ -147,16 +157,19 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const DEFAULT_BONUS: Record<string, number> = { SME: 100, AgriTech: 1000, TSI: 0 };
+
   // Fetch row once for any email-triggering status change.
   const needsEmail =
     updates.status === "verified" ||
     updates.status === "rejected" ||
-    updates.payout_status === "paid";
+    updates.payout_status === "paid" ||
+    updates.referrer_payout_status === "approved";
 
   if (needsEmail) {
     const { data: row } = await db
       .from("submissions")
-      .select("registration, payout_details, shipping_details, survey_type")
+      .select("registration, payout_details, shipping_details, survey_type, referrer_code")
       .eq("id", id)
       .single();
 
@@ -182,6 +195,33 @@ export async function PATCH(
         sendEmail(email, defId, vars).catch((e) =>
           console.error(`Paid email error (${defId}):`, e),
         );
+      }
+    }
+
+    // Referrer bonus approved → notify the referrer.
+    if (updates.referrer_payout_status === "approved" && row) {
+      const r = row as Record<string, unknown>;
+      const referrerCode = (r.referrer_code as string) ?? "";
+      if (referrerCode) {
+        const { data: refRow } = await db
+          .from("referrer")
+          .select("full_name, email")
+          .eq("referral_code", referrerCode)
+          .single();
+        if (refRow?.email) {
+          const surveyType = (r.survey_type as string) ?? "SME";
+          const bonusAmt = DEFAULT_BONUS[surveyType] ?? 0;
+          const reg2 = (r.registration as Record<string, string>) ?? {};
+          const referredName = reg2.org || reg2.name || "—";
+          const vars = {
+            referredName,
+            referralCode: referrerCode,
+            bonusAmount: bonusAmt > 0 ? `₱${bonusAmt.toLocaleString()}` : "—",
+          };
+          sendEmail(refRow.email, "refbonus", vars).catch((e) =>
+            console.error("Referrer bonus email error:", e),
+          );
+        }
       }
     }
   }
