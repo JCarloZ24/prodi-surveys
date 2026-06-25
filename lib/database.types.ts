@@ -194,6 +194,7 @@ export type Database = {
           shipping_details: Json | null
           status: string | null
           survey_type: string
+          updated_at: string
         }
         Insert: {
           answers: Json
@@ -214,6 +215,7 @@ export type Database = {
           shipping_details?: Json | null
           status?: string | null
           survey_type: string
+          updated_at?: string
         }
         Update: {
           answers?: Json
@@ -234,6 +236,7 @@ export type Database = {
           shipping_details?: Json | null
           status?: string | null
           survey_type?: string
+          updated_at?: string
         }
         Relationships: []
       }

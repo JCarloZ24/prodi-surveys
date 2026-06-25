@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
     consent: consent || null,
     status: "submitted",
     is_survey_completed: true,
+    updated_at: new Date().toISOString(),
   };
   if (shipping_details) payload.shipping_details = shipping_details;
 

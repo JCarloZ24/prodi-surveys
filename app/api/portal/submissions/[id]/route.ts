@@ -150,6 +150,7 @@ export async function PATCH(
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
+  updates.updated_at = new Date().toISOString();
 
   const { error } = await db
     .from("submissions")
