@@ -18,11 +18,11 @@ import { blankQual } from "./classify";
 import { code as codeOf, hash } from "./format";
 import { publicUrl } from "./public-url";
 import { buildReport } from "./reports";
+import { DEFAULT_SURVEY_PAYOUT } from "./selectors";
 import type {
   AppMode,
   AuditEntry,
   Enumerator,
-  Incentives,
   ManualReferrer,
   PayoutDetails,
   Qual,
@@ -50,9 +50,10 @@ export interface PortalState {
   loginEmail: string;
   loginPw: string;
   targets: Targets;
-  incentives: Incentives;
+  // Flat enumerator payout per verified survey (₱). Respondents/referrers unpaid.
+  surveyPayout: number;
   draftTargets: Targets;
-  draftIncentives: Incentives;
+  draftSurveyPayout: number;
   confirmSave: boolean;
   emailSel: string;
   enumerators: Enumerator[];
@@ -163,17 +164,9 @@ function initialState(): PortalState {
     loginEmail: "",
     loginPw: "",
     targets: { TSI: 4, AgriTech: 10, SME: 100 },
-    incentives: {
-      TSI: { token: 300, bonus: 1000 },
-      AgriTech: { token: 300, bonus: 1000 },
-      SME: { token: 200, bonus: 100 },
-    },
+    surveyPayout: DEFAULT_SURVEY_PAYOUT,
     draftTargets: { TSI: 4, AgriTech: 10, SME: 100 },
-    draftIncentives: {
-      TSI: { token: 300, bonus: 1000 },
-      AgriTech: { token: 300, bonus: 1000 },
-      SME: { token: 200, bonus: 100 },
-    },
+    draftSurveyPayout: DEFAULT_SURVEY_PAYOUT,
     confirmSave: false,
     emailSel: "verify",
     enumerators: [
@@ -274,12 +267,9 @@ export interface PortalActions {
   approvePayout(id: number): void;
   holdPayout(id: number): void;
   markPaid(id: number): void;
-  approveReferrerPayout(id: number): void;
-  holdReferrerPayout(id: number): void;
-  markReferrerPaid(id: number): void;
   doExport(name: string, fmt: string): void;
   setTarget(path: keyof Targets, val: string): void;
-  setIncentive(path: keyof Incentives, field: "token" | "bonus", val: string): void;
+  setSurveyPayout(val: string): void;
   askSaveSettings(): void;
   cancelSaveSettings(): void;
   confirmSaveSettings(): void;
@@ -345,12 +335,16 @@ export function PortalProvider({
   initialRole,
   initialMode,
   initialUserName,
+  initialSurveyPayout,
+  initialTargets,
 }: {
   children: React.ReactNode;
   initialRespondents?: Respondent[];
   initialRole?: Role;
   initialMode?: AppMode;
   initialUserName?: string;
+  initialSurveyPayout?: number;
+  initialTargets?: Targets;
 }) {
   const [state, setState] = useState<PortalState>(() => {
     const s = initialState();
@@ -358,6 +352,16 @@ export function PortalProvider({
     if (initialRole) s.role = initialRole;
     if (initialMode) s.mode = initialMode;
     if (initialUserName) s.userName = initialUserName;
+    // Seed persisted settings (app_settings) so the live values + Settings drafts
+    // reflect the DB, not the hardcoded defaults.
+    if (typeof initialSurveyPayout === "number") {
+      s.surveyPayout = initialSurveyPayout;
+      s.draftSurveyPayout = initialSurveyPayout;
+    }
+    if (initialTargets) {
+      s.targets = { ...initialTargets };
+      s.draftTargets = { ...initialTargets };
+    }
     return s;
   });
   // Mirror the latest state into a ref so action handlers (which always run
@@ -415,7 +419,7 @@ export function PortalProvider({
   const settingsDirty = useCb((s: PortalState) => {
     return (
       JSON.stringify(s.draftTargets) !== JSON.stringify(s.targets) ||
-      JSON.stringify(s.draftIncentives) !== JSON.stringify(s.incentives)
+      s.draftSurveyPayout !== s.surveyPayout
     );
   }, []);
 
@@ -479,8 +483,8 @@ export function PortalProvider({
             ...r,
             status: ns,
             verified,
+            // Verifying a survey makes the enumerator's flat ₱400 payable.
             payStatus: verified ? "Pending" : "—",
-            bonus: verified && r.referred ? (r.type === "SME" ? 100 : 1000) : 0,
           };
         });
         const rec = s.respondents.find((r) => r.id === id);
@@ -561,63 +565,12 @@ export function PortalProvider({
         }
       },
 
-      approveReferrerPayout: (id) => {
-        const s = stateRef.current;
-        const rec = s.respondents.find((r) => r.id === id);
-        set({
-          respondents: s.respondents.map((r) => r.id === id ? { ...r, referrerPayStatus: "Approved" } : r),
-          audit: [logEntry("Referrer payout approved", "· " + (rec?.referredBy ?? rec?.name ?? ""), userName()), ...s.audit],
-        });
-        toast("Referrer payout approved · " + (rec?.referredBy ?? rec?.name ?? ""));
-        if (rec?.supabaseId) {
-          fetch(`/api/portal/submissions/${rec.supabaseId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ referrer_pay_status: "approved" }),
-          }).catch(() => toast("Saved locally — DB sync failed"));
-        }
-      },
-
-      holdReferrerPayout: (id) => {
-        const s = stateRef.current;
-        const rec = s.respondents.find((r) => r.id === id);
-        set({
-          respondents: s.respondents.map((r) => r.id === id ? { ...r, referrerPayStatus: "On Hold" } : r),
-          audit: [logEntry("Referrer payout put on hold", "· " + (rec?.referredBy ?? rec?.name ?? ""), userName()), ...s.audit],
-        });
-        toast("Referrer payout on hold · " + (rec?.referredBy ?? rec?.name ?? ""));
-        if (rec?.supabaseId) {
-          fetch(`/api/portal/submissions/${rec.supabaseId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ referrer_pay_status: "on_hold" }),
-          }).catch(() => toast("Saved locally — DB sync failed"));
-        }
-      },
-
-      markReferrerPaid: (id) => {
-        const s = stateRef.current;
-        const rec = s.respondents.find((r) => r.id === id);
-        set({
-          respondents: s.respondents.map((r) => r.id === id ? { ...r, referrerPayStatus: "Paid" } : r),
-          audit: [logEntry("Referrer payout marked paid", "· " + (rec?.referredBy ?? rec?.name ?? ""), userName()), ...s.audit],
-        });
-        toast("Referrer payout marked paid · " + (rec?.referredBy ?? rec?.name ?? ""));
-        if (rec?.supabaseId) {
-          fetch(`/api/portal/submissions/${rec.supabaseId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ referrer_pay_status: "paid" }),
-          }).catch(() => toast("Saved locally — DB sync failed"));
-        }
-      },
-
       doExport: (name, fmt) => {
         const s = stateRef.current;
         const report = buildReport(name, fmt, {
           respondents: s.respondents,
           audit: s.audit,
-          incentives: s.incentives,
+          surveyPayout: s.surveyPayout,
           role: s.role,
         });
         if (!report) {
@@ -643,14 +596,9 @@ export function PortalProvider({
         const n = Math.max(0, parseInt(val, 10) || 0);
         set((s) => ({ draftTargets: { ...s.draftTargets, [path]: n } }));
       },
-      setIncentive: (path, field, val) => {
+      setSurveyPayout: (val) => {
         const n = Math.max(0, parseInt(val, 10) || 0);
-        set((s) => ({
-          draftIncentives: {
-            ...s.draftIncentives,
-            [path]: { ...s.draftIncentives[path], [field]: n },
-          },
-        }));
+        set({ draftSurveyPayout: n });
       },
       askSaveSettings: () => {
         if (settingsDirty(stateRef.current)) set({ confirmSave: true });
@@ -658,19 +606,30 @@ export function PortalProvider({
       cancelSaveSettings: () => set({ confirmSave: false }),
       confirmSaveSettings: () => {
         const s = stateRef.current;
+        const targets = { ...s.draftTargets };
+        const surveyPayout = s.draftSurveyPayout;
         set({
-          targets: { ...s.draftTargets },
-          incentives: JSON.parse(JSON.stringify(s.draftIncentives)),
+          targets,
+          surveyPayout,
           confirmSave: false,
-          audit: [logEntry("Settings updated", "· targets & incentive structure", userName()), ...s.audit],
+          audit: [logEntry("Settings updated", "· targets & enumerator payout", userName()), ...s.audit],
         });
         toast("Settings saved");
+        // Persist to the app_settings row (admin only). On failure the change
+        // stays applied locally for this session but won't survive a reload.
+        fetch("/api/portal/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ surveyPayout, targets }),
+        })
+          .then((res) => { if (!res.ok) toast("Saved locally — DB sync failed"); })
+          .catch(() => toast("Saved locally — DB sync failed"));
       },
       discardSettings: () => {
         const s = stateRef.current;
         set({
           draftTargets: { ...s.targets },
-          draftIncentives: JSON.parse(JSON.stringify(s.incentives)),
+          draftSurveyPayout: s.surveyPayout,
         });
         toast("Changes discarded");
       },
@@ -711,9 +670,7 @@ export function PortalProvider({
         const s = stateRef.current;
         const e = s.enumerators[i];
         const recs = s.respondents.map((r) =>
-          r.enumerator === e.name
-            ? { ...r, enumerator: "—", mode: "Self-service" as const }
-            : r,
+          r.enumerator === e.name ? { ...r, enumerator: "—" } : r,
         );
         const list = s.enumerators.filter((_, j) => j !== i);
         set({ enumerators: list, respondents: recs });
@@ -783,9 +740,9 @@ export function PortalProvider({
         let n = s.rStep;
         if (n === 6) {
           if (!s.selfie) return;
-          const isTSI = s.rType === "TSI";
-          // TSI has no Free Token/shipping step (7) anymore — go straight to Review.
-          n = !isTSI && s.payoutOn ? 7 : 8;
+          // Respondents are no longer paid, so there's no payout step (7) — the
+          // selfie goes straight to Review. The enumerator earns the flat payout.
+          n = 8;
         } else if (n === 8) {
           n = 9;
         } else if (n === 2) {
@@ -798,8 +755,7 @@ export function PortalProvider({
       flowBack: () => {
         const s = stateRef.current;
         let n = s.rStep;
-        const isTSI = s.rType === "TSI";
-        if (n === 8) n = !isTSI && s.payoutOn ? 7 : 6;
+        if (n === 8) n = 6; // no payout step between Selfie and Review
         else if (n === 5) n = 2; // skip the removed OTP(3) and Handoff(4) steps
         else n = Math.max(0, n - 1);
         set({ rStep: n });
@@ -827,7 +783,6 @@ export function PortalProvider({
               survey_type: s.rType,
               referrer_code: s.reg.code || null,
               enumerator_slug: s.enumeratorSlug || null,
-              payout_offered: s.payoutOn,
               consent: {
                 terms: s.consentTerms,
                 privacy: s.consentPrivacy,

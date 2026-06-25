@@ -2,13 +2,16 @@
 // Each takes the relevant slice of state and returns view-model data; the
 // React components stay declarative.
 
-import { colorPick, peso } from "./format";
+import { colorPick } from "./format";
 import type {
-  Incentives,
   Respondent,
   Role,
   Targets,
 } from "./types";
+
+// Flat enumerator payout per verified ("successful") survey. Admin-configurable
+// in Settings; this is the default. Respondents and referrers are not paid.
+export const DEFAULT_SURVEY_PAYOUT = 400;
 
 export const PROFILE_STAGES = [
   "Survey Started",
@@ -21,10 +24,9 @@ export const PROFILE_STAGES = [
 ];
 const IN_PROGRESS = ["Survey Started", "Survey Completed", "Selfie Submitted", "Email Verified"];
 
-export const tok = (inc: Incentives, t: Respondent["type"]) => inc[t]?.token || 0;
-export const bon = (inc: Incentives, t: Respondent["type"]) => inc[t]?.bonus || 0;
-export const bonusOf = (inc: Incentives, r: Respondent) =>
-  r.verified && r.referred ? bon(inc, r.type) : 0;
+// The ₱400 an enumerator earns for a survey: payable once the survey is verified.
+export const payoutFor = (payout: number, r: Respondent) =>
+  r.verified ? payout : 0;
 
 export interface Counts {
   registered: number;
@@ -205,40 +207,35 @@ export interface ReferrerVM {
   kind: string;
   referred: number;
   verified: number;
-  bonus: number;
   initials: string;
   avatarBg: string;
   code: string;
-  bonusLabel: string;
   convLabel: string;
 }
 
+// Referral attribution only — referrals no longer carry any bonus money.
 export function referrers(
   all: Respondent[],
   manual: { name: string; kind: string }[],
-  inc: Incentives,
   codeOf: (n: number) => string,
   hashOf: (s: string) => number,
   initialsOf: (n: string) => string,
 ): ReferrerVM[] {
   const refMap: Record<
     string,
-    { name: string; referred: number; verified: number; bonus: number; kind: string }
+    { name: string; referred: number; verified: number; kind: string }
   > = {};
   manual.forEach((m) => {
-    refMap[m.name] = { name: m.name, referred: 0, verified: 0, bonus: 0, kind: m.kind || "Partner / TSI" };
+    refMap[m.name] = { name: m.name, referred: 0, verified: 0, kind: m.kind || "Partner / TSI" };
   });
   all.forEach((r) => {
     if (!r.referrer) return;
     const k = r.referrer;
     refMap[k] =
       refMap[k] ||
-      { name: k, referred: 0, verified: 0, bonus: 0, kind: ["DTI", "Philexport", "DOST"].includes(k) ? "Partner / TSI" : "Respondent" };
+      { name: k, referred: 0, verified: 0, kind: ["DTI", "Philexport", "DOST"].includes(k) ? "Partner / TSI" : "Respondent" };
     refMap[k].referred++;
-    if (r.verified) {
-      refMap[k].verified++;
-      refMap[k].bonus += bon(inc, r.type);
-    }
+    if (r.verified) refMap[k].verified++;
   });
   return Object.values(refMap)
     .sort((a, b) => b.verified - a.verified || b.referred - a.referred)
@@ -248,7 +245,6 @@ export function referrers(
       initials: initialsOf(r.name).toUpperCase(),
       avatarBg: colorPick(r.name),
       code: "PS-" + codeOf(hashOf(r.name)),
-      bonusLabel: peso(r.bonus),
       convLabel: r.referred ? Math.round((r.verified / r.referred) * 100) + "%" : "—",
     }));
 }
@@ -258,12 +254,9 @@ export interface Tile {
   value: string | number;
 }
 
-export function refTiles(all: Respondent[], inc: Incentives): Tile[] {
+export function refTiles(all: Respondent[]): Tile[] {
   const totalReferrals = all.filter((r) => r.referrer).length;
   const verifiedRef = all.filter((r) => r.referrer && r.verified).length;
-  const pendingBonus = all
-    .filter((r) => r.verified && r.referred)
-    .reduce((s, r) => s + bon(inc, r.type), 0);
   return [
     { label: "Total referrals", value: totalReferrals },
     { label: "Verified referrals", value: verifiedRef },
@@ -271,36 +264,63 @@ export function refTiles(all: Respondent[], inc: Incentives): Tile[] {
       label: "Conversion rate",
       value: totalReferrals ? Math.round((verifiedRef / totalReferrals) * 100) + "%" : "0%",
     },
-    { label: "Pending bonuses", value: peso(pendingBonus) },
   ];
 }
 
 export interface PayoutTotals {
-  tokensPending: number;
-  bonusPending: number;
+  pending: number;
   paidTotal: number;
   onHold: number;
 }
 
-export function payoutTotals(all: Respondent[], inc: Incentives): PayoutTotals {
+// Enumerator payouts: a flat `payout` (₱400) per verified survey, tracked per
+// survey via payStatus. Respondents and referrers are not paid.
+export function payoutTotals(all: Respondent[], payout: number): PayoutTotals {
+  const verified = all.filter((r) => r.verified);
   return {
-    tokensPending: all
-      .filter((r) => r.verified && r.payStatus !== "Paid")
-      .reduce((s, r) => s + tok(inc, r.type), 0),
-    bonusPending: all
-      .filter((r) => r.verified && r.referred && r.referrerPayStatus !== "Paid")
-      .reduce((s, r) => s + bon(inc, r.type), 0),
-    paidTotal: all.reduce(
-      (s, r) =>
-        s +
-        (r.payStatus === "Paid" ? tok(inc, r.type) : 0) +
-        (r.referred && r.referrerPayStatus === "Paid" ? bon(inc, r.type) : 0),
-      0,
-    ),
-    onHold:
-      all.filter((r) => r.payStatus === "On Hold").length +
-      all.filter((r) => r.referred && r.referrerPayStatus === "On Hold").length,
+    pending: verified.filter((r) => r.payStatus !== "Paid").length * payout,
+    paidTotal: verified.filter((r) => r.payStatus === "Paid").length * payout,
+    onHold: verified.filter((r) => r.payStatus === "On Hold").length,
   };
+}
+
+export interface EnumPayout {
+  name: string;
+  initials: string;
+  avatarBg: string;
+  surveys: number;   // verified surveys credited to this enumerator
+  total: number;     // surveys × payout
+  paid: number;      // ₱ already marked paid
+  pending: number;   // ₱ not yet paid
+}
+
+// Per-enumerator payout summary: total owed (verified surveys × ₱400), split
+// into paid vs pending. Surveys with no assigned enumerator are grouped as "—".
+export function enumPayouts(
+  all: Respondent[],
+  payout: number,
+  initialsOf: (n: string) => string,
+): EnumPayout[] {
+  const map = new Map<string, { surveys: number; paid: number }>();
+  for (const r of all) {
+    if (!r.verified) continue;
+    const key = r.enumerator && r.enumerator !== "—" ? r.enumerator : "—";
+    const cur = map.get(key) ?? { surveys: 0, paid: 0 };
+    cur.surveys += 1;
+    if (r.payStatus === "Paid") cur.paid += 1;
+    map.set(key, cur);
+  }
+  return Array.from(map.entries())
+    .map(([name, v]) => ({
+      name,
+      initials: initialsOf(name).toUpperCase() || "·",
+      avatarBg: colorPick(name || "x"),
+      surveys: v.surveys,
+      total: v.surveys * payout,
+      paid: v.paid * payout,
+      pending: (v.surveys - v.paid) * payout,
+    }))
+    .sort((a, b) => b.total - a.total);
 }
 
 // Respondents table filtering (role-aware).

@@ -8,7 +8,9 @@ export type AppMode = "login" | "portal" | "flow";
 
 export type RespondentType = "TSI" | "AgriTech" | "SME";
 
-export type CollectionMode = "Self-service" | "Enumerator-assisted";
+// Every survey is enumerator-assisted — respondents reach the survey only through
+// an enumerator's link (/s/[slug]). Self-service collection no longer exists.
+export type CollectionMode = "Enumerator-assisted";
 
 export type RespondentStatus =
   | "New"
@@ -57,17 +59,14 @@ export interface Respondent {
   surveyDone: boolean;
   selfie: boolean;
   verified: boolean;
-  token: number;
-  bonus: number;
+  // Referral attribution (tracking only — referrals no longer carry any bonus money).
   referred: boolean;
   referrer: string | null;
   referredBy: string | null;
   mode: CollectionMode;
   enumerator: string;
+  // Enumerator payout status for this survey's flat ₱400 (Verified → Pending → Paid).
   payStatus: PayStatus | string;
-  // Referral-bonus payout status, tracked independently of the token payStatus.
-  // "—" when the respondent isn't a referral. Paid only after the respondent.
-  referrerPayStatus?: PayStatus | string;
   method: string;
   acct: string;
   // Full payout number (mobile / account / reference) + account name. Admin-only:
@@ -121,12 +120,6 @@ export interface ManualReferrer {
 }
 
 export type Targets = Record<RespondentType, number>;
-
-export interface Incentive {
-  token: number;
-  bonus: number;
-}
-export type Incentives = Record<RespondentType, Incentive>;
 
 export interface Qual {
   orgType: "" | "gov" | "tech" | "food" | "other";

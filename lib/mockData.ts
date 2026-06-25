@@ -87,12 +87,9 @@ export function buildData(): MockData {
       "Selfie Submitted", "Pending QA", "Needs Follow-up", "Verified", "Rejected",
     ].includes(status);
     const verified = status === "Verified";
-    const token = type === "SME" ? 200 : 300;
     const referred = rnd() < 0.55;
-    const bonus = verified && referred ? (type === "SME" ? 100 : 1000) : 0;
-    const mode: Respondent["mode"] =
-      rnd() < 0.32 ? "Self-service" : "Enumerator-assisted";
-    const enumr = mode === "Self-service" ? "—" : pick(enumNames);
+    const mode: Respondent["mode"] = "Enumerator-assisted";
+    const enumr = pick(enumNames);
     let payStatus = "—";
     if (verified) {
       const r = rnd();
@@ -126,7 +123,7 @@ export function buildData(): MockData {
     const recCode = "PS-" + code(id * 7 + 3);
     return {
       id: recId, name, org, type, status, region, position, email, mobile,
-      emailV, surveyDone, selfie, verified, token, bonus, referred,
+      emailV, surveyDone, selfie, verified, referred,
       referrer: ref, referredBy: null, mode, enumerator: enumr, payStatus, method, acct, compMin,
       flags: opts.flags || [], code: recCode, createdDays: days,
       color: avatarColor(name),
@@ -195,12 +192,12 @@ function seedAudit(): AuditEntry[] {
     ["Payout marked paid", "· DTI-CITEM", "M. Reyes (Admin)", "9m ago", "#DCFCE7", "#166534", "payout"],
     ["QA approved", "· Golden Harvest Foods", "A. Cruz (QA)", "24m ago", "#DCFCE7", "#166534", "qa"],
     ["Submission flagged", "· Sunrise Snacks (fast completion)", "System", "38m ago", "#FEE2E2", "#991B1B", "flag"],
-    ["Survey completed", "· Mama Lola Delicacies", "Self-service", "1h ago", "#DBEAFE", "#1E40AF", "survey"],
+    ["Survey completed", "· Mama Lola Delicacies", "Enumerator (J. Mercado)", "1h ago", "#DBEAFE", "#1E40AF", "survey"],
     ["Referral verified", "· FarmLink → 3 SMEs", "System", "2h ago", "#FCE7F3", "#9D174D", "ref"],
     ["Selfie uploaded", "· Island Beverages", "Enumerator (J. Mercado)", "2h ago", "#E0F2FE", "#075985", "selfie"],
     ["QA rejected", "· Tropical Trading (duplicate email)", "A. Cruz (QA)", "3h ago", "#FEE2E2", "#991B1B", "qa"],
     ["Data exported", "· Verified respondents (CSV)", "M. Reyes (Admin)", "4h ago", "#F3F4F6", "#4B5563", "export"],
-    ["Email verified", "· Davao Food Products", "Self-service", "5h ago", "#DBEAFE", "#1E40AF", "email"],
+    ["Email verified", "· Davao Food Products", "Enumerator (L. Domingo)", "5h ago", "#DBEAFE", "#1E40AF", "email"],
     ["Respondent registered", "· Heritage Kitchen", "Enumerator (L. Domingo)", "6h ago", "#F3F4F6", "#4B5563", "user"],
     ["Payout approved", "· Philexport", "M. Reyes (Admin)", "7h ago", "#DCFCE7", "#166534", "payout"],
     ["Referral created", "· DTI → AgriHub PH", "Partner portal", "8h ago", "#FCE7F3", "#9D174D", "ref"],
