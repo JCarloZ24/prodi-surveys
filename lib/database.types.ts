@@ -17,18 +17,21 @@ export type Database = {
       app_settings: {
         Row: {
           id: boolean
+          respondent_token: number
           survey_payout: number
           targets: Json
           updated_at: string
         }
         Insert: {
           id?: boolean
+          respondent_token?: number
           survey_payout?: number
           targets?: Json
           updated_at?: string
         }
         Update: {
           id?: boolean
+          respondent_token?: number
           survey_payout?: number
           targets?: Json
           updated_at?: string
@@ -176,64 +179,67 @@ export type Database = {
       }
       submissions: {
         Row: {
-          answers: Json
           consent: Json | null
           created_at: string | null
+          enumerator_paid_at: string | null
+          enumerator_payout_status: string | null
           enumerator_slug: string | null
           id: string
-          is_survey_completed: boolean
-          lead: Json | null
-          paid_at: string | null
-          payout_details: Json | null
+          kobo_end: string | null
+          kobo_start: string | null
           payout_offered: boolean | null
-          payout_status: string | null
-          qualification: Json
+          profiles_data: Json
           referrer_code: string | null
-          registration: Json
+          registration_data: Json
+          respondent_paid_at: string | null
+          respondent_payout_status: string | null
           selfie_url: string | null
-          shipping_details: Json | null
           status: string | null
           survey_type: string
+          token_data: Json | null
+          updated_at: string
         }
         Insert: {
-          answers: Json
           consent?: Json | null
           created_at?: string | null
+          enumerator_paid_at?: string | null
+          enumerator_payout_status?: string | null
           enumerator_slug?: string | null
           id?: string
-          is_survey_completed?: boolean
-          lead?: Json | null
-          paid_at?: string | null
-          payout_details?: Json | null
+          kobo_end?: string | null
+          kobo_start?: string | null
           payout_offered?: boolean | null
-          payout_status?: string | null
-          qualification: Json
+          profiles_data: Json
           referrer_code?: string | null
-          registration: Json
+          registration_data: Json
+          respondent_paid_at?: string | null
+          respondent_payout_status?: string | null
           selfie_url?: string | null
-          shipping_details?: Json | null
           status?: string | null
           survey_type: string
+          token_data?: Json | null
+          updated_at?: string
         }
         Update: {
-          answers?: Json
           consent?: Json | null
           created_at?: string | null
+          enumerator_paid_at?: string | null
+          enumerator_payout_status?: string | null
           enumerator_slug?: string | null
           id?: string
-          is_survey_completed?: boolean
-          lead?: Json | null
-          paid_at?: string | null
-          payout_details?: Json | null
+          kobo_end?: string | null
+          kobo_start?: string | null
           payout_offered?: boolean | null
-          payout_status?: string | null
-          qualification?: Json
+          profiles_data?: Json
           referrer_code?: string | null
-          registration?: Json
+          registration_data?: Json
+          respondent_paid_at?: string | null
+          respondent_payout_status?: string | null
           selfie_url?: string | null
-          shipping_details?: Json | null
           status?: string | null
           survey_type?: string
+          token_data?: Json | null
+          updated_at?: string
         }
         Relationships: []
       }

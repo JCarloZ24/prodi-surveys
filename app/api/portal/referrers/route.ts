@@ -28,8 +28,9 @@ export async function GET() {
   const slugByCode = new Map<string, string>();
   const { data: subs } = await db
     .from("submissions")
-    .select("referrer_code, status, enumerator_slug, registration")
-    .eq("is_survey_completed", true);
+    .select("referrer_code, status, enumerator_slug, registration_data")
+    .neq("survey_type", "lead")
+    .neq("status", "started");
   for (const s of subs ?? []) {
     const usedCode = s.referrer_code as string | null;
     if (usedCode) {
@@ -38,7 +39,7 @@ export async function GET() {
       if (s.status === "verified") t.verified += 1;
       tally.set(usedCode, t);
     }
-    const reg = s.registration as { generated_referral_code?: string } | null;
+    const reg = s.registration_data as { generated_referral_code?: string } | null;
     const genCode = reg?.generated_referral_code;
     if (genCode && s.enumerator_slug) slugByCode.set(genCode, s.enumerator_slug as string);
   }

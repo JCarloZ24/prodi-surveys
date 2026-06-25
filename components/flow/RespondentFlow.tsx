@@ -1122,14 +1122,16 @@ function Review() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: state.submissionId || null,
-          registration: state.reg,
-          qualification: state.qual,
+          registration_data: state.reg,
+          profiles_data: state.qual,
           survey_type: state.rType,
-          answers: state.survey,
           selfie_url: selfieUrl,
-          // Respondent token: cash payout for SME/Agri-Tech, tumbler shipping for TSI.
-          payout_details: state.rType === "TSI" ? null : state.payout,
-          shipping_details: state.rType === "TSI" ? state.shipping : null,
+          // Respondent token: cash payout for SME/Agri-Tech, tumbler shipping for TSI,
+          // stored in a single generic token_data column.
+          token_data: state.rType === "TSI" ? state.shipping : state.payout,
+          // External Kobo survey timing captured during the Survey step.
+          kobo_start: state.koboStart || null,
+          kobo_end: state.koboEnd || null,
           referrer_code: state.reg.code || null,
           enumerator_slug: state.enumeratorSlug || null,
           consent: {

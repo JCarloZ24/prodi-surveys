@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await db
       .from("submissions")
       .select("id")
-      .eq("registration->>generated_referral_code", normalized)
+      .eq("registration_data->>generated_referral_code", normalized)
       .limit(1)
       .maybeSingle();
 

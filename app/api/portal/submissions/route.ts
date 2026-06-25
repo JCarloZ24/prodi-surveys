@@ -15,7 +15,7 @@ export async function GET() {
       .from("submissions")
       .select("*")
       .neq("survey_type", "lead")
-      .eq("is_survey_completed", true)
+      .neq("status", "started")
       .order("created_at", { ascending: false }),
     db.from("profiles").select("slug, full_name").eq("role", "enumerator"),
   ]);

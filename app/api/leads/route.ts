@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 
 // POST /api/leads — persist an "Other" or otherwise unqualified respondent profile.
-// Writes to submissions (centralized) with status="lead" and a lead column containing
-// the captured org info. registration/answers are stored as empty objects since the
+// Writes to submissions (centralized) with status="lead". The captured org info and
+// exit_reason live in profiles_data. registration_data is an empty object since the
 // respondent exited before the Register step.
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -15,12 +15,10 @@ export async function POST(req: NextRequest) {
 
   const db = createAdminClient();
   const { error } = await db.from("submissions").insert({
-    registration: {},
-    qualification: { orgType: org_type, orgName: org_name || null },
+    registration_data: {},
+    profiles_data: { orgType: org_type, orgName: org_name || null, exit_reason: exit_reason || null },
     survey_type: "lead",
-    answers: {},
     status: "lead",
-    lead: { org_name: org_name || null, exit_reason: exit_reason || null },
   });
 
   if (error) {

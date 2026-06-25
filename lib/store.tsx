@@ -92,6 +92,10 @@ export interface PortalState {
   // The survey now runs in an embedded KoboToolbox form; this flips true when the
   // embed reports a successful submission, which unlocks the next step.
   surveyDone: boolean;
+  // ISO timestamps bracketing the external Kobo survey step: koboStart is stamped
+  // when the Survey step mounts, koboEnd when the respondent continues to Selfie.
+  koboStart: string;
+  koboEnd: string;
   selfie: boolean;
   selfieMethod: string;
   selfieUrl: string;
@@ -141,6 +145,8 @@ const FLOW_DRAFT_FIELDS = [
   "qual",
   "survey",
   "surveyDone",
+  "koboStart",
+  "koboEnd",
   "selfie",
   "selfieMethod",
   "selfieUrl",
@@ -215,6 +221,8 @@ function initialState(): PortalState {
     reg: blankReg(),
     survey: {},
     surveyDone: false,
+    koboStart: "",
+    koboEnd: "",
     selfie: false,
     selfieMethod: "",
     selfieUrl: "",
@@ -309,6 +317,8 @@ export interface PortalActions {
   toggleMulti(id: string, opt: string): void;
   setMatrix(id: string, row: string, v: string): void;
   setSurveyDone(v: boolean): void;
+  setKoboStart(): void;
+  setKoboEnd(): void;
   takeSelfie(): void;
   uploadSelfie(): void;
   setSelfieUrl(url: string): void;
@@ -451,6 +461,8 @@ export function PortalProvider({
       rMaxStep: 0,
       survey: {},
       surveyDone: false,
+      koboStart: "",
+      koboEnd: "",
       selfie: false,
       selfieMethod: "",
       selfieUrl: "",
@@ -852,9 +864,9 @@ export function PortalProvider({
         if (n === s.rStep || n > s.rMaxStep) return;
         set({ rStep: n });
       },
-      // Create the submission row (is_survey_completed=false) when the respondent
-      // leaves Register (Register → Survey). Non-fatal: the final submit inserts a
-      // row if none exists. Skipped when a row already exists.
+      // Create the submission row (status="started") when the respondent leaves
+      // Register (Register → Survey). Non-fatal: the final submit inserts a row if
+      // none exists. Skipped when a row already exists.
       startSubmission: async () => {
         const s = stateRef.current;
         if (s.submissionId) return;
@@ -863,8 +875,8 @@ export function PortalProvider({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              registration: { ...s.reg, type: s.rType },
-              qualification: s.qual,
+              registration_data: { ...s.reg, type: s.rType },
+              profiles_data: s.qual,
               survey_type: s.rType,
               referrer_code: s.reg.code || null,
               enumerator_slug: s.enumeratorSlug || null,
@@ -911,6 +923,10 @@ export function PortalProvider({
         });
       },
       setSurveyDone: (v) => set({ surveyDone: v }),
+      // Stamp when the respondent first reaches the Kobo survey step (once only),
+      // and when they continue to Selfie — bracketing the external survey.
+      setKoboStart: () => { if (!stateRef.current.koboStart) set({ koboStart: new Date().toISOString() }); },
+      setKoboEnd: () => set({ koboEnd: new Date().toISOString() }),
       takeSelfie: () => set({ selfieMethod: "camera" }),
       uploadSelfie: () => set({ selfieMethod: "upload" }),
       setSelfieUrl: (url) => set({ selfieUrl: url, selfie: true }),
@@ -1016,6 +1032,8 @@ export function PortalProvider({
           rType: "SME",
           survey: {},
           surveyDone: false,
+          koboStart: "",
+          koboEnd: "",
           selfie: false,
           selfieMethod: "",
           payoutOn: true,

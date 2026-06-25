@@ -9,7 +9,7 @@ import { getAppSettings } from "@/lib/settings";
 // The "You're verified" email is a plain confirmation now — respondents are not
 // paid, so it carries no token/payout details.
 function buildVerifiedVars(row: Record<string, unknown>): Record<string, string> {
-  const reg = (row.registration as Record<string, string>) ?? {};
+  const reg = (row.registration_data as Record<string, string>) ?? {};
   const firstName = (reg.name ?? "").split(" ")[0] || "there";
   return { firstName };
 }
@@ -44,8 +44,9 @@ function buildRespondentCashPaidVars(
   row: Record<string, unknown>,
   respondentToken: number,
 ): Record<string, string> {
-  const reg = (row.registration as Record<string, string>) ?? {};
-  const pay = (row.payout_details as Record<string, unknown> | null) ?? null;
+  const reg = (row.registration_data as Record<string, string>) ?? {};
+  // SME/Agri-Tech: token_data holds the cash-payout shape.
+  const pay = (row.token_data as Record<string, unknown> | null) ?? null;
   const firstName = (reg.name ?? "").split(" ")[0] || "there";
   const methodName = pay?.method ? String(pay.method) : "";
   const acctNum = pay?.acctNum ? String(pay.acctNum) : "";
@@ -56,8 +57,9 @@ function buildRespondentCashPaidVars(
 
 // Vars for the respondent tumbler "paid-tumbler" email (TSI).
 function buildRespondentTumblerVars(row: Record<string, unknown>): Record<string, string> {
-  const reg = (row.registration as Record<string, string>) ?? {};
-  const ship = (row.shipping_details as Record<string, string> | null) ?? null;
+  const reg = (row.registration_data as Record<string, string>) ?? {};
+  // TSI: token_data holds the tumbler-shipping shape.
+  const ship = (row.token_data as Record<string, string> | null) ?? null;
   const color = ship?.color ? ` · ${ship.color}` : "";
   const shippedTo = (ship?.recipientName || reg.name || "—") as string;
   return { item: `Tumbler${color}`, shippedTo, estDelivery: "7–14 business days" };
@@ -113,7 +115,7 @@ export async function PATCH(
   if (body.status && validStatuses.includes(body.status)) {
     updates.status = body.status;
     if (body.status === "verified") {
-      updates.payout_status = "pending";
+      updates.enumerator_payout_status = "pending";
     }
   }
 
@@ -121,7 +123,7 @@ export async function PATCH(
 
   const validPayStatuses = ["pending", "approved", "paid", "on_hold"];
   if (body.pay_status && validPayStatuses.includes(body.pay_status)) {
-    updates.payout_status = body.pay_status;
+    updates.enumerator_payout_status = body.pay_status;
     if (body.pay_status === "paid") {
       // Enforce the chain: the enumerator can only be paid after the respondent
       // token for this submission has been paid.
@@ -133,7 +135,7 @@ export async function PATCH(
       if ((cur?.respondent_payout_status ?? null) !== "paid") {
         return NextResponse.json({ error: "Pay the respondent token first." }, { status: 400 });
       }
-      updates.paid_at = new Date().toISOString();
+      updates.enumerator_paid_at = new Date().toISOString();
     }
   }
 
@@ -143,7 +145,7 @@ export async function PATCH(
     if (body.respondent_pay_status === "paid") {
       updates.respondent_paid_at = new Date().toISOString();
       // Paying the respondent token auto-approves the enumerator's payout.
-      updates.payout_status = "approved";
+      updates.enumerator_payout_status = "approved";
     }
   }
 
@@ -161,8 +163,8 @@ export async function PATCH(
   }
 
   // Fetch row once for any email-triggering status change. Note the enumerator
-  // `paid` email keys off body.pay_status (not updates.payout_status, which is
-  // also set to "approved" when the respondent token is paid).
+  // `paid` email keys off body.pay_status (not updates.enumerator_payout_status,
+  // which is also set to "approved" when the respondent token is paid).
   const enumeratorPaid = body.pay_status === "paid";
   const respondentPaid = updates.respondent_payout_status === "paid";
   const needsEmail =
@@ -174,13 +176,13 @@ export async function PATCH(
   if (needsEmail) {
     const { data: row } = await db
       .from("submissions")
-      .select("registration, survey_type, enumerator_slug, payout_details, shipping_details")
+      .select("registration_data, survey_type, enumerator_slug, token_data")
       .eq("id", id)
       .single();
 
     if (row) {
       const r = row as Record<string, unknown>;
-      const reg = (r.registration as Record<string, string>) ?? {};
+      const reg = (r.registration_data as Record<string, string>) ?? {};
       const email = reg.email;
 
       // Respondent confirmation emails (no money): verified / rejected.
@@ -210,7 +212,7 @@ export async function PATCH(
 
       // Payout marked paid → notify the ENUMERATOR who earned the flat ₱400 for
       // this verified survey. Respondents/referrers are not paid.
-      if (updates.payout_status === "paid") {
+      if (updates.enumerator_payout_status === "paid") {
         const slug = (r.enumerator_slug as string | null) ?? "";
         if (!slug) {
           console.warn(`Paid email skipped: submission ${id} has no enumerator_slug`);

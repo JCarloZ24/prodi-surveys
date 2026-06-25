@@ -2,43 +2,7 @@
 // Imported by both the portal server component and the portal API route.
 
 import { avatarColor } from "./format";
-import { surveyDef } from "./survey";
 import type { CollectionMode, Respondent } from "./types";
-
-// Builds the QA drawer's "Survey Snapshot" from the respondent's actual answers.
-// Walks the survey instrument for the path so every answered question is shown
-// with its real label (skips section headers and open-ended text questions).
-function buildSnapshot(
-  surveyType: string,
-  answers: Record<string, unknown>,
-): [string, string][] {
-  if (!answers || Object.keys(answers).length === 0) return [];
-  const out: [string, string][] = [];
-  for (const q of surveyDef(surveyType)) {
-    if (q.kind === "section" || q.kind === "text" || !q.id || !q.label) continue;
-    const raw = answers[q.id];
-    const text = answerToText(raw);
-    if (text) out.push([q.label, text]);
-  }
-  return out;
-}
-
-// Renders a stored answer value (string | string[] | matrix object) as text.
-function answerToText(raw: unknown): string | null {
-  if (raw == null) return null;
-  if (Array.isArray(raw)) {
-    const items = raw.filter(Boolean).map(String);
-    return items.length ? items.join(", ") : null;
-  }
-  if (typeof raw === "object") {
-    const parts = Object.entries(raw as Record<string, unknown>)
-      .filter(([, v]) => v)
-      .map(([k, v]) => `${k}: ${v}`);
-    return parts.length ? parts.join(" · ") : null;
-  }
-  const s = String(raw).trim();
-  return s ? s : null;
-}
 
 const PAYOUT_STATUS_LABEL: Record<string, string> = {
   pending: "Pending",
@@ -59,29 +23,32 @@ export function rowToRespondent(
   idx: number,
   enumBySlug?: Map<string, string>,
 ): Respondent {
-  const reg = (row.registration as Record<string, string>) ?? {};
-  const qual = (row.qualification as Record<string, string>) ?? {};
-  const answers = (row.answers as Record<string, string>) ?? {};
-  const pay = (row.payout_details as Record<string, string> | null) ?? null;
-  const ship = (row.shipping_details as Record<string, string> | null) ?? null;
-  const rawStatus = (row.status as string) ?? "submitted";
+  const reg = (row.registration_data as Record<string, string>) ?? {};
+  const qual = (row.profiles_data as Record<string, string>) ?? {};
   const surveyType = (row.survey_type as string) ?? "SME";
+  // token_data is the single generic token column: payout shape for SME/Agri-Tech,
+  // tumbler-shipping shape for TSI. Split it back out by survey path.
+  const isTSI = surveyType === "TSI";
+  const token = (row.token_data as Record<string, string> | null) ?? null;
+  const pay = isTSI ? null : token;
+  const ship = isTSI ? token : null;
+  const rawStatus = (row.status as string) ?? "submitted";
   const name = reg.name ?? "—";
   const verified = rawStatus === "verified";
   const referred = Boolean(row.referrer_code);
 
-  // payout_status column (migration 004) — the enumerator's flat ₱400 for this
-  // survey. Fall back to deriving from QA status (verified → Pending).
+  // enumerator_payout_status — the enumerator's flat ₱400 for this survey.
+  // Fall back to deriving from QA status (verified → Pending).
   let payStatus = "—";
-  if (row.payout_status) {
-    payStatus = PAYOUT_STATUS_LABEL[row.payout_status as string] ?? (row.payout_status as string);
+  if (row.enumerator_payout_status) {
+    payStatus = PAYOUT_STATUS_LABEL[row.enumerator_payout_status as string] ?? (row.enumerator_payout_status as string);
   } else if (verified) {
     payStatus = "Pending";
   }
 
-  // paid_at → display date used by the portal's "Mark paid" confirmation.
-  const paidDate = row.paid_at
-    ? new Date(row.paid_at as string).toLocaleDateString("en-PH", {
+  // enumerator_paid_at → display date used by the portal's "Mark paid" confirmation.
+  const paidDate = row.enumerator_paid_at
+    ? new Date(row.enumerator_paid_at as string).toLocaleDateString("en-PH", {
         month: "short",
         day: "numeric",
       })
@@ -135,7 +102,7 @@ export function rowToRespondent(
     type: surveyType as Respondent["type"],
     status: SUBMISSION_STATUS_LABEL[rawStatus] ?? rawStatus,
     region: reg.region ?? "—",
-    position: answers.a_position ?? reg.position ?? "—",
+    position: reg.position ?? "—",
     email: reg.email ?? "",
     mobile: reg.mobile ?? "",
     emailV: true,
@@ -167,8 +134,6 @@ export function rowToRespondent(
     compMin: 0,
     flags: [],
     code: reg.generated_referral_code ?? "",
-    snapshot: buildSnapshot(surveyType, answers),
-    answers,
     createdDays,
     submittedAt: createdAt ? createdAt.toISOString() : "",
     color: avatarColor(name),
@@ -203,7 +168,7 @@ export function rowsToRespondents(
   const payoutMap  = new Map<string, number>(); // non-rejected submissions (payout risk)
 
   for (const row of rows) {
-    const reg    = (row.registration as Record<string, string>) ?? {};
+    const reg    = (row.registration_data as Record<string, string>) ?? {};
     const email  = (reg.email  ?? "").toLowerCase().trim();
     const mobile = (reg.mobile ?? "").trim();
     const status = (row.status as string) ?? "";
@@ -220,7 +185,7 @@ export function rowsToRespondents(
   // Pass 2 — map rows and inject duplicate flags.
   return rows.map((row, i) => {
     const r      = rowToRespondent(row, i, enumBySlug);
-    const reg    = (row.registration as Record<string, string>) ?? {};
+    const reg    = (row.registration_data as Record<string, string>) ?? {};
     const email  = (reg.email  ?? "").toLowerCase().trim();
     const mobile = (reg.mobile ?? "").trim();
 

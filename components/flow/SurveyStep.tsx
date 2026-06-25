@@ -20,6 +20,11 @@ export function SurveyStep() {
     typeof window === "undefined" ? "" : koboEmbedUrl(state.rType, window.location.origin),
   );
 
+  // Stamp the Kobo survey start time the first time this step mounts.
+  useEffect(() => {
+    actions.setKoboStart();
+  }, [actions]);
+
   // Unlock the next step when the embedded form reports a successful submission.
   useEffect(() => {
     function onMessage(e: MessageEvent) {
@@ -29,6 +34,12 @@ export function SurveyStep() {
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [actions]);
+
+  // Record the Kobo end time, then advance to the Selfie step.
+  const onContinue = () => {
+    actions.setKoboEnd();
+    actions.flowNext();
+  };
 
   const showForm = !done || reopened;
 
@@ -106,7 +117,7 @@ export function SurveyStep() {
           Back
         </button>
         <button
-          onClick={actions.flowNext}
+          onClick={onContinue}
           disabled={!done}
           className="h-[46px] flex-1 rounded-[11px] bg-brand-ink text-sm font-bold text-white disabled:opacity-40"
         >

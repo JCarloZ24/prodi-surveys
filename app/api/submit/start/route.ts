@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 
-// POST /api/submit/start — create a submission row the moment a respondent passes
-// the OTP verify step, with is_survey_completed=false. The final /api/submit call
-// updates this same row (by id) to is_survey_completed=true once the survey is
-// finished, so each respondent has exactly one row (and abandoned-after-verify
-// responses are captured). Service-role: submissions are never exposed to anon.
+// POST /api/submit/start — create a submission row the moment a respondent leaves
+// the Register step, with status="started". The final /api/submit call updates this
+// same row (by id) to status="submitted" once the survey is finished, so each
+// respondent has exactly one row (and abandoned-after-register responses are
+// captured). Service-role: submissions are never exposed to anon.
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { registration, qualification, survey_type, referrer_code, enumerator_slug, payout_offered, consent } = body;
+  const { registration_data, profiles_data, survey_type, referrer_code, enumerator_slug, payout_offered, consent } = body;
 
-  if (!registration || !qualification || !survey_type) {
+  if (!registration_data || !profiles_data || !survey_type) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
@@ -18,17 +18,15 @@ export async function POST(req: NextRequest) {
   const { data, error } = await db
     .from("submissions")
     .insert({
-      registration,
-      qualification,
+      registration_data,
+      profiles_data,
       survey_type,
-      answers: {},
       referrer_code: referrer_code || null,
       enumerator_slug: enumerator_slug || null,
       consent: consent || null,
       // Whether a token/incentive is offered (cash for SME/Agri-Tech, tumbler for TSI).
       payout_offered: payout_offered ?? true,
       status: "started",
-      is_survey_completed: false,
     })
     .select("id")
     .single();
