@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { usePortal } from "@/lib/store";
 import { classify } from "@/lib/classify";
 import { buildProfileData } from "@/lib/profile";
+import { buildRegistrationData } from "@/lib/registration";
 import { typePillClass, typeShort, peso } from "@/lib/format";
 import { LogoMark } from "@/lib/icons";
 import { cx } from "@/lib/cx";
@@ -1123,7 +1124,7 @@ function Review() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: state.submissionId || null,
-          registration_data: state.reg,
+          registration_data: buildRegistrationData(state.reg),
           profiles_data: buildProfileData(state.qual),
           survey_type: state.rType,
           selfie_url: selfieUrl,

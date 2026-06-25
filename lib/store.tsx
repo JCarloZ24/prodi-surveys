@@ -16,6 +16,7 @@ import {
 } from "react";
 import { blankQual } from "./classify";
 import { buildProfileData } from "./profile";
+import { buildRegistrationData } from "./registration";
 import { code as codeOf, hash } from "./format";
 import { publicUrl, respondentReferralPath } from "./public-url";
 import { buildReport } from "./reports";
@@ -876,7 +877,7 @@ export function PortalProvider({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              registration_data: { ...s.reg, type: s.rType },
+              registration_data: buildRegistrationData(s.reg),
               profiles_data: buildProfileData(s.qual),
               survey_type: s.rType,
               referrer_code: s.reg.code || null,

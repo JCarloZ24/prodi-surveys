@@ -5,12 +5,19 @@ import { emailDefs } from "@/lib/emails";
 import { renderEmailHtml, LOGO_ATTACHMENT } from "@/lib/email-renderer";
 import { createTransporter, FROM_ADDRESS, TRANSACTIONAL_HEADERS } from "@/lib/mailer";
 import { getAppSettings } from "@/lib/settings";
+import { REG_Q } from "@/lib/registration";
+
+// Read a registration field by its labeled key, falling back to the pre-relabel
+// camelCase key so older rows still resolve.
+function regField(reg: Record<string, string>, label: string, legacy: string): string {
+  return reg[label] || reg[legacy] || "";
+}
 
 // The "You're verified" email is a plain confirmation now — respondents are not
 // paid, so it carries no token/payout details.
 function buildVerifiedVars(row: Record<string, unknown>): Record<string, string> {
   const reg = (row.registration_data as Record<string, string>) ?? {};
-  const firstName = (reg.name ?? "").split(" ")[0] || "there";
+  const firstName = (regField(reg, REG_Q.name, "name")).split(" ")[0] || "there";
   return { firstName };
 }
 
@@ -47,7 +54,7 @@ function buildRespondentCashPaidVars(
   const reg = (row.registration_data as Record<string, string>) ?? {};
   // SME/Agri-Tech: token_data holds the cash-payout shape.
   const pay = (row.token_data as Record<string, unknown> | null) ?? null;
-  const firstName = (reg.name ?? "").split(" ")[0] || "there";
+  const firstName = (regField(reg, REG_Q.name, "name")).split(" ")[0] || "there";
   const methodName = pay?.method ? String(pay.method) : "";
   const acctNum = pay?.acctNum ? String(pay.acctNum) : "";
   const method = acctNum ? `${methodName} •••• ${acctNum.slice(-3)}`.trim() : (methodName || "—");
@@ -61,7 +68,7 @@ function buildRespondentTumblerVars(row: Record<string, unknown>): Record<string
   // TSI: token_data holds the tumbler-shipping shape.
   const ship = (row.token_data as Record<string, string> | null) ?? null;
   const color = ship?.color ? ` · ${ship.color}` : "";
-  const shippedTo = (ship?.recipientName || reg.name || "—") as string;
+  const shippedTo = ship?.recipientName || regField(reg, REG_Q.name, "name") || "—";
   return { item: `Tumbler${color}`, shippedTo, estDelivery: "7–14 business days" };
 }
 
@@ -184,7 +191,7 @@ export async function PATCH(
     if (row) {
       const r = row as Record<string, unknown>;
       const reg = (r.registration_data as Record<string, string>) ?? {};
-      const email = reg.email;
+      const email = regField(reg, REG_Q.email, "email");
 
       // Respondent confirmation emails (no money): verified / rejected.
       if (email && (updates.status === "verified" || updates.status === "rejected")) {

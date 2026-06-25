@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { code, hash } from "@/lib/format";
 import { createAdminClient } from "@/lib/supabase-server";
+import { REG_Q } from "@/lib/registration";
 
 // POST /api/submit — persist a completed survey submission.
 // Uses the service-role client: submissions hold sensitive payout details, so
@@ -16,11 +17,11 @@ export async function POST(req: NextRequest) {
 
   const db = createAdminClient();
   const generatedReferralCode =
-    "PS-" + code(hash((registration_data.email || registration_data.name || "respondent") + Date.now()));
+    "PS-" + code(hash((registration_data[REG_Q.email] || registration_data[REG_Q.name] || "respondent") + Date.now()));
+  // The respondent's own referral code is system metadata (queried by JSONB path in
+  // referral validation), so it keeps its snake_case key alongside the labeled fields.
   const savedRegistration = {
     ...registration_data,
-    // registration type must always match the survey path it was submitted under.
-    type: survey_type,
     generated_referral_code: generatedReferralCode,
   };
 

@@ -3,6 +3,7 @@
 
 import { avatarColor } from "./format";
 import { PROFILE_Q } from "./profile";
+import { REG_Q } from "./registration";
 import type { CollectionMode, Respondent } from "./types";
 
 const PAYOUT_STATUS_LABEL: Record<string, string> = {
@@ -34,7 +35,9 @@ export function rowToRespondent(
   const pay = isTSI ? null : token;
   const ship = isTSI ? token : null;
   const rawStatus = (row.status as string) ?? "submitted";
-  const name = reg.name ?? "—";
+  // New rows use labeled keys ("Full name", …); the camelCase fallback keeps
+  // pre-relabel rows working without a data backfill.
+  const name = reg[REG_Q.name] || reg.name || "—";
   const verified = rawStatus === "verified";
   const referred = Boolean(row.referrer_code);
 
@@ -99,13 +102,13 @@ export function rowToRespondent(
     id: idx + 1,
     supabaseId: row.id as string,
     name,
-    org: reg.org ?? "—",
+    org: reg[REG_Q.org] || reg.org || "—",
     type: surveyType as Respondent["type"],
     status: SUBMISSION_STATUS_LABEL[rawStatus] ?? rawStatus,
-    region: reg.region ?? "—",
+    region: reg[REG_Q.region] || reg.region || "—",
     position: reg.position ?? "—",
-    email: reg.email ?? "",
-    mobile: reg.mobile ?? "",
+    email: reg[REG_Q.email] || reg.email || "",
+    mobile: reg[REG_Q.mobile] || reg.mobile || "",
     emailV: true,
     surveyDone: true,
     selfie: Boolean(row.selfie_url),
@@ -172,8 +175,8 @@ export function rowsToRespondents(
 
   for (const row of rows) {
     const reg    = (row.registration_data as Record<string, string>) ?? {};
-    const email  = (reg.email  ?? "").toLowerCase().trim();
-    const mobile = (reg.mobile ?? "").trim();
+    const email  = (reg[REG_Q.email]  || reg.email  || "").toLowerCase().trim();
+    const mobile = (reg[REG_Q.mobile] || reg.mobile || "").trim();
     const status = (row.status as string) ?? "";
 
     if (email)  emailMap.set(email,   (emailMap.get(email)   ?? 0) + 1);
@@ -189,8 +192,8 @@ export function rowsToRespondents(
   return rows.map((row, i) => {
     const r      = rowToRespondent(row, i, enumBySlug);
     const reg    = (row.registration_data as Record<string, string>) ?? {};
-    const email  = (reg.email  ?? "").toLowerCase().trim();
-    const mobile = (reg.mobile ?? "").trim();
+    const email  = (reg[REG_Q.email]  || reg.email  || "").toLowerCase().trim();
+    const mobile = (reg[REG_Q.mobile] || reg.mobile || "").trim();
 
     const flags: string[] = [];
     if (email  && (emailMap.get(email)   ?? 0) > 1) flags.push("Duplicate email");
