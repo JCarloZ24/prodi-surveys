@@ -3,26 +3,27 @@
 import { useState, useEffect, useRef } from "react";
 import { usePortal } from "@/lib/store";
 import { classify } from "@/lib/classify";
-import { typePillClass, typeShort } from "@/lib/format";
+import { typePillClass, typeShort, peso } from "@/lib/format";
 import { LogoMark } from "@/lib/icons";
 import { cx } from "@/lib/cx";
 import { detectFaceCount, detectFaceInFrame } from "@/lib/faceDetect";
-import { publicUrl } from "@/lib/public-url";
+import { publicUrl, respondentReferralPath } from "@/lib/public-url";
 import { FlowNav } from "./FlowNav";
 import { ProfileStep } from "./ProfileStep";
 import { SurveyStep } from "./SurveyStep";
 
 // Wizard step numbers (the gaps are intentional — Survey enters at 5). Steps 3
-// (Verify/OTP), 4 (Handoff) and 7 (Payout) have been removed — Register(2) goes
-// straight to Survey(5), and Selfie(6) straight to Review(8). Respondents are not
-// paid (the enumerator earns a flat payout per verified survey):
-//   0 Welcome · 1 Profile · 2 Register · 5 Survey · 6 Selfie · 8 Review · 9 Success
+// (Verify/OTP) and 4 (Handoff) are removed — Register(2) goes straight to
+// Survey(5). Step 7 is the respondent token: a cash Payout step on SME/Agri-Tech,
+// a free-token Shipping (tumbler) step on TSI.
+//   0 Welcome · 1 Profile · 2 Register · 5 Survey · 6 Selfie · 7 Token · 8 Review · 9 Success
 export function RespondentFlow() {
   const { state, actions } = usePortal();
   const step = state.rStep;
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
-  const stepDefs: [string, number][] = [["Profile", 1], ["Register", 2], ["Survey", 5], ["Selfie", 6], ["Submit", 8]];
+  const tokenLabel = state.rType === "TSI" ? "Free token" : "Payout";
+  const stepDefs: [string, number][] = [["Profile", 1], ["Register", 2], ["Survey", 5], ["Selfie", 6], [tokenLabel, 7], ["Submit", 8]];
   const showSteps = step >= 1 && step <= 8;
   const activeIdx = stepDefs.findIndex(([, t]) => step === t);
   const progressPct = stepDefs.length ? ((activeIdx + 1) / stepDefs.length) * 100 : 0;
@@ -118,6 +119,7 @@ export function RespondentFlow() {
           {step === 3 && <Otp />}
           {step === 5 && <SurveyStep />}
           {step === 6 && <Selfie />}
+          {step === 7 && (state.rType === "TSI" ? <Shipping /> : <Payout />)}
           {step === 8 && <Review />}
           {step === 9 && <Success />}
         </div>
@@ -990,6 +992,259 @@ function Selfie() {
   );
 }
 
+const TUMBLER_COLORS: { value: "grey" | "blue" | "black"; label: string; hex: string }[] = [
+  { value: "grey", label: "Light Grey", hex: "#D1D5DB" },
+  { value: "blue", label: "Navy Blue", hex: "#1E3A5F" },
+  { value: "black", label: "Matte Black", hex: "#18181B" },
+];
+
+// Step 7 for TSI respondents: a branded tumbler instead of a cash token.
+function Shipping() {
+  const { state, actions } = usePortal();
+  const s = state.shipping;
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
+
+  // "Use my details" only works when we actually have registration details on file.
+  const hasMyDetails = !!((state.reg.name || "").trim() && (state.reg.mobile || "").trim());
+  const useMine = hasMyDetails && s.useMyDetails;
+  const effectiveName = useMine ? state.reg.name : s.recipientName;
+  const effectivePhone = useMine ? state.reg.mobile : s.recipientPhone;
+  const nameOk = effectiveName.trim().length > 0;
+  const phoneOk = effectivePhone.trim().length > 0;
+  const addressOk = s.address.trim().length > 0;
+  const canSubmit = nameOk && phoneOk && addressOk;
+
+  return (
+    <div>
+      <h1 className="mb-1.5 text-[22px] font-extrabold tracking-[-.5px]">Free token — tumbler</h1>
+      <p className="mb-[22px] text-[13.5px] text-gray-500">
+        Government / TSI organizations receive a <b className="text-gray-700">branded tumbler</b> instead
+        of a cash token. Choose your preferred color and provide the shipping address.
+      </p>
+
+      <div className="flex flex-col gap-5 rounded-2xl border border-line bg-white p-[22px]">
+        {/* Color picker */}
+        <div>
+          <span className="mb-2 block text-[12px] font-bold text-gray-700">Tumbler color</span>
+          <div className="grid grid-cols-3 gap-2.5">
+            {TUMBLER_COLORS.map((c) => {
+              const active = s.color === c.value;
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => actions.setShipping("color", c.value)}
+                  className={cx(
+                    "flex flex-col items-center gap-2 rounded-[11px] border-[1.5px] py-3 text-[12px] font-bold transition-colors",
+                    active ? "border-brand-pink bg-brand-pinkSoft text-[#9D174D]" : "border-[#E2E2E6] bg-white text-zinc-500",
+                  )}
+                >
+                  <div
+                    className="h-8 w-8 rounded-full border border-black/10"
+                    style={{ background: c.hex }}
+                  />
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Use my own details toggle — only when registration details exist. */}
+        {hasMyDetails && (
+          <div>
+            <span className="mb-2 block text-[12px] font-bold text-gray-700">Recipient</span>
+            <div className="flex items-center gap-0.5 rounded-[9px] bg-gray-100 p-[3px]">
+              {([["Use my details", true], ["Someone else", false]] as [string, boolean][]).map(([label, val]) => {
+                const active = s.useMyDetails === val;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => actions.setShipping("useMyDetails", val)}
+                    className="h-[30px] flex-1 rounded-[7px] px-3 text-[12px] font-bold"
+                    style={{
+                      background: active ? "#fff" : "transparent",
+                      color: active ? "#18181B" : "#71717A",
+                      boxShadow: active ? "0 1px 2px rgba(0,0,0,.12)" : "none",
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {!useMine && (
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <Field
+              label="Recipient name"
+              value={s.recipientName}
+              onChange={(v) => actions.setShipping("recipientName", v)}
+              onBlur={() => touch("recipientName")}
+              error={touched.recipientName && !s.recipientName.trim() ? "Required." : ""}
+              placeholder="Full name"
+            />
+            <Field
+              label="Recipient phone"
+              value={s.recipientPhone}
+              onChange={(v) => actions.setShipping("recipientPhone", v)}
+              onBlur={() => touch("recipientPhone")}
+              error={touched.recipientPhone && !s.recipientPhone.trim() ? "Required." : ""}
+              placeholder="09XX XXX XXXX"
+              type="tel"
+              inputMode="tel"
+            />
+          </div>
+        )}
+
+        {useMine && (
+          <div className="rounded-[9px] border border-line2 bg-muted px-3.5 py-2.5 text-[12.5px] text-gray-500">
+            <span className="font-semibold text-gray-700">{state.reg.name || "—"}</span>
+            {" · "}
+            {state.reg.mobile || "—"}
+          </div>
+        )}
+
+        {/* Shipping address */}
+        <div>
+          <span className="mb-1.5 block text-[12px] font-bold text-gray-700">Shipping address <span className="text-brand-pink">*</span></span>
+          <textarea
+            rows={3}
+            value={s.address}
+            onChange={(e) => actions.setShipping("address", e.target.value)}
+            onBlur={() => touch("address")}
+            placeholder="Full street address, barangay, city / municipality, province, zip code"
+            className={cx(
+              "w-full rounded-[9px] border px-3.5 py-2.5 text-[13.5px] leading-[1.55] outline-none resize-none",
+              touched.address && !addressOk ? "border-red-400" : "border-[#E2E2E6]",
+            )}
+          />
+          {touched.address && !addressOk && (
+            <span className="mt-1 block text-[11.5px] text-red-500">Please enter the shipping address.</span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-[9px] rounded-[9px] border border-brand-pinkLine bg-brand-pinkSoft2 px-[13px] py-[11px] text-[12px] text-[#9D174D]">
+          <span>📦</span>
+          Tumblers ship within 7–14 business days after your submission is verified.
+        </div>
+      </div>
+
+      <FlowNav
+        nextLabel="Review & submit"
+        disabled={!canSubmit}
+        onDisabledClick={() => setTouched({ address: true, recipientName: true, recipientPhone: true })}
+      />
+    </div>
+  );
+}
+
+const PAYOUT_METHODS = ["GCash", "Maya", "Bank transfer", "Other"];
+
+// Step 7 for SME / Agri-Tech respondents: a cash token (amount from Settings).
+function Payout() {
+  const { state, actions } = usePortal();
+  const p = state.payout;
+  const isBank = p.method === "Bank transfer";
+  const isEwallet = p.method === "GCash" || p.method === "Maya";
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
+
+  const nameOk = p.acctName.trim().length > 0;
+  const numDigits = p.acctNum.replace(/\D/g, "");
+  const numOk = isEwallet
+    ? numDigits.length === 11 && numDigits.startsWith("09")
+    : p.acctNum.trim().length > 0;
+  const bankOk = p.bank.trim().length > 0;
+  // Every method needs an account name + number; bank transfer also needs the bank name.
+  const canSubmit = (isBank ? bankOk : true) && nameOk && numOk;
+  const numLabel = isEwallet ? "Mobile number" : isBank ? "Account number" : "Account / reference number";
+  const numPh = isEwallet ? "09XX XXX XXXX" : "Account or reference no.";
+  const numError = touched.acctNum
+    ? !p.acctNum.trim()
+      ? "Required."
+      : isEwallet && !numOk
+        ? "Enter a valid PH mobile number (e.g. 09XX XXX XXXX)."
+        : ""
+    : "";
+
+  return (
+    <div>
+      <h1 className="mb-1.5 text-[22px] font-extrabold tracking-[-.5px]">Payout details</h1>
+      <p className="mb-[22px] text-[13.5px] text-gray-500">
+        Where should we send your <b className="text-gray-700">{peso(state.respondentToken)}</b>{" "}
+        token once verified?
+      </p>
+      <div className="flex flex-col gap-[18px] rounded-2xl border border-line bg-white p-[22px]">
+        <div>
+          <span className="mb-2 block text-[12px] font-bold text-gray-700">Payout method</span>
+          <div className="grid grid-cols-2 gap-[9px] sm:grid-cols-4">
+            {PAYOUT_METHODS.map((m) => {
+              const active = p.method === m;
+              return (
+                <button
+                  key={m}
+                  onClick={() => actions.setPayout("method", m)}
+                  className={cx(
+                    "h-10 rounded-[9px] border text-[12.5px] font-bold",
+                    active ? "border-brand-pink bg-brand-pinkSoft text-[#9D174D]" : "border-[#E2E2E6] bg-white text-zinc-500",
+                  )}
+                >
+                  {m}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {isBank && (
+          <Field
+            label="Bank name"
+            value={p.bank}
+            onChange={(v) => actions.setPayout("bank", v)}
+            onBlur={() => touch("bank")}
+            error={touched.bank && !bankOk ? "Required." : ""}
+            placeholder="e.g. BDO, BPI"
+          />
+        )}
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <Field
+            label="Account name"
+            value={p.acctName}
+            onChange={(v) => actions.setPayout("acctName", v)}
+            onBlur={() => touch("acctName")}
+            error={touched.acctName && !nameOk ? "Required." : ""}
+            placeholder={isEwallet ? "Registered name" : "Account holder"}
+          />
+          <Field
+            label={numLabel}
+            value={p.acctNum}
+            onChange={(v) =>
+              // GCash/Maya numbers are PH mobile numbers — accept digits only, max 11.
+              actions.setPayout("acctNum", isEwallet ? v.replace(/\D/g, "").slice(0, 11) : v)
+            }
+            onBlur={() => touch("acctNum")}
+            error={numError}
+            type={isEwallet ? "tel" : "text"}
+            inputMode={isEwallet ? "tel" : "text"}
+            placeholder={numPh}
+          />
+        </div>
+
+        <div className="flex items-center gap-[9px] rounded-[9px] border border-brand-pinkLine bg-brand-pinkSoft2 px-[13px] py-[11px] text-[12px] text-[#9D174D]">
+          <span>🔒</span>
+          Payout details are visible only to authorized Prodigitality admins.
+        </div>
+      </div>
+      <FlowNav nextLabel="Review & submit" disabled={!canSubmit} />
+    </div>
+  );
+}
+
 function Review() {
   const { state, actions } = usePortal();
   const [submitting, setSubmitting] = useState(false);
@@ -1011,6 +1266,9 @@ function Review() {
         : "Not yet",
     ],
     ["Mode", "Enumerator-assisted"],
+    state.rType === "TSI"
+      ? ["Token", "Tumbler · " + (TUMBLER_COLORS.find((c) => c.value === state.shipping.color)?.label ?? state.shipping.color)]
+      : ["Token", peso(state.respondentToken) + " · " + state.payout.method],
   ];
 
   const handleSubmit = async () => {
@@ -1038,10 +1296,9 @@ function Review() {
           survey_type: state.rType,
           answers: state.survey,
           selfie_url: selfieUrl,
-          // Respondents are not paid — no payout details collected. The enumerator
-          // earns the flat payout per verified survey.
-          payout_details: null,
-          shipping_details: null,
+          // Respondent token: cash payout for SME/Agri-Tech, tumbler shipping for TSI.
+          payout_details: state.rType === "TSI" ? null : state.payout,
+          shipping_details: state.rType === "TSI" ? state.shipping : null,
           referrer_code: state.reg.code || null,
           enumerator_slug: state.enumeratorSlug || null,
           consent: {
@@ -1090,7 +1347,12 @@ function Review() {
 function Success() {
   const { state, actions } = usePortal();
   const firstName = (state.reg.name || "").trim().split(" ")[0];
-  const referralPath = state.referralPath || "/r/" + encodeURIComponent(state.newCode || "");
+  // Enumerator-enrolled respondents share a link routed through their enumerator
+  // (/s/<slug>?referral-code=<code>); otherwise fall back to the legacy referral
+  // path (set for /r/ and preview flows).
+  const referralPath = state.enumeratorSlug
+    ? respondentReferralPath(state.enumeratorSlug, state.newCode || "")
+    : state.referralPath || "/r/" + encodeURIComponent(state.newCode || "");
   const referralUrl = publicUrl(referralPath);
   // The referral link is only generated/shown if the respondent opts in to
   // recommend someone. null = not asked yet, true = referring, false = declined.
@@ -1129,7 +1391,7 @@ function Success() {
               No, thanks
             </button>
             <button
-              onClick={() => setRefer(true)}
+              onClick={() => { setRefer(true); actions.promoteToReferrer(); }}
               className="h-[46px] flex-1 rounded-[11px] bg-brand-ink text-sm font-bold text-white"
             >
               Yes, refer someone
@@ -1178,7 +1440,7 @@ function Success() {
       {refer === false && (
         <p className="mx-auto max-w-[400px] text-[13px] leading-[1.55] text-gray-500">
           No problem — thanks again for taking part.{" "}
-          <button onClick={() => setRefer(true)} className="font-semibold text-brand-pink underline">
+          <button onClick={() => { setRefer(true); actions.promoteToReferrer(); }} className="font-semibold text-brand-pink underline">
             Changed your mind? Refer someone
           </button>
         </p>

@@ -16,9 +16,9 @@ import {
 } from "react";
 import { blankQual } from "./classify";
 import { code as codeOf, hash } from "./format";
-import { publicUrl } from "./public-url";
+import { publicUrl, respondentReferralPath } from "./public-url";
 import { buildReport } from "./reports";
-import { DEFAULT_SURVEY_PAYOUT } from "./selectors";
+import { DEFAULT_SURVEY_PAYOUT, DEFAULT_RESPONDENT_TOKEN } from "./selectors";
 import type {
   AppMode,
   AuditEntry,
@@ -50,10 +50,13 @@ export interface PortalState {
   loginEmail: string;
   loginPw: string;
   targets: Targets;
-  // Flat enumerator payout per verified survey (₱). Respondents/referrers unpaid.
+  // Flat enumerator payout per verified survey (₱).
   surveyPayout: number;
+  // Cash token paid to a respondent on the SME / Agri-Tech paths (₱). TSI gets a tumbler.
+  respondentToken: number;
   draftTargets: Targets;
   draftSurveyPayout: number;
+  draftRespondentToken: number;
   confirmSave: boolean;
   emailSel: string;
   enumerators: Enumerator[];
@@ -166,8 +169,10 @@ function initialState(): PortalState {
     loginPw: "",
     targets: { TSI: 4, AgriTech: 10, SME: 100 },
     surveyPayout: DEFAULT_SURVEY_PAYOUT,
+    respondentToken: DEFAULT_RESPONDENT_TOKEN,
     draftTargets: { TSI: 4, AgriTech: 10, SME: 100 },
     draftSurveyPayout: DEFAULT_SURVEY_PAYOUT,
+    draftRespondentToken: DEFAULT_RESPONDENT_TOKEN,
     confirmSave: false,
     emailSel: "verify",
     enumerators: [
@@ -270,9 +275,13 @@ export interface PortalActions {
   approvePayout(id: number): void;
   holdPayout(id: number): void;
   markPaid(id: number): void;
+  approveTokenPayout(id: number): void;
+  holdTokenPayout(id: number): void;
+  markTokenPaid(id: number): void;
   doExport(name: string, fmt: string): void;
   setTarget(path: keyof Targets, val: string): void;
   setSurveyPayout(val: string): void;
+  setRespondentToken(val: string): void;
   askSaveSettings(): void;
   cancelSaveSettings(): void;
   confirmSaveSettings(): void;
@@ -317,11 +326,13 @@ export interface PortalActions {
   setQual(f: keyof Qual, v: string): void;
   toggleTech(opt: string): void;
   submitFlow(referralCode?: string): void;
+  promoteToReferrer(): void;
   copyReferral(): void;
   previewReferral(): void;
   setConsentTerms(v: boolean): void;
   setConsentPrivacy(v: boolean): void;
   confirmConsent(): void;
+  notify(msg: string): void;
 }
 
 interface PortalContextValue {
@@ -341,6 +352,7 @@ export function PortalProvider({
   initialMode,
   initialUserName,
   initialSurveyPayout,
+  initialRespondentToken,
   initialTargets,
 }: {
   children: React.ReactNode;
@@ -349,6 +361,7 @@ export function PortalProvider({
   initialMode?: AppMode;
   initialUserName?: string;
   initialSurveyPayout?: number;
+  initialRespondentToken?: number;
   initialTargets?: Targets;
 }) {
   const [state, setState] = useState<PortalState>(() => {
@@ -362,6 +375,10 @@ export function PortalProvider({
     if (typeof initialSurveyPayout === "number") {
       s.surveyPayout = initialSurveyPayout;
       s.draftSurveyPayout = initialSurveyPayout;
+    }
+    if (typeof initialRespondentToken === "number") {
+      s.respondentToken = initialRespondentToken;
+      s.draftRespondentToken = initialRespondentToken;
     }
     if (initialTargets) {
       s.targets = { ...initialTargets };
@@ -424,7 +441,8 @@ export function PortalProvider({
   const settingsDirty = useCb((s: PortalState) => {
     return (
       JSON.stringify(s.draftTargets) !== JSON.stringify(s.targets) ||
-      s.draftSurveyPayout !== s.surveyPayout
+      s.draftSurveyPayout !== s.surveyPayout ||
+      s.draftRespondentToken !== s.respondentToken
     );
   }, []);
 
@@ -571,6 +589,64 @@ export function PortalProvider({
         }
       },
 
+      // Respondent token payout lifecycle (cash for SME/Agri-Tech, tumbler for TSI),
+      // independent of the enumerator payout above. PATCHes respondent_pay_status.
+      approveTokenPayout: (id) => {
+        const s = stateRef.current;
+        const rec = s.respondents.find((r) => r.id === id);
+        set({
+          respondents: s.respondents.map((r) => r.id === id ? { ...r, respondentPayStatus: "Approved" } : r),
+          audit: [logEntry("Token payout approved", "· " + (rec?.name ?? ""), userName()), ...s.audit],
+        });
+        toast("Token payout approved · " + (rec?.name ?? ""));
+        if (rec?.supabaseId) {
+          fetch(`/api/portal/submissions/${rec.supabaseId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ respondent_pay_status: "approved" }),
+          }).catch(() => toast("Saved locally — DB sync failed"));
+        }
+      },
+
+      holdTokenPayout: (id) => {
+        const s = stateRef.current;
+        const rec = s.respondents.find((r) => r.id === id);
+        set({
+          respondents: s.respondents.map((r) => r.id === id ? { ...r, respondentPayStatus: "On Hold" } : r),
+          audit: [logEntry("Token payout put on hold", "· " + (rec?.name ?? ""), userName()), ...s.audit],
+        });
+        toast("Token payout on hold · " + (rec?.name ?? ""));
+        if (rec?.supabaseId) {
+          fetch(`/api/portal/submissions/${rec.supabaseId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ respondent_pay_status: "on_hold" }),
+          }).catch(() => toast("Saved locally — DB sync failed"));
+        }
+      },
+
+      markTokenPaid: (id) => {
+        const s = stateRef.current;
+        const dateLabel = new Date().toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+        const rec = s.respondents.find((r) => r.id === id);
+        set({
+          respondents: s.respondents.map((r) =>
+            // Paying the respondent token auto-approves the enumerator payout, so
+            // the Enumerator tab immediately offers "Mark paid".
+            r.id === id ? { ...r, respondentPayStatus: "Paid", respondentPaidDate: dateLabel, payStatus: "Approved" } : r,
+          ),
+          audit: [logEntry("Token payout marked paid", "· " + (rec?.name ?? ""), userName()), ...s.audit],
+        });
+        toast("Token payout marked paid · " + (rec?.name ?? ""));
+        if (rec?.supabaseId) {
+          fetch(`/api/portal/submissions/${rec.supabaseId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ respondent_pay_status: "paid" }),
+          }).catch(() => toast("Saved locally — DB sync failed"));
+        }
+      },
+
       doExport: (name, fmt) => {
         const s = stateRef.current;
         const report = buildReport(name, fmt, {
@@ -606,6 +682,10 @@ export function PortalProvider({
         const n = Math.max(0, parseInt(val, 10) || 0);
         set({ draftSurveyPayout: n });
       },
+      setRespondentToken: (val) => {
+        const n = Math.max(0, parseInt(val, 10) || 0);
+        set({ draftRespondentToken: n });
+      },
       askSaveSettings: () => {
         if (settingsDirty(stateRef.current)) set({ confirmSave: true });
       },
@@ -614,11 +694,13 @@ export function PortalProvider({
         const s = stateRef.current;
         const targets = { ...s.draftTargets };
         const surveyPayout = s.draftSurveyPayout;
+        const respondentToken = s.draftRespondentToken;
         set({
           targets,
           surveyPayout,
+          respondentToken,
           confirmSave: false,
-          audit: [logEntry("Settings updated", "· targets & enumerator payout", userName()), ...s.audit],
+          audit: [logEntry("Settings updated", "· targets, enumerator payout & respondent token", userName()), ...s.audit],
         });
         toast("Settings saved");
         // Persist to the app_settings row (admin only). On failure the change
@@ -626,7 +708,7 @@ export function PortalProvider({
         fetch("/api/portal/settings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ surveyPayout, targets }),
+          body: JSON.stringify({ surveyPayout, respondentToken, targets }),
         })
           .then((res) => { if (!res.ok) toast("Saved locally — DB sync failed"); })
           .catch(() => toast("Saved locally — DB sync failed"));
@@ -636,6 +718,7 @@ export function PortalProvider({
         set({
           draftTargets: { ...s.targets },
           draftSurveyPayout: s.surveyPayout,
+          draftRespondentToken: s.respondentToken,
         });
         toast("Changes discarded");
       },
@@ -746,8 +829,9 @@ export function PortalProvider({
         let n = s.rStep;
         if (n === 6) {
           if (!s.selfie) return;
-          // Respondents are no longer paid, so there's no payout step (7) — the
-          // selfie goes straight to Review. The enumerator earns the flat payout.
+          // Selfie → Token step (7): Payout for SME/Agri-Tech, Shipping/tumbler for TSI.
+          n = 7;
+        } else if (n === 7) {
           n = 8;
         } else if (n === 8) {
           n = 9;
@@ -761,7 +845,8 @@ export function PortalProvider({
       flowBack: () => {
         const s = stateRef.current;
         let n = s.rStep;
-        if (n === 8) n = 6; // no payout step between Selfie and Review
+        if (n === 8) n = 7; // Review → Token step
+        else if (n === 7) n = 6; // Token step → Selfie
         else if (n === 5) n = 2; // skip the removed OTP(3) and Handoff(4) steps
         else n = Math.max(0, n - 1);
         set({ rStep: n });
@@ -790,6 +875,8 @@ export function PortalProvider({
               survey_type: s.rType,
               referrer_code: s.reg.code || null,
               enumerator_slug: s.enumeratorSlug || null,
+              // Every respondent is offered a token (cash for SME/Agri-Tech, tumbler for TSI).
+              payout_offered: true,
               consent: {
                 terms: s.consentTerms,
                 privacy: s.consentPrivacy,
@@ -877,15 +964,37 @@ export function PortalProvider({
         set({ newCode: c, rStep: 9 });
       },
 
+      notify: (msg) => toast(msg),
       setConsentTerms: (v) => set({ consentTerms: v }),
       setConsentPrivacy: (v) => set({ consentPrivacy: v }),
       // Stamp the moment both consents were accepted (when leaving the Welcome
       // step), so the submission carries an auditable consent timestamp.
       confirmConsent: () => set({ consentAt: new Date().toISOString() }),
 
+      // Record the respondent as a referrer (type=respondent) when they opt in to
+      // refer someone. Idempotent server-side (unique referral_code), fire-and-forget.
+      promoteToReferrer: () => {
+        const s = stateRef.current;
+        const code = s.newCode;
+        if (!code) return;
+        fetch("/api/referral/promote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            referral_code: code,
+            full_name: s.reg.name,
+            email: s.reg.email,
+            phone: s.reg.mobile,
+          }),
+        }).catch(() => {
+          /* non-fatal: the success screen still shows the link */
+        });
+      },
       copyReferral: () => {
-        const path =
-          stateRef.current.referralPath || "/r/" + encodeURIComponent(stateRef.current.newCode || "");
+        const s = stateRef.current;
+        const path = s.enumeratorSlug
+          ? respondentReferralPath(s.enumeratorSlug, s.newCode || "")
+          : s.referralPath || "/r/" + encodeURIComponent(s.newCode || "");
         const link = publicUrl(path);
         try {
           if (navigator.clipboard) navigator.clipboard.writeText(link);
@@ -898,7 +1007,11 @@ export function PortalProvider({
         const s = stateRef.current;
         const c = s.newCode;
         if (typeof window !== "undefined") {
-          window.location.href = "/preview/r/" + encodeURIComponent(c);
+          // Enumerator-enrolled respondents preview through the real survey link
+          // (nothing is recorded until submit); others use the /r/ preview route.
+          window.location.href = s.enumeratorSlug
+            ? respondentReferralPath(s.enumeratorSlug, c)
+            : "/preview/r/" + encodeURIComponent(c);
           return;
         }
         set({

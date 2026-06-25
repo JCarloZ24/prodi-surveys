@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const surveyPayout = Math.max(0, Math.round(Number(body.surveyPayout) || 0));
+  const respondentToken = Math.max(0, Math.round(Number(body.respondentToken) || 0));
   const rawTargets = body.targets ?? {};
   const targetNum = (v: unknown, d: number) =>
     typeof v === "number" && v >= 0 ? Math.round(v) : d;
@@ -32,9 +33,14 @@ export async function POST(req: NextRequest) {
   const db = createAdminClient();
   const { error } = await db
     .from("app_settings")
-    .update({ survey_payout: surveyPayout, targets, updated_at: new Date().toISOString() })
+    .update({
+      survey_payout: surveyPayout,
+      respondent_token: respondentToken,
+      targets,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", true);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, surveyPayout, targets });
+  return NextResponse.json({ ok: true, surveyPayout, respondentToken, targets });
 }

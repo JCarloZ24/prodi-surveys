@@ -43,3 +43,7 @@ next-env.d.ts
 
 .vercel
 .env*
+# Per-environment, non-secret public config is tracked (NEXT_PUBLIC_* URLs only).
+!.env.example
+!.env.development
+!.env.production

@@ -43,7 +43,14 @@ export default async function PortalRoleLayout({
     // Full payout numbers + account names are admin-only — strip them for other
     // roles so they never reach the client payload.
     if (profile.role !== "admin") {
-      respondents = respondents.map((r) => ({ ...r, acctNum: "", acctName: "" }));
+      respondents = respondents.map((r) => ({
+        ...r,
+        acctNum: "",
+        acctName: "",
+        shipAddress: "",
+        shipPhone: "",
+        shipRecipient: "",
+      }));
     }
   } catch {
     // DB unavailable — portal loads with an empty respondent list.
@@ -58,6 +65,7 @@ export default async function PortalRoleLayout({
       userName={profile.full_name ?? undefined}
       userSlug={profile.slug ?? null}
       initialSurveyPayout={settings.surveyPayout}
+      initialRespondentToken={settings.respondentToken}
       initialTargets={settings.targets}
     >
       {children}

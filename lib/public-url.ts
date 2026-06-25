@@ -15,3 +15,12 @@ export function portalUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : "/" + path;
   return PORTAL_ORIGIN.replace(/\/$/, "") + normalizedPath;
 }
+
+// Path a respondent shares to refer someone. When they were enrolled through an
+// enumerator (slug present), the link routes through that same enumerator and
+// carries their referral code, preserving enumerator attribution. Falls back to
+// the legacy /r/<code> entry when there is no enumerator slug.
+export function respondentReferralPath(slug: string, code: string) {
+  const c = encodeURIComponent(code || "");
+  return slug ? `/s/${slug}?referral-code=${c}` : `/r/${c}`;
+}

@@ -105,6 +105,23 @@ export function emailDefs(): EmailDef[] {
       ],
     },
     {
+      id: "paid-token",
+      audience: "Respondent",
+      name: "Token sent — cash",
+      subject: "Your survey token has been sent",
+      from: "Prodi-Surveys <no-reply@prodigitality.net>",
+      to: "respondent",
+      preheader: "Your cash token has been sent.",
+      accent: "#15803D",
+      vars: { firstName: "Maria", amount: "₱200", method: "GCash •••• 678", dateSent: "Jun 20, 2026" },
+      blocks: [
+        { type: "h", text: "Your token has been sent 💸" },
+        { type: "p", text: "Thank you, {{firstName}} — your token for completing the Prodigitality baseline survey has been sent to your payout account." },
+        { type: "kv", rows: [["Amount", "{{amount}}"], ["Method", "{{method}}"], ["Date sent", "{{dateSent}}"]] },
+        { type: "note", text: "Please allow 1–3 business days for the amount to reflect." },
+      ],
+    },
+    {
       id: "refbonus",
       audience: "Referrer",
       name: "Referral verified",

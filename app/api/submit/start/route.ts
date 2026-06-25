@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase-server";
 // responses are captured). Service-role: submissions are never exposed to anon.
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { registration, qualification, survey_type, referrer_code, enumerator_slug, consent } = body;
+  const { registration, qualification, survey_type, referrer_code, enumerator_slug, payout_offered, consent } = body;
 
   if (!registration || !qualification || !survey_type) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -25,8 +25,8 @@ export async function POST(req: NextRequest) {
       referrer_code: referrer_code || null,
       enumerator_slug: enumerator_slug || null,
       consent: consent || null,
-      // Respondents are not paid — no incentive is offered to them.
-      payout_offered: false,
+      // Whether a token/incentive is offered (cash for SME/Agri-Tech, tumbler for TSI).
+      payout_offered: payout_offered ?? true,
       status: "started",
       is_survey_completed: false,
     })

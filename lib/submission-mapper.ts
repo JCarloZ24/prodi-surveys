@@ -87,6 +87,19 @@ export function rowToRespondent(
       })
     : "";
 
+  // Respondent token payout (₱ cash / tumbler), independent of the enumerator's.
+  // Default to "Pending" once verified so the Payouts page can action it.
+  let respondentPayStatus = "—";
+  if (row.respondent_payout_status) {
+    respondentPayStatus =
+      PAYOUT_STATUS_LABEL[row.respondent_payout_status as string] ?? (row.respondent_payout_status as string);
+  } else if (verified) {
+    respondentPayStatus = "Pending";
+  }
+  const respondentPaidDate = row.respondent_paid_at
+    ? new Date(row.respondent_paid_at as string).toLocaleDateString("en-PH", { month: "short", day: "numeric" })
+    : "";
+
   // Payout method label. `acct` is the masked account only — callers prepend the
   // method (so it must not embed the method, or it renders e.g. "GCash GCash ••••").
   let method = "—";
@@ -143,6 +156,14 @@ export function rowToRespondent(
     // before they reach the client.
     acctNum: pay?.acctNum ? String(pay.acctNum) : "",
     acctName: pay?.acctName ? String(pay.acctName) : "",
+    // Respondent token payout + TSI tumbler shipping (address/phone/recipient are
+    // admin-only — redacted for non-admin viewers in the layout/API).
+    respondentPayStatus,
+    ...(respondentPaidDate ? { respondentPaidDate } : {}),
+    tumblerColor: ship?.color ? String(ship.color) : "",
+    shipRecipient: ship?.recipientName ? String(ship.recipientName) : "",
+    shipPhone: ship?.recipientPhone ? String(ship.recipientPhone) : "",
+    shipAddress: ship?.address ? String(ship.address) : "",
     compMin: 0,
     flags: [],
     code: reg.generated_referral_code ?? "",

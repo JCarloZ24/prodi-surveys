@@ -94,6 +94,15 @@ export interface Respondent {
   hearAbout?: string;
   selfieMethod?: string;
   payoutOn?: boolean;
+  // Respondent token payout (₱ cash for SME/Agri-Tech, tumbler for TSI), tracked
+  // independently of the enumerator payStatus. Pending → Approved → Paid / On Hold.
+  respondentPayStatus?: PayStatus | string;
+  respondentPaidDate?: string;
+  // TSI tumbler shipping details (admin-only: address/phone/recipient redacted for others).
+  tumblerColor?: string;
+  shipRecipient?: string;
+  shipPhone?: string;
+  shipAddress?: string;
   _new?: boolean;
 }
 

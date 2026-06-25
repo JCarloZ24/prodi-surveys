@@ -39,6 +39,30 @@ async function sendEmail(
   });
 }
 
+// Vars for the respondent cash-token "paid-token" email (SME / Agri-Tech).
+function buildRespondentCashPaidVars(
+  row: Record<string, unknown>,
+  respondentToken: number,
+): Record<string, string> {
+  const reg = (row.registration as Record<string, string>) ?? {};
+  const pay = (row.payout_details as Record<string, unknown> | null) ?? null;
+  const firstName = (reg.name ?? "").split(" ")[0] || "there";
+  const methodName = pay?.method ? String(pay.method) : "";
+  const acctNum = pay?.acctNum ? String(pay.acctNum) : "";
+  const method = acctNum ? `${methodName} •••• ${acctNum.slice(-3)}`.trim() : (methodName || "—");
+  const dateSent = new Date().toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+  return { firstName, amount: `₱${respondentToken.toLocaleString()}`, method, dateSent };
+}
+
+// Vars for the respondent tumbler "paid-tumbler" email (TSI).
+function buildRespondentTumblerVars(row: Record<string, unknown>): Record<string, string> {
+  const reg = (row.registration as Record<string, string>) ?? {};
+  const ship = (row.shipping_details as Record<string, string> | null) ?? null;
+  const color = ship?.color ? ` · ${ship.color}` : "";
+  const shippedTo = (ship?.recipientName || reg.name || "—") as string;
+  return { item: `Tumbler${color}`, shippedTo, estDelivery: "7–14 business days" };
+}
+
 // Vars for the enumerator "Your survey payout has been sent" (`paid`) email.
 function buildEnumeratorPaidVars(
   enumProfile: { full_name: string | null; payout_details: Record<string, unknown> | null },
@@ -81,6 +105,7 @@ export async function PATCH(
   const body = await req.json().catch(() => ({})) as {
     status?: string;
     pay_status?: string;
+    respondent_pay_status?: string;
   };
   const updates: Record<string, string | null> = {};
 
@@ -92,11 +117,33 @@ export async function PATCH(
     }
   }
 
+  const db = createAdminClient();
+
   const validPayStatuses = ["pending", "approved", "paid", "on_hold"];
   if (body.pay_status && validPayStatuses.includes(body.pay_status)) {
     updates.payout_status = body.pay_status;
     if (body.pay_status === "paid") {
+      // Enforce the chain: the enumerator can only be paid after the respondent
+      // token for this submission has been paid.
+      const { data: cur } = await db
+        .from("submissions")
+        .select("respondent_payout_status")
+        .eq("id", id)
+        .single();
+      if ((cur?.respondent_payout_status ?? null) !== "paid") {
+        return NextResponse.json({ error: "Pay the respondent token first." }, { status: 400 });
+      }
       updates.paid_at = new Date().toISOString();
+    }
+  }
+
+  // Respondent token payout lifecycle (cash for SME/Agri-Tech, tumbler for TSI).
+  if (body.respondent_pay_status && validPayStatuses.includes(body.respondent_pay_status)) {
+    updates.respondent_payout_status = body.respondent_pay_status;
+    if (body.respondent_pay_status === "paid") {
+      updates.respondent_paid_at = new Date().toISOString();
+      // Paying the respondent token auto-approves the enumerator's payout.
+      updates.payout_status = "approved";
     }
   }
 
@@ -104,7 +151,6 @@ export async function PATCH(
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
 
-  const db = createAdminClient();
   const { error } = await db
     .from("submissions")
     .update(updates)
@@ -114,16 +160,21 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Fetch row once for any email-triggering status change.
+  // Fetch row once for any email-triggering status change. Note the enumerator
+  // `paid` email keys off body.pay_status (not updates.payout_status, which is
+  // also set to "approved" when the respondent token is paid).
+  const enumeratorPaid = body.pay_status === "paid";
+  const respondentPaid = updates.respondent_payout_status === "paid";
   const needsEmail =
     updates.status === "verified" ||
     updates.status === "rejected" ||
-    updates.payout_status === "paid";
+    enumeratorPaid ||
+    respondentPaid;
 
   if (needsEmail) {
     const { data: row } = await db
       .from("submissions")
-      .select("registration, survey_type, enumerator_slug")
+      .select("registration, survey_type, enumerator_slug, payout_details, shipping_details")
       .eq("id", id)
       .single();
 
@@ -139,6 +190,22 @@ export async function PATCH(
         sendEmail(email, defId, vars).catch((e) =>
           console.error(`QA ${defId} email error:`, e),
         );
+      }
+
+      // Respondent token paid → notify the respondent. TSI gets a tumbler email,
+      // SME/Agri-Tech a cash-token email.
+      if (email && respondentPaid) {
+        const isTSI = (r.survey_type as string) === "TSI";
+        if (isTSI) {
+          sendEmail(email, "paid-tumbler", buildRespondentTumblerVars(r)).catch((e) =>
+            console.error("Respondent tumbler email error:", e),
+          );
+        } else {
+          const { respondentToken } = await getAppSettings();
+          sendEmail(email, "paid-token", buildRespondentCashPaidVars(r, respondentToken)).catch((e) =>
+            console.error("Respondent token email error:", e),
+          );
+        }
       }
 
       // Payout marked paid → notify the ENUMERATOR who earned the flat ₱400 for

@@ -6,6 +6,8 @@ import { avatarColor, initials } from "@/lib/format";
 import { PAYOUT_METHODS, payoutError, payoutNumberLabel } from "@/lib/payout";
 import { REFERRER_TYPES, type ReferrerType } from "@/lib/referrer";
 import { Modal } from "@/components/portal/Modal";
+import { publicUrl, respondentReferralPath } from "@/lib/public-url";
+import { usePortal } from "@/lib/store";
 import type { PayoutDetails } from "@/lib/types";
 
 type ReferrerRow = {
@@ -17,20 +19,31 @@ type ReferrerRow = {
   payout_details: PayoutDetails | null;
   referral_code: string;
   created_at: string;
+  enumerator_slug: string | null;
+  total_referrals: number;
+  verified_referrals: number;
+  conversion_rate: number;
 };
 
-const TYPE_BADGE: Record<ReferrerType, string> = {
-  enumerator: "bg-rose-100 text-rose-700",
-  respondent: "bg-sky-100 text-sky-700",
-  others: "bg-gray-100 text-gray-600",
-};
+// Full shareable link for a referrer: respondent referrers route through the
+// enumerator that enrolled them; others fall back to the universal /r/<code>.
+const referralLink = (r: ReferrerRow) =>
+  publicUrl(respondentReferralPath(r.enumerator_slug || "", r.referral_code));
+
+const TABS: { key: ReferrerType; label: string }[] = [
+  { key: "enumerator", label: "Enumerators" },
+  { key: "respondent", label: "Respondents" },
+  { key: "others", label: "Others" },
+];
 
 const blankPayout = (): PayoutDetails => ({ method: "GCash", acctName: "", acctNum: "", bank: "" });
 
 export function ReferrersView() {
+  const { actions } = usePortal();
   const [rows, setRows] = useState<ReferrerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
+  const [tab, setTab] = useState<ReferrerType>("enumerator");
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ReferrerRow | null>(null);
@@ -103,10 +116,21 @@ export function ReferrersView() {
     }
   };
 
+  const visibleRows = rows.filter((r) => r.type === tab);
+
   const copyCode = (codeValue: string) => {
     try {
       navigator.clipboard?.writeText(codeValue);
-      setNotice(`Copied ${codeValue}`);
+      actions.notify(`Copied ${codeValue}`);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+
+  const copyLink = (link: string) => {
+    try {
+      navigator.clipboard?.writeText(link);
+      actions.notify("Referral link copied");
     } catch {
       /* clipboard unavailable */
     }
@@ -135,23 +159,41 @@ export function ReferrersView() {
         </div>
       )}
 
+      <div className="flex gap-1.5">
+        {TABS.map((t) => {
+          const count = rows.filter((r) => r.type === t.key).length;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={cx(
+                "rounded-[9px] px-3.5 py-2 text-[12.5px] font-semibold transition-colors",
+                tab === t.key ? "bg-[#18181B] text-white" : "border border-[#E4E4E7] bg-white text-gray-600 hover:border-gray-300",
+              )}
+            >
+              {t.label} <span className={cx("ml-1", tab === t.key ? "text-white/70" : "text-gray-400")}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white">
         {loading ? (
           <div className="py-14 text-center text-[13.5px] text-gray-400">Loading…</div>
-        ) : rows.length === 0 ? (
-          <div className="py-14 text-center text-[13.5px] text-gray-400">No referrers yet.</div>
+        ) : visibleRows.length === 0 ? (
+          <div className="py-14 text-center text-[13.5px] text-gray-400">No {tab} referrers yet.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px]">
+            <table className="w-full min-w-[860px]">
               <thead>
                 <tr className="border-b border-[#F2F2F4]">
-                  {["REFERRER", "TYPE", "PHONE", "CODE", "PAYOUT", "ACTIONS"].map((h) => (
+                  {["REFERRER", "PHONE", "CODE", "REFERRAL LINK", "TOTAL", "VERIFIED", "CONV", "ACTIONS"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
+                {visibleRows.map((r) => (
                   <tr key={r.id} className="border-b border-[#F5F5F7] last:border-0">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
@@ -164,9 +206,6 @@ export function ReferrersView() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={cx("rounded-md px-2 py-0.5 text-[11.5px] font-bold", TYPE_BADGE[r.type])}>{r.type}</span>
-                    </td>
                     <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.phone || "—"}</td>
                     <td className="px-4 py-3">
                       <button
@@ -177,7 +216,32 @@ export function ReferrersView() {
                         {r.referral_code}
                       </button>
                     </td>
-                    <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.payout_details?.method || "—"}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex w-[420px] max-w-[420px] items-center gap-1.5">
+                        <code className="flex-1 break-all rounded-[7px] bg-[#F4F4F5] px-2 py-1 font-mono text-[11.5px] leading-[1.45] text-gray-600">
+                          {referralLink(r)}
+                        </code>
+                        <button
+                          onClick={() => copyLink(referralLink(r))}
+                          title="Copy referral link"
+                          className="flex-none rounded-[7px] border border-[#E4E4E7] px-2 py-1 text-[11.5px] font-semibold text-gray-600 hover:bg-[#F7F7F8]"
+                        >
+                          Copy
+                        </button>
+                        <a
+                          href={referralLink(r)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Open referral link"
+                          className="flex-none rounded-[7px] border border-[#E4E4E7] px-2 py-1 text-[11.5px] font-semibold text-gray-600 hover:bg-[#F7F7F8]"
+                        >
+                          Open
+                        </a>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-[12.5px] font-semibold text-gray-700">{r.total_referrals}</td>
+                    <td className="px-4 py-3 text-[12.5px] font-semibold text-emerald-700">{r.verified_referrals}</td>
+                    <td className="px-4 py-3 text-[12.5px] text-gray-600">{Math.round(r.conversion_rate * 100)}%</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5">
                         <button

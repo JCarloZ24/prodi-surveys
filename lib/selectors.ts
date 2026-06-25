@@ -10,8 +10,12 @@ import type {
 } from "./types";
 
 // Flat enumerator payout per verified ("successful") survey. Admin-configurable
-// in Settings; this is the default. Respondents and referrers are not paid.
+// in Settings; this is the default.
 export const DEFAULT_SURVEY_PAYOUT = 400;
+
+// Cash token paid to a respondent on the SME / Agri-Tech paths (₱). TSI
+// respondents receive a tumbler instead. Admin-configurable in Settings.
+export const DEFAULT_RESPONDENT_TOKEN = 200;
 
 export const PROFILE_STAGES = [
   "Survey Started",
