@@ -19,6 +19,21 @@ export async function POST(req: NextRequest) {
   const email = String(body.email ?? "").trim() || null;
   const phone = String(body.phone ?? "").trim() || null;
 
+  // Carry over the payout details the respondent entered on the survey's payout
+  // step so the referrer row is prefilled. Normalize to the PayoutDetails shape;
+  // only persist when a method was actually chosen (TSI/tumbler respondents send
+  // null), otherwise store null.
+  const pd = body.payout_details;
+  const payout_details =
+    pd && typeof pd === "object" && String(pd.method ?? "").trim()
+      ? {
+          method: String(pd.method ?? "").trim(),
+          acctName: String(pd.acctName ?? "").trim(),
+          acctNum: String(pd.acctNum ?? "").trim(),
+          bank: String(pd.bank ?? "").trim(),
+        }
+      : null;
+
   const db = createAdminClient();
   const { error } = await db
     .from("referrer")
@@ -28,7 +43,7 @@ export async function POST(req: NextRequest) {
         email,
         phone,
         type: "respondent",
-        payout_details: null,
+        payout_details,
         referral_code,
         created_by: null,
       },

@@ -977,6 +977,10 @@ export function PortalProvider({
             full_name: s.reg.name,
             email: s.reg.email,
             phone: s.reg.mobile,
+            // Prefill the referrer's payout from the payout/token step the
+            // respondent just completed. TSI respondents chose a tumbler instead
+            // of a cash payout, so they have no payout details to carry over.
+            payout_details: s.rType === "TSI" ? null : s.payout,
           }),
         }).catch(() => {
           /* non-fatal: the success screen still shows the link */
