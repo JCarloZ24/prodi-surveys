@@ -20,10 +20,12 @@ export function SurveyStep() {
     typeof window === "undefined" ? "" : koboEmbedUrl(state.rType, window.location.origin),
   );
 
-  // Stamp the Kobo survey start time the first time this step mounts.
+  // Stamp the Kobo survey start time on mount, and persist it once the submission
+  // row's id is available (startSubmission may still be in flight on first mount).
+  // The timestamp is captured on the first call; the later run just persists it.
   useEffect(() => {
     actions.setKoboStart();
-  }, [actions]);
+  }, [state.submissionId, actions]);
 
   // Unlock the next step when the embedded form reports a successful submission.
   useEffect(() => {
