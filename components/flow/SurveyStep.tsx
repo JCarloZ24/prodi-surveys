@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePortal } from "@/lib/store";
 import { typePillClass, typeShort } from "@/lib/format";
 import { koboEmbedUrl, KOBO_ENKETO_ORIGIN, isKoboSubmitSuccess } from "@/lib/kobo";
@@ -13,30 +13,11 @@ export function SurveyStep() {
   const done = state.surveyDone;
   const [reopened, setReopened] = useState(false);
 
-  // The submission row (and its id) is created asynchronously at the Register
-  // step, so it's usually not set yet when this step mounts. Wait briefly for it
-  // so the iframe can pre-fill the hidden ref_id field — but never block: after a
-  // short timeout (or if startSubmission failed) load the form without it.
-  const [timedOut, setTimedOut] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setTimedOut(true), 4000);
-    return () => clearTimeout(t);
-  }, []);
-  const ready = !!state.submissionId || timedOut;
-
-  // Build the embed URL once we're ready, memoized on `ready` so it doesn't
-  // rebuild (and reload the iframe, losing progress) if submissionId arrives
-  // after the timeout. rType/origin are stable on this step and submissionId is
-  // captured at the moment we become ready. The flow only reaches this step
-  // client-side, so window.location.origin is available — Enketo needs it to post
-  // submission events back to the parent window.
-  const src = useMemo(
-    () =>
-      ready && typeof window !== "undefined"
-        ? koboEmbedUrl(state.rType, window.location.origin, state.submissionId || undefined)
-        : "",
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ready],
+  // The flow only reaches this step client-side, so window is available; building
+  // the URL in the initializer passes the real origin (Enketo needs it to post
+  // submission events to the parent) without an SSR/hydration mismatch.
+  const [src] = useState(() =>
+    typeof window === "undefined" ? "" : koboEmbedUrl(state.rType, window.location.origin),
   );
 
   // Unlock the next step when the embedded form reports a successful submission.
