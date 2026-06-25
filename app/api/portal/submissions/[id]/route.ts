@@ -6,6 +6,7 @@ import { renderEmailHtml, LOGO_ATTACHMENT } from "@/lib/email-renderer";
 import { createTransporter, FROM_ADDRESS, TRANSACTIONAL_HEADERS } from "@/lib/mailer";
 import { getAppSettings } from "@/lib/settings";
 import { REG_Q } from "@/lib/registration";
+import { readPayout, readShipping } from "@/lib/token";
 
 // Read a registration field by its labeled key, falling back to the pre-relabel
 // camelCase key so older rows still resolve.
@@ -53,7 +54,7 @@ function buildRespondentCashPaidVars(
 ): Record<string, string> {
   const reg = (row.registration_data as Record<string, string>) ?? {};
   // SME/Agri-Tech: token_data holds the cash-payout shape.
-  const pay = (row.token_data as Record<string, unknown> | null) ?? null;
+  const pay = row.token_data ? readPayout(row.token_data as Record<string, unknown>) : null;
   const firstName = (regField(reg, REG_Q.name, "name")).split(" ")[0] || "there";
   const methodName = pay?.method ? String(pay.method) : "";
   const acctNum = pay?.acctNum ? String(pay.acctNum) : "";
@@ -66,7 +67,7 @@ function buildRespondentCashPaidVars(
 function buildRespondentTumblerVars(row: Record<string, unknown>): Record<string, string> {
   const reg = (row.registration_data as Record<string, string>) ?? {};
   // TSI: token_data holds the tumbler-shipping shape.
-  const ship = (row.token_data as Record<string, string> | null) ?? null;
+  const ship = row.token_data ? readShipping(row.token_data as Record<string, unknown>) : null;
   const color = ship?.color ? ` · ${ship.color}` : "";
   const shippedTo = ship?.recipientName || regField(reg, REG_Q.name, "name") || "—";
   return { item: `Tumbler${color}`, shippedTo, estDelivery: "7–14 business days" };

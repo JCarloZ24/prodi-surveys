@@ -4,6 +4,7 @@
 import { avatarColor } from "./format";
 import { PROFILE_Q } from "./profile";
 import { REG_Q } from "./registration";
+import { readPayout, readShipping } from "./token";
 import type { CollectionMode, Respondent } from "./types";
 
 const PAYOUT_STATUS_LABEL: Record<string, string> = {
@@ -29,11 +30,12 @@ export function rowToRespondent(
   const qual = (row.profiles_data as Record<string, string>) ?? {};
   const surveyType = (row.survey_type as string) ?? "SME";
   // token_data is the single generic token column: payout shape for SME/Agri-Tech,
-  // tumbler-shipping shape for TSI. Split it back out by survey path.
+  // tumbler-shipping shape for TSI. Normalize it back to the canonical shape by path
+  // (read* handle both the labeled keys and pre-relabel camelCase rows).
   const isTSI = surveyType === "TSI";
-  const token = (row.token_data as Record<string, string> | null) ?? null;
-  const pay = isTSI ? null : token;
-  const ship = isTSI ? token : null;
+  const token = (row.token_data as Record<string, unknown> | null) ?? null;
+  const pay = !isTSI && token ? readPayout(token) : null;
+  const ship = isTSI && token ? readShipping(token) : null;
   const rawStatus = (row.status as string) ?? "submitted";
   // New rows use labeled keys ("Full name", …); the camelCase fallback keeps
   // pre-relabel rows working without a data backfill.
@@ -76,11 +78,13 @@ export function rowToRespondent(
   let method = "—";
   let acct = "—";
   if (pay) {
-    method = pay.method ?? "—";
+    method = pay.method || "—";
     acct = pay.acctNum ? `•••• ${String(pay.acctNum).slice(-3)}` : "—";
   } else if (ship) {
+    // New rows store the colour label (e.g. "Navy Blue"); legacy rows store the
+    // code, which colorLabels maps for display.
     const colorLabels: Record<string, string> = { grey: "Charcoal grey", blue: "Sky blue", black: "Black" };
-    method = "Tumbler · " + (colorLabels[ship.color] ?? ship.color ?? "Grey");
+    method = "Tumbler · " + (colorLabels[ship.color] || ship.color || "Grey");
     acct = "—";
   }
 

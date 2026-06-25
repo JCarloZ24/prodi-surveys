@@ -5,6 +5,7 @@ import { usePortal } from "@/lib/store";
 import { classify } from "@/lib/classify";
 import { buildProfileData } from "@/lib/profile";
 import { buildRegistrationData } from "@/lib/registration";
+import { buildPayoutData, buildShippingData } from "@/lib/token";
 import { typePillClass, typeShort, peso } from "@/lib/format";
 import { LogoMark } from "@/lib/icons";
 import { cx } from "@/lib/cx";
@@ -1129,8 +1130,8 @@ function Review() {
           survey_type: state.rType,
           selfie_url: selfieUrl,
           // Respondent token: cash payout for SME/Agri-Tech, tumbler shipping for TSI,
-          // stored in a single generic token_data column.
-          token_data: state.rType === "TSI" ? state.shipping : state.payout,
+          // stored (with human-readable labels) in a single generic token_data column.
+          token_data: state.rType === "TSI" ? buildShippingData(state.shipping) : buildPayoutData(state.payout),
           // External Kobo survey timing captured during the Survey step.
           kobo_start: state.koboStart || null,
           kobo_end: state.koboEnd || null,
