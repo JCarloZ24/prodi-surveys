@@ -84,7 +84,6 @@ export interface PortalState {
   rMaxStep: number;
   rType: Respondent["type"];
   reg: Registration;
-  otp: string;
   survey: SurveyAnswers;
   // The survey now runs in an embedded KoboToolbox form; this flips true when the
   // embed reports a successful submission, which unlocks the next step.
@@ -216,7 +215,6 @@ function initialState(): PortalState {
     rMaxStep: 0,
     rType: "SME",
     reg: blankReg(),
-    otp: "",
     survey: {},
     surveyDone: false,
     selfie: false,
@@ -249,7 +247,6 @@ function hydrateDraft(base: PortalState): PortalState {
       survey: draft.survey || {},
       payout: { ...blankPayout(), ...(draft.payout || {}) },
       shipping: { ...blankShipping(), ...(draft.shipping || {}) },
-      otp: "",
     };
   } catch {
     return base;
@@ -306,11 +303,9 @@ export interface PortalActions {
   flowNext(): void;
   flowBack(): void;
   goStep(n: number): void;
-  verifyOtp(): void;
   startSubmission(): Promise<void>;
   setSubmissionId(id: string): void;
   setReg(k: keyof Registration, v: string): void;
-  setOtp(v: string): void;
   setAnswer(id: string, v: string): void;
   toggleMulti(id: string, opt: string): void;
   setMatrix(id: string, row: string, v: string): void;
@@ -432,7 +427,6 @@ export function PortalProvider({
       mode: "flow",
       rStep: 0,
       rMaxStep: 0,
-      otp: "",
       survey: {},
       surveyDone: false,
       selfie: false,
@@ -817,7 +811,6 @@ export function PortalProvider({
         if (n === s.rStep || n > s.rMaxStep) return;
         set({ rStep: n });
       },
-      verifyOtp: () => set({ rStep: 5 }),
       // Create the submission row (is_survey_completed=false) when the respondent
       // leaves Register (Register → Survey). Non-fatal: the final submit inserts a
       // row if none exists. Skipped when a row already exists.
@@ -853,7 +846,6 @@ export function PortalProvider({
         if (k === "type") set((s) => ({ reg: { ...s.reg, type: v as Respondent["type"] }, rType: v as Respondent["type"] }));
         else set((s) => ({ reg: { ...s.reg, [k]: v } }));
       },
-      setOtp: (v) => set({ otp: v.replace(/\D/g, "").slice(0, 6) }),
       setAnswer: (id, v) => set((s) => ({ survey: { ...s.survey, [id]: v } })),
       toggleMulti: (id, opt) => {
         set((s) => {
@@ -954,7 +946,6 @@ export function PortalProvider({
           referredCode: c,
           referralPath: "/preview/r/" + encodeURIComponent(c),
           rType: "SME",
-          otp: "",
           survey: {},
           surveyDone: false,
           selfie: false,
