@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
     enumerator_slug: enumerator_slug || null,
     consent: consent || null,
     status: "submitted",
+    updated_at: new Date().toISOString(),
   };
 
   // When an id is supplied, the row was already created at the Register step — flip
