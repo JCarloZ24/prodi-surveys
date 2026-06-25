@@ -40,10 +40,6 @@ function answerToText(raw: unknown): string | null {
   return s ? s : null;
 }
 
-// Default incentive amounts — kept in sync with the store's initial incentives.
-const DEFAULT_TOKEN: Record<string, number> = { SME: 200, AgriTech: 300, TSI: 0 };
-const DEFAULT_BONUS: Record<string, number> = { SME: 100, AgriTech: 1000, TSI: 0 };
-
 const PAYOUT_STATUS_LABEL: Record<string, string> = {
   pending: "Pending",
   approved: "Approved",
@@ -61,6 +57,7 @@ const SUBMISSION_STATUS_LABEL: Record<string, string> = {
 export function rowToRespondent(
   row: Record<string, unknown>,
   idx: number,
+  enumBySlug?: Map<string, string>,
 ): Respondent {
   const reg = (row.registration as Record<string, string>) ?? {};
   const qual = (row.qualification as Record<string, string>) ?? {};
@@ -73,23 +70,13 @@ export function rowToRespondent(
   const verified = rawStatus === "verified";
   const referred = Boolean(row.referrer_code);
 
-  // payout_status column (migration 004); fall back to deriving from QA status.
+  // payout_status column (migration 004) — the enumerator's flat ₱400 for this
+  // survey. Fall back to deriving from QA status (verified → Pending).
   let payStatus = "—";
   if (row.payout_status) {
     payStatus = PAYOUT_STATUS_LABEL[row.payout_status as string] ?? (row.payout_status as string);
   } else if (verified) {
     payStatus = "Pending";
-  }
-
-  // referrer_payout_status column (migration 013) — the referral-bonus payout,
-  // tracked independently of the respondent's own token. Defaults to Pending for
-  // any verified+referred respondent that hasn't been actioned yet.
-  let referrerPayStatus = "—";
-  if (row.referrer_payout_status) {
-    referrerPayStatus =
-      PAYOUT_STATUS_LABEL[row.referrer_payout_status as string] ?? (row.referrer_payout_status as string);
-  } else if (verified && referred) {
-    referrerPayStatus = "Pending";
   }
 
   // paid_at → display date used by the portal's "Mark paid" confirmation.
@@ -99,11 +86,6 @@ export function rowToRespondent(
         day: "numeric",
       })
     : "";
-
-  // Token & bonus amounts use the hardcoded defaults (Settings page can
-  // override in the store, but DB rows don't store the amount per-record yet).
-  const token = DEFAULT_TOKEN[surveyType] ?? 0;
-  const bonus = verified && referred ? (DEFAULT_BONUS[surveyType] ?? 0) : 0;
 
   // Payout method label. `acct` is the masked account only — callers prepend the
   // method (so it must not embed the method, or it renders e.g. "GCash GCash ••••").
@@ -124,11 +106,13 @@ export function rowToRespondent(
     ? Math.floor((Date.now() - createdAt.getTime()) / 86_400_000)
     : 0;
 
-  // mode and enumerator are stored in registration when submitted via
-  // enumerator-assisted flow. Default to Self-service if absent.
-  const mode: CollectionMode =
-    reg.mode === "Enumerator-assisted" ? "Enumerator-assisted" : "Self-service";
-  const enumerator = reg.enumerator ?? "—";
+  // Every survey is enumerator-assisted (respondents come via /s/[slug]). The
+  // enumerator is resolved from the submission's enumerator_slug → profile name;
+  // fall back to a name stored on the registration, then "—".
+  const mode: CollectionMode = "Enumerator-assisted";
+  const enumSlug = (row.enumerator_slug as string | null) ?? "";
+  const enumerator =
+    (enumSlug && enumBySlug?.get(enumSlug)) || reg.enumerator || "—";
 
   return {
     id: idx + 1,
@@ -146,15 +130,12 @@ export function rowToRespondent(
     selfie: Boolean(row.selfie_url),
     selfieUrl: (row.selfie_url as string | null) ?? undefined,
     verified,
-    token,
-    bonus,
     referred,
     referrer: (row.referrer_code as string | null) ?? null,
     referredBy: qual.refName || (row.referrer_code as string | null) || null,
     mode,
     enumerator,
     payStatus,
-    referrerPayStatus,
     method,
     acct,
     // Full payout number (mobile / account / reference) + account name. Both are
@@ -179,7 +160,22 @@ export function rowToRespondent(
 // Maps a raw rows array to Respondents with cross-row duplicate flags injected.
 // Use this instead of calling rowToRespondent individually so duplicate detection
 // always runs in both the server layout and the API route.
-export function rowsToRespondents(rows: Record<string, unknown>[]): Respondent[] {
+// Build a slug → enumerator-name map from profile rows, for resolving each
+// submission's enumerator_slug to a display name.
+export function buildEnumSlugMap(
+  profiles: { slug: string | null; full_name: string | null }[],
+): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const p of profiles) {
+    if (p.slug && p.full_name) m.set(p.slug, p.full_name);
+  }
+  return m;
+}
+
+export function rowsToRespondents(
+  rows: Record<string, unknown>[],
+  enumBySlug?: Map<string, string>,
+): Respondent[] {
   // Pass 1 — build duplicate-detection maps.
   const emailMap   = new Map<string, number>(); // all submissions
   const mobileMap  = new Map<string, number>(); // all submissions
@@ -202,7 +198,7 @@ export function rowsToRespondents(rows: Record<string, unknown>[]): Respondent[]
 
   // Pass 2 — map rows and inject duplicate flags.
   return rows.map((row, i) => {
-    const r      = rowToRespondent(row, i);
+    const r      = rowToRespondent(row, i, enumBySlug);
     const reg    = (row.registration as Record<string, string>) ?? {};
     const email  = (reg.email  ?? "").toLowerCase().trim();
     const mobile = (reg.mobile ?? "").trim();

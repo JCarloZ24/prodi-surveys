@@ -2,8 +2,8 @@
 // content from the live portal state, role-aware: stakeholders never receive any
 // monetary columns or the payout report.
 
-import { tok, bon } from "./selectors";
-import type { AuditEntry, Incentives, Respondent, Role } from "./types";
+import { payoutFor } from "./selectors";
+import type { AuditEntry, Respondent, Role } from "./types";
 
 function csvEscape(value: unknown): string {
   const s = value == null ? "" : String(value);
@@ -24,7 +24,7 @@ function slugify(name: string): string {
 export interface ReportInput {
   respondents: Respondent[];
   audit: AuditEntry[];
-  incentives: Incentives;
+  surveyPayout: number;
   role: Role;
 }
 
@@ -33,19 +33,20 @@ export interface ReportInput {
 export function buildReport(
   name: string,
   fmt: string,
-  { respondents, audit, incentives, role }: ReportInput,
+  { respondents, audit, surveyPayout, role }: ReportInput,
 ): { filename: string; content: string } | null {
   const money = role !== "stakeholder";
   const ext = fmt === "Excel" ? "xls" : "csv";
   const filename = `${slugify(name)}-${new Date().toISOString().slice(0, 10)}.${ext}`;
 
-  // Shared respondent-list builder (financial columns appended only when allowed).
+  // Shared respondent-list builder. The enumerator-payout columns (flat ₱400 per
+  // verified survey) are appended only for non-stakeholder roles.
   const respondentTable = (list: Respondent[]): string => {
     const headers = [
       "Name", "Organization", "Type", "Region", "Position",
       "Email", "Mobile", "Mode", "Enumerator", "Status", "Referred by",
     ];
-    if (money) headers.push("Token", "Bonus", "Payout status", "Bonus status", "Method");
+    if (money) headers.push("Enumerator payout", "Payout status", "Method");
     const rows = list.map((r) => {
       const base: (string | number)[] = [
         r.name, r.org, r.type, r.region, r.position,
@@ -53,10 +54,8 @@ export function buildReport(
       ];
       if (money) {
         base.push(
-          tok(incentives, r.type),
-          r.referred ? bon(incentives, r.type) : 0,
+          payoutFor(surveyPayout, r),
           r.payStatus ?? "—",
-          r.referred ? (r.referrerPayStatus ?? "—") : "—",
           r.method ?? "—",
         );
       }
@@ -91,30 +90,23 @@ export function buildReport(
     }
 
     case "Referral report": {
+      // Attribution only — referrals no longer carry any bonus money.
       const list = respondents.filter((r) => r.referred);
       const headers = ["Referral code", "Referrer", "Respondent", "Organization", "Type", "Status", "Verified"];
-      if (money) headers.push("Bonus", "Bonus status");
-      const rows = list.map((r) => {
-        const base: (string | number)[] = [
-          r.referrer ?? "", r.referredBy ?? "", r.name, r.org, r.type, r.status, r.verified ? "Yes" : "No",
-        ];
-        if (money) base.push(bon(incentives, r.type), r.referrerPayStatus ?? "—");
-        return base;
-      });
+      const rows = list.map((r) => [
+        r.referrer ?? "", r.referredBy ?? "", r.name, r.org, r.type, r.status, r.verified ? "Yes" : "No",
+      ]);
       return { filename, content: toCsv(headers, rows) };
     }
 
     case "Payout report": {
-      // Financial report — not available to stakeholders.
+      // Enumerator payouts — flat ₱400 per verified survey. Not for stakeholders.
       if (!money) return null;
       const list = respondents.filter((r) => r.verified);
-      const headers = ["Name", "Type", "Method", "Token", "Payout status", "Referred", "Bonus", "Bonus status"];
+      const headers = ["Respondent", "Type", "Enumerator", "Enumerator payout", "Payout status", "Method"];
       const rows = list.map((r) => [
-        r.name, r.type, r.method ?? "—",
-        tok(incentives, r.type), r.payStatus ?? "—",
-        r.referred ? "Yes" : "No",
-        r.referred ? bon(incentives, r.type) : 0,
-        r.referred ? (r.referrerPayStatus ?? "—") : "—",
+        r.name, r.type, r.enumerator,
+        payoutFor(surveyPayout, r), r.payStatus ?? "—", r.method ?? "—",
       ]);
       return { filename, content: toCsv(headers, rows) };
     }

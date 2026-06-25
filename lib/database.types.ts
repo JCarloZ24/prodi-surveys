@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          id: boolean
+          survey_payout: number
+          targets: Json
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          survey_payout?: number
+          targets?: Json
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          survey_payout?: number
+          targets?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       otp_codes: {
         Row: {
           code: string

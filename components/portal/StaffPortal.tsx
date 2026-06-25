@@ -7,15 +7,15 @@ import { usePortal, USER_NAMES, PortalProvider } from "@/lib/store";
 import {
   counts,
   enumCards,
+  enumPayouts,
   filteredRows,
   funnel,
   funnelDetail,
   groups,
   groupBreakdown,
+  payoutFor,
   payoutTotals,
   refTiles,
-  tok,
-  bon,
   totals,
 } from "@/lib/selectors";
 import { aggregateResponses } from "@/lib/responses";
@@ -30,7 +30,7 @@ import { LogoMark } from "@/lib/icons";
 import { createBrowserSupabase } from "@/lib/supabase-browser";
 import { allowedViews, isViewAllowed } from "@/lib/portal-views";
 import { ReferrersView } from "@/components/portal/ReferrersView";
-import type { Respondent, RespondentType, Role, ViewKey } from "@/lib/types";
+import type { Respondent, RespondentType, Role, Targets, ViewKey } from "@/lib/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -77,11 +77,6 @@ function payBadge(s: string) {
   );
 }
 
-function tokenDisplay(type: string, incentives: { TSI: { token: number }; AgriTech: { token: number }; SME: { token: number } }) {
-  if (type === "TSI") return <span className="font-semibold text-[13px] text-gray-700">Small token</span>;
-  const amt = tok(incentives as Parameters<typeof tok>[0], type as Parameters<typeof tok>[1]);
-  return <span className="font-semibold text-[13px] text-[#18181B]">{peso(amt)}</span>;
-}
 
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 
@@ -113,16 +108,29 @@ export function PortalShell({
   role,
   initialRespondents,
   userName,
+  userSlug,
+  initialSurveyPayout,
+  initialTargets,
   children,
 }: {
   role: Role;
   initialRespondents: Respondent[];
   userName?: string;
+  userSlug?: string | null;
+  initialSurveyPayout?: number;
+  initialTargets?: Targets;
   children: React.ReactNode;
 }) {
   return (
-    <PortalProvider initialMode="portal" initialRole={role} initialRespondents={initialRespondents} initialUserName={userName}>
-      <PortalChrome role={role}>{children}</PortalChrome>
+    <PortalProvider
+      initialMode="portal"
+      initialRole={role}
+      initialRespondents={initialRespondents}
+      initialUserName={userName}
+      initialSurveyPayout={initialSurveyPayout}
+      initialTargets={initialTargets}
+    >
+      <PortalChrome role={role} userSlug={userSlug ?? null}>{children}</PortalChrome>
     </PortalProvider>
   );
 }
@@ -154,15 +162,138 @@ function useGoView() {
     router.push(`/portal/${state.role}/${view}${hash ? `#${hash}` : ""}`);
 }
 
-function PortalChrome({ role, children }: { role: Role; children: React.ReactNode }) {
+// Header menu exposing the respondent survey links. Admins see every approved
+// enumerator's link; an enumerator sees only their own. Respondents reach the
+// survey exclusively through these /s/<slug> links — there is no public landing.
+type EnumLink = { id: string; full_name: string | null; email: string; slug: string | null };
+
+function SurveyLinksMenu({ role, userSlug }: { role: Role; userSlug: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [base, setBase] = useState("https://www.prodigitalitydata.live");
+  const [enums, setEnums] = useState<EnumLink[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (window.location.hostname === "localhost") setBase(window.location.origin);
+  }, []);
+
+  // Admin: load every approved enumerator's slug the first time the menu opens.
+  useEffect(() => {
+    if (!open || role !== "admin" || enums.length) return;
+    let active = true;
+    setLoading(true);
+    fetch("/api/portal/users?role=enumerator&status=approved")
+      .then((r) => r.json())
+      .then((d) => {
+        if (active) setEnums(((d.users ?? []) as EnumLink[]).filter((u) => u.slug));
+      })
+      .catch(() => {
+        if (active) setEnums([]);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, role, enums.length]);
+
+  const linkFor = (slug: string) => `${base}/s/${slug}`;
+
+  const copy = async (slug: string) => {
+    try {
+      await navigator.clipboard.writeText(linkFor(slug));
+      setCopied(slug);
+      setTimeout(() => setCopied((c) => (c === slug ? null : c)), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+
+  const LinkRow = ({ label, slug }: { label: string; slug: string }) => (
+    <div className="rounded-[10px] border border-[#E4E4E7] p-2.5">
+      <div className="mb-1.5 truncate text-[12.5px] font-bold text-[#18181B]">{label}</div>
+      <div className="flex items-center gap-1.5">
+        <code className="flex-1 truncate rounded-[7px] bg-[#F4F4F5] px-2 py-1.5 font-mono text-[11.5px] text-gray-600">
+          /s/{slug}
+        </code>
+        <button
+          onClick={() => copy(slug)}
+          className="flex-none rounded-[7px] border border-[#E4E4E7] px-2 py-1.5 text-[11.5px] font-semibold text-gray-600 hover:border-gray-300 hover:bg-[#F7F7F8]"
+        >
+          {copied === slug ? "Copied" : "Copy"}
+        </button>
+        <a
+          href={linkFor(slug)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-none rounded-[7px] border border-[#E4E4E7] px-2 py-1.5 text-[11.5px] font-semibold text-gray-600 hover:border-gray-300 hover:bg-[#F7F7F8]"
+        >
+          Open
+        </a>
+      </div>
+    </div>
+  );
+
+  const isAdmin = role === "admin";
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 rounded-[9px] border border-[#E4E4E7] px-3.5 py-2 text-[12.5px] font-semibold text-gray-600 hover:border-gray-300 hover:bg-[#F7F7F8]"
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+        {isAdmin ? "Survey links" : "My survey link"}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-[340px] rounded-[12px] border border-[#E4E4E7] bg-white p-3 shadow-xl">
+            <div className="mb-2 px-0.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+              {isAdmin ? "Enumerator survey links" : "Your survey link"}
+            </div>
+
+            {isAdmin ? (
+              <div className="max-h-[360px] space-y-2 overflow-y-auto">
+                {loading ? (
+                  <div className="px-1 py-2 text-[12.5px] text-gray-400">Loading…</div>
+                ) : enums.length === 0 ? (
+                  <div className="px-1 py-2 text-[12.5px] text-gray-400">No approved enumerators yet.</div>
+                ) : (
+                  enums.map((e) => (
+                    <LinkRow key={e.id} label={e.full_name || e.email} slug={e.slug as string} />
+                  ))
+                )}
+              </div>
+            ) : userSlug ? (
+              <>
+                <LinkRow label="Share this with your respondents" slug={userSlug} />
+                <p className="mt-2 px-0.5 text-[11.5px] leading-[1.5] text-gray-400">
+                  Anyone who opens this link starts the survey credited to you.
+                </p>
+              </>
+            ) : (
+              <div className="px-1 py-2 text-[12.5px] text-gray-400">
+                No survey link assigned yet — contact an administrator.
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function PortalChrome({ role, userSlug, children }: { role: Role; userSlug: string | null; children: React.ReactNode }) {
   const { state, actions } = usePortal();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [surveyHref, setSurveyHref] = useState("https://www.prodigitalitydata.live");
-  useEffect(() => {
-    if (window.location.hostname === "localhost") setSurveyHref(window.location.origin);
-  }, []);
 
   const handleLogout = async () => {
     const supabase = createBrowserSupabase();
@@ -287,19 +418,9 @@ function PortalChrome({ role, children }: { role: Role; children: React.ReactNod
           </div>
           <div className="flex-1" />
 
-          {/* Respondent flow button */}
+          {/* Survey link(s): admin → all enumerator links; enumerator → own link */}
           {role !== "stakeholder" && (
-            <a
-              href={surveyHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-[9px] border border-[#E4E4E7] px-3.5 py-2 text-[12.5px] font-semibold text-gray-600 hover:border-gray-300 hover:bg-[#F7F7F8]"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-              </svg>
-              Respondent flow
-            </a>
+            <SurveyLinksMenu role={role} userSlug={userSlug} />
           )}
 
           {/* User info + signout */}
@@ -395,12 +516,9 @@ function Dashboard() {
   const grps = useMemo(() => groups(state.respondents, state.targets), [state.respondents, state.targets]);
   const { totalTarget, remaining } = useMemo(() => totals(state.targets, c.verified), [state.targets, c.verified]);
   const funnelSteps = useMemo(() => funnel(state.respondents, c, totalTarget), [state.respondents, c, totalTarget]);
-  const pt = useMemo(() => payoutTotals(state.respondents, state.incentives), [state.respondents, state.incentives]);
-  const tiles = useMemo(() => {
-    const all = refTiles(state.respondents, state.incentives);
-    // Stakeholders never see monetary figures — drop the bonus value tile.
-    return state.role === "stakeholder" ? all.filter((t) => t.label !== "Pending bonuses") : all;
-  }, [state.respondents, state.incentives, state.role]);
+  const pt = useMemo(() => payoutTotals(state.respondents, state.surveyPayout), [state.respondents, state.surveyPayout]);
+  // Referral attribution tiles (counts only — no bonus money any more).
+  const tiles = useMemo(() => refTiles(state.respondents), [state.respondents]);
 
   return (
     <div className="space-y-5">
@@ -553,12 +671,8 @@ function Dashboard() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-[12px] p-4" style={{ background: "rgba(255,255,255,0.08)" }}>
-                <div className="text-[22px] font-extrabold text-white">{peso(pt.tokensPending)}</div>
-                <div className="mt-0.5 text-[11.5px] text-white/45">Tokens pending</div>
-              </div>
-              <div className="rounded-[12px] p-4" style={{ background: "rgba(255,255,255,0.08)" }}>
-                <div className="text-[22px] font-extrabold text-white">{peso(pt.bonusPending)}</div>
-                <div className="mt-0.5 text-[11.5px] text-white/45">Bonuses pending</div>
+                <div className="text-[22px] font-extrabold text-white">{peso(pt.pending)}</div>
+                <div className="mt-0.5 text-[11.5px] text-white/45">Enumerator payouts pending</div>
               </div>
               <div className="rounded-[12px] p-4" style={{ background: "rgba(255,255,255,0.08)" }}>
                 <div className="text-[22px] font-extrabold text-white">{peso(pt.paidTotal)}</div>
@@ -674,7 +788,7 @@ function RespondentsView() {
                     "RESPONDENT", "TYPE", "REGION", "MODE", "ENUMERATOR", "REFERRED BY", "PROFILE STATUS",
                     ...(showMoney ? ["PAY STATUS"] : []),
                     "FLAGS",
-                    ...(showMoney ? ["TOKEN"] : []),
+                    ...(showMoney ? ["PAYOUT"] : []),
                   ].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{h}</th>
                   ))}
@@ -701,13 +815,8 @@ function RespondentsView() {
                     <td className="px-4 py-3">{typeBadge(r.type)}</td>
                     <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.region || "—"}</td>
                     <td className="px-4 py-3">
-                      <span className={cx(
-                        "rounded-md px-2 py-0.5 text-[11.5px] font-semibold",
-                        r.mode === "Self-service"
-                          ? "bg-gray-100 text-gray-600"
-                          : "bg-blue-50 text-blue-700",
-                      )}>
-                        {r.mode === "Self-service" ? "Self-service" : "Enumerator-assisted"}
+                      <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11.5px] font-semibold text-blue-700">
+                        Enumerator-assisted
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.enumerator || "—"}</td>
@@ -731,7 +840,13 @@ function RespondentsView() {
                       )}
                       {(!r.flags || r.flags.length === 0) && <span className="text-gray-300">—</span>}
                     </td>
-                    {showMoney && <td className="px-4 py-3">{tokenDisplay(r.type, state.incentives)}</td>}
+                    {showMoney && (
+                      <td className="px-4 py-3">
+                        {r.verified
+                          ? <span className="font-semibold text-[13px] text-[#18181B]">{peso(payoutFor(state.surveyPayout, r))}</span>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -793,7 +908,7 @@ function QaView() {
                     {typeBadge(r.type)}
                   </div>
                   <div className="mt-0.5 text-[12.5px] text-gray-500">
-                    {r.org} · {r.region || "—"} · {r.mode === "Self-service" ? "Self-service" : "Enumerator-assisted"}
+                    {r.org} · {r.region || "—"} · Enumerator-assisted
                   </div>
                 </div>
                 <button
@@ -983,41 +1098,42 @@ function PayoutActionCell({
 function PayoutsView() {
   const { state, actions } = usePortal();
   const isAdmin = state.role === "admin";
-  const pt = useMemo(() => payoutTotals(state.respondents, state.incentives), [state.respondents, state.incentives]);
+  const payout = state.surveyPayout;
+  const pt = useMemo(() => payoutTotals(state.respondents, payout), [state.respondents, payout]);
   const verifiedRespondents = useMemo(
     () => state.respondents.filter((r) => r.verified),
     [state.respondents],
   );
-  // One referral-bonus row per verified respondent who used a referral code.
-  const referralRows = useMemo(
-    () => verifiedRespondents.filter((r) => r.referred && bon(state.incentives, r.type) > 0),
-    [verifiedRespondents, state.incentives],
+  // Per-enumerator summary: verified surveys × ₱400, split paid vs pending.
+  const summary = useMemo(
+    () => enumPayouts(state.respondents, payout, initials),
+    [state.respondents, payout],
   );
 
-  const [tab, setTab] = useState<"respondents" | "referrers">("respondents");
   const [payFilter, setPayFilter] = useState("all");
 
-  // Referrer directory (name + payout details) keyed by referral code, so the
-  // Referrers tab can show who is owed the bonus and where to send it.
-  const [referrers, setReferrers] = useState<Record<string, ReferrerLite>>({});
+  // Enumerator payout accounts (from their profiles), keyed by full name — so
+  // each ₱400 row can show where to send the enumerator's payout.
+  const [enumAccts, setEnumAccts] = useState<Record<string, ReferrerLite>>({});
   useEffect(() => {
     let active = true;
-    fetch("/api/portal/referrers")
-      .then((res) => (res.ok ? res.json() : { referrers: [] }))
-      .then((data: { referrers?: { referral_code: string; full_name: string; payout_details: { method?: string; acctNum?: string; acctName?: string } | null }[] }) => {
+    fetch("/api/portal/users?role=enumerator&status=approved")
+      .then((res) => (res.ok ? res.json() : { users: [] }))
+      .then((data: { users?: { full_name: string | null; payout_details: { method?: string; acctNum?: string; acctName?: string } | null }[] }) => {
         if (!active) return;
         const map: Record<string, ReferrerLite> = {};
-        for (const ref of data.referrers ?? []) {
-          map[ref.referral_code] = {
-            name: ref.full_name,
-            method: ref.payout_details?.method ?? "",
-            acctNum: ref.payout_details?.acctNum ?? "",
-            acctName: ref.payout_details?.acctName ?? "",
+        for (const u of data.users ?? []) {
+          if (!u.full_name) continue;
+          map[u.full_name] = {
+            name: u.full_name,
+            method: u.payout_details?.method ?? "",
+            acctNum: u.payout_details?.acctNum ?? "",
+            acctName: u.payout_details?.acctName ?? "",
           };
         }
-        setReferrers(map);
+        setEnumAccts(map);
       })
-      .catch(() => { /* non-admins get 403 — referrer details fall back to "—" */ });
+      .catch(() => { /* non-admins get 403 — accounts fall back to "—" */ });
     return () => { active = false; };
   }, []);
 
@@ -1027,57 +1143,64 @@ function PayoutsView() {
       : verifiedRespondents.filter((r) => (r.payStatus || "Pending") === payFilter),
     [verifiedRespondents, payFilter],
   );
-  const filteredReferralRows = useMemo(
-    () => payFilter === "all"
-      ? referralRows
-      : referralRows.filter((r) => (r.referrerPayStatus || "Pending") === payFilter),
-    [referralRows, payFilter],
-  );
-
-  const tabs: [typeof tab, string, number][] = [
-    ["respondents", "Respondents", filteredRespondents.length],
-    ["referrers", "Referrers", filteredReferralRows.length],
-  ];
 
   const PAY_FILTERS = ["all", "Pending", "Approved", "Paid", "On Hold"];
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Payout tracking"
-        sub="Tracking only — no payment gateway integration. Visible to Prodigitality Admin."
-        action={
-          <button className="flex items-center gap-1.5 rounded-[9px] border border-[#E4E4E7] bg-white px-3.5 py-2 text-[12.5px] font-semibold text-gray-600 hover:bg-[#F7F7F8]">
-            Export payout report
-          </button>
-        }
+        title="Enumerator payouts"
+        sub={`Tracking only — ${peso(payout)} per verified survey, paid to the enumerator. Visible to Prodigitality Admin.`}
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <StatCard label="Tokens pending"  value={peso(pt.tokensPending)} color="#D97706" />
-        <StatCard label="Bonuses pending" value={peso(pt.bonusPending)}  color="#7C3AED" />
-        <StatCard label="Paid out"        value={peso(pt.paidTotal)}     color="#15803D" />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard label="Payouts pending" value={peso(pt.pending)}    color="#D97706" />
+        <StatCard label="Paid out"        value={peso(pt.paidTotal)}  color="#15803D" />
         <StatCard label="On hold"         value={pt.onHold} />
-        <StatCard label="Total verified"  value={verifiedRespondents.length} />
+        <StatCard label="Verified surveys" value={verifiedRespondents.length} />
       </div>
 
-      {/* Tabs + Status filter */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex gap-1.5">
-          {tabs.map(([key, label, count]) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={cx(
-                "rounded-[9px] px-3.5 py-2 text-[12.5px] font-bold",
-                tab === key ? "bg-[#18181B] text-white" : "border border-[#E4E4E7] bg-white text-gray-600 hover:bg-[#F7F7F8]",
-              )}
-            >
-              {label} · {count}
-            </button>
-          ))}
+      {/* Per-enumerator summary */}
+      {summary.length > 0 && (
+        <div className="overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white">
+          <div className="border-b border-[#F2F2F4] px-4 py-3 text-[13px] font-bold text-[#18181B]">
+            By enumerator
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px]">
+              <thead>
+                <tr className="border-b border-[#F2F2F4]">
+                  {["ENUMERATOR", "VERIFIED SURVEYS", "TOTAL", "PAID", "PENDING"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {summary.map((e) => (
+                  <tr key={e.name} className="border-b border-[#F5F5F7] last:border-0">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-[11.5px] font-extrabold text-white" style={{ background: e.avatarBg }}>
+                          {e.initials}
+                        </div>
+                        <span className="text-[13px] font-bold text-[#18181B]">{e.name === "—" ? "Unassigned" : e.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-[13px] text-gray-700">{e.surveys}</td>
+                    <td className="px-4 py-3 text-[13px] font-semibold text-[#18181B]">{peso(e.total)}</td>
+                    <td className="px-4 py-3 text-[13px] text-emerald-700">{peso(e.paid)}</td>
+                    <td className="px-4 py-3 text-[13px] text-amber-700">{peso(e.pending)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+      )}
+
+      {/* Status filter */}
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-1 rounded-[9px] border border-[#E4E4E7] bg-white p-1">
           {PAY_FILTERS.map((f) => (
             <button
@@ -1094,132 +1217,61 @@ function PayoutsView() {
         </div>
       </div>
 
-      {tab === "respondents" && (
-        <div className="overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px]">
-              <thead>
-                <tr className="border-b border-[#F2F2F4]">
-                  {["RESPONDENT", "TOKEN", "METHOD", "ACCOUNT / MOBILE", "PAYOUT STATUS", "ACTION"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRespondents.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[13px] text-gray-400">No respondents match this filter.</td></tr>
-                ) : filteredRespondents.map((r) => {
-                  const tokenAmt = tok(state.incentives, r.type);
-                  return (
-                    <tr key={r.id} className="border-b border-[#F5F5F7] last:border-0">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-[11.5px] font-extrabold text-white" style={{ background: avatarColor(r.name) }}>
-                            {initials(r.name)}
-                          </div>
-                          <div>
-                            <div className="text-[13px] font-bold text-[#18181B]">{r.name}</div>
-                            <div className="text-[11.5px] text-gray-400">{r.type === "TSI" ? "TSI" : r.type} · {r.email}</div>
-                          </div>
+      {/* Per-survey payouts (each verified survey = ₱400 to its enumerator) */}
+      <div className="overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[820px]">
+            <thead>
+              <tr className="border-b border-[#F2F2F4]">
+                {["ENUMERATOR", "SURVEY", "PAYOUT", "METHOD", "ACCOUNT / MOBILE", "PAYOUT STATUS", "ACTION"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRespondents.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-[13px] text-gray-400">No payouts match this filter.</td></tr>
+              ) : filteredRespondents.map((r) => {
+                const enumName = r.enumerator && r.enumerator !== "—" ? r.enumerator : "Unassigned";
+                const acct = enumAccts[r.enumerator];
+                return (
+                  <tr key={r.id} className="border-b border-[#F5F5F7] last:border-0">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-[11.5px] font-extrabold text-white" style={{ background: avatarColor(enumName) }}>
+                          {initials(enumName)}
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {r.type === "TSI"
-                          ? <span className="text-[13px] font-semibold text-gray-700">Small token</span>
-                          : <span className="text-[13px] font-semibold text-[#18181B]">{peso(tokenAmt)}</span>
-                        }
-                      </td>
-                      <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.method || "—"}</td>
-                      <td className="px-4 py-3">
-                        {isAdmin && r.acctNum
-                          ? <RevealNumber value={r.acctNum} name={r.acctName} canReveal />
-                          : <span className="text-[12.5px] text-gray-600">{r.acct !== "—" ? r.acct : "—"}</span>}
-                      </td>
-                      <td className="px-4 py-3">{payBadge(r.payStatus || "Pending")}</td>
-                      <td className="px-4 py-3">
-                        <PayoutActionCell
-                          status={r.payStatus || "Pending"}
-                          role={state.role}
-                          onApprove={() => actions.approvePayout(r.id)}
-                          onHold={() => actions.holdPayout(r.id)}
-                          onMarkPaid={() => actions.markPaid(r.id)}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        <div className="text-[13px] font-bold text-[#18181B]">{enumName}</div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-[12.5px] font-semibold text-[#18181B]">{r.name}</div>
+                      <div className="text-[11.5px] text-gray-400">{r.type === "TSI" ? "TSI" : r.type} · {r.org}</div>
+                    </td>
+                    <td className="px-4 py-3"><span className="text-[13px] font-semibold text-[#18181B]">{peso(payout)}</span></td>
+                    <td className="px-4 py-3 text-[12.5px] text-gray-600">{acct?.method || "—"}</td>
+                    <td className="px-4 py-3">
+                      {isAdmin && acct?.acctNum
+                        ? <RevealNumber value={acct.acctNum} name={acct.acctName} canReveal />
+                        : <span className="text-[12.5px] text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3">{payBadge(r.payStatus || "Pending")}</td>
+                    <td className="px-4 py-3">
+                      <PayoutActionCell
+                        status={r.payStatus || "Pending"}
+                        role={state.role}
+                        onApprove={() => actions.approvePayout(r.id)}
+                        onHold={() => actions.holdPayout(r.id)}
+                        onMarkPaid={() => actions.markPaid(r.id)}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
-
-      {tab === "referrers" && (
-        <div className="overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white">
-          <div className="border-b border-[#F2F2F4] bg-[#FAFAFB] px-4 py-2.5 text-[11.5px] text-gray-500">
-            Referrer bonuses release only after the referred respondent has been paid.
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px]">
-              <thead>
-                <tr className="border-b border-[#F2F2F4]">
-                  {["REFERRER", "REFERRED RESPONDENT", "BONUS", "METHOD", "ACCOUNT / MOBILE", "BONUS STATUS", "ACTION"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredReferralRows.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-[13px] text-gray-400">{referralRows.length === 0 ? "No referral bonuses yet." : "No referrer bonuses match this filter."}</td></tr>
-                ) : filteredReferralRows.map((r) => {
-                  const bonusAmt = bon(state.incentives, r.type);
-                  const ref = r.referrer ? referrers[r.referrer] : undefined;
-                  const refName = ref?.name || r.referredBy || r.referrer || "—";
-                  const respondentPaid = r.payStatus === "Paid";
-                  const refStatus = r.referrerPayStatus || "Pending";
-                  return (
-                    <tr key={r.id} className="border-b border-[#F5F5F7] last:border-0">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-[11.5px] font-extrabold text-white" style={{ background: avatarColor(refName) }}>
-                            {initials(refName)}
-                          </div>
-                          <div>
-                            <div className="text-[13px] font-bold text-[#18181B]">{refName}</div>
-                            <div className="text-[11.5px] text-gray-400">{r.referrer || "—"}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-[12.5px] font-semibold text-[#18181B]">{r.name}</div>
-                        <div className="text-[11.5px] text-gray-400">{r.type === "TSI" ? "TSI" : r.type}</div>
-                      </td>
-                      <td className="px-4 py-3"><span className="text-[13px] font-semibold text-emerald-700">{peso(bonusAmt)}</span></td>
-                      <td className="px-4 py-3 text-[12.5px] text-gray-600">{ref?.method || "—"}</td>
-                      <td className="px-4 py-3">
-                        {isAdmin && ref?.acctNum
-                          ? <RevealNumber value={ref.acctNum} name={ref.acctName} canReveal />
-                          : <span className="text-[12.5px] text-gray-300">—</span>}
-                      </td>
-                      <td className="px-4 py-3">{payBadge(refStatus)}</td>
-                      <td className="px-4 py-3">
-                        <PayoutActionCell
-                          status={refStatus}
-                          role={state.role}
-                          onApprove={() => actions.approveReferrerPayout(r.id)}
-                          onHold={() => actions.holdReferrerPayout(r.id)}
-                          onMarkPaid={() => actions.markReferrerPaid(r.id)}
-                          disabledReason={respondentPaid ? undefined : "Pay respondent first"}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1929,11 +1981,8 @@ function SubmissionsReport({ respondents }: { respondents: Respondent[] }) {
                         : "—"}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={cx(
-                        "rounded-md px-2 py-0.5 text-[11.5px] font-semibold",
-                        r.mode === "Self-service" ? "bg-gray-100 text-gray-600" : "bg-blue-50 text-blue-700",
-                      )}>
-                        {r.mode === "Self-service" ? "Self-service" : "Enumerator-assisted"}
+                      <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11.5px] font-semibold text-blue-700">
+                        Enumerator-assisted
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.enumerator || "—"}</td>
@@ -2642,12 +2691,11 @@ function SettingsView() {
   const { state, actions } = usePortal();
   const types   = ["TSI", "AgriTech", "SME"] as const;
   const typeNames = { TSI: "Trade Support Institutions (TSI)", AgriTech: "Agri-Tech Providers (AFTP)", SME: "Food Processing SMEs" };
-  const typeShortNames = { TSI: "Trade Support Institutions", AgriTech: "Agri-Tech Providers (AFTP)", SME: "Food Processing SMEs" };
   const totalTarget = types.reduce((s, t) => s + (Number(state.draftTargets[t]) || 0), 0);
 
   return (
     <div className="max-w-[760px] space-y-5">
-      <PageHeader title="Settings" sub="Targets, incentive structure & survey paths." />
+      <PageHeader title="Settings" sub="Targets, enumerator payout & survey paths." />
 
       {/* Target respondents */}
       <div className="rounded-2xl border border-[#E4E4E7] bg-white p-6">
@@ -2677,63 +2725,26 @@ function SettingsView() {
         </div>
       </div>
 
-      {/* Token & referral structure */}
-      <div className="rounded-2xl border border-[#E4E4E7] bg-white overflow-hidden">
-        <div className="px-5 py-4 border-b border-[#F2F2F4] flex items-center justify-between">
-          <span className="text-[14px] font-bold text-[#18181B]">Token & referral structure</span>
-          <span className="text-[12px] text-gray-400">Amounts in ₱ · editable</span>
+      {/* Enumerator payout */}
+      <div className="rounded-2xl border border-[#E4E4E7] bg-white p-6">
+        <div className="mb-1 text-[14px] font-bold text-[#18181B]">Enumerator payout</div>
+        <p className="mb-4 text-[12.5px] text-gray-500">
+          Flat amount paid to the enumerator for each verified (successful) survey. Respondents
+          and referrers are not paid.
+        </p>
+        <div className="flex items-center justify-between">
+          <span className="text-[13px] font-semibold text-gray-700">Payout per verified survey</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[14px] text-gray-400">₱</span>
+            <input
+              type="number"
+              min={0}
+              value={state.draftSurveyPayout}
+              onChange={(e) => actions.setSurveyPayout(e.target.value)}
+              className="h-9 w-24 rounded-[8px] border border-[#E4E4E7] bg-[#F7F7F8] px-3 text-[14px] font-semibold text-center focus:border-[#18181B] focus:outline-none"
+            />
+          </div>
         </div>
-        <table className="w-full min-w-[480px]">
-          <thead>
-            <tr className="border-b border-[#F2F2F4]">
-              {["GROUP", "RESPONDENT TOKEN", "REFERRAL BONUS", "TOTAL / VERIFIED"].map((h) => (
-                <th key={h} className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {types.map((t) => {
-              const total = (state.draftIncentives[t]?.token || 0) + (state.draftIncentives[t]?.bonus || 0);
-              return (
-                <tr key={t} className="border-b border-[#F5F5F7] last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full flex-none" style={{ background: t === "TSI" ? "#7C3AED" : t === "AgriTech" ? "#059669" : "#E0195F" }} />
-                      <span className="text-[12.5px] font-semibold text-gray-700">{typeShortNames[t]}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[13px] text-gray-400">₱</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={state.draftIncentives[t]?.token ?? 0}
-                        onChange={(e) => actions.setIncentive(t, "token", e.target.value)}
-                        className="h-8 w-20 rounded-[8px] border border-[#E4E4E7] bg-[#F7F7F8] px-2 text-[13px] font-semibold focus:border-[#18181B] focus:outline-none"
-                      />
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[13px] text-gray-400">₱</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={state.draftIncentives[t]?.bonus ?? 0}
-                        onChange={(e) => actions.setIncentive(t, "bonus", e.target.value)}
-                        className="h-8 w-20 rounded-[8px] border border-[#E4E4E7] bg-[#F7F7F8] px-2 text-[13px] font-semibold focus:border-[#18181B] focus:outline-none"
-                      />
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-[13px] font-bold text-[#18181B]">
-                    {peso(total)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
       </div>
 
       {/* Survey paths */}
@@ -2775,7 +2786,7 @@ function SettingsView() {
           <div className="w-full max-w-[380px] rounded-2xl bg-white p-6 shadow-2xl">
             <h2 className="mb-2 text-[17px] font-extrabold">Save settings?</h2>
             <p className="mb-5 text-[13px] text-gray-500">
-              This will update targets and incentive amounts for all future respondents.
+              This will update targets and the enumerator payout for all future surveys.
             </p>
             <div className="flex gap-2.5">
               <button onClick={actions.cancelSaveSettings} className="flex-1 rounded-[10px] border border-[#E4E4E7] py-2.5 text-[13.5px] font-semibold text-gray-600">
@@ -2803,8 +2814,7 @@ function ProfileDrawer() {
   const r = state.respondents.find((x) => x.id === state.selectedId);
   if (!r) return null;
 
-  const bonusAmt  = r.verified && r.referred ? bon(state.incentives, r.type) : 0;
-  const tokenAmt  = tok(state.incentives, r.type);
+  const payoutAmt = payoutFor(state.surveyPayout, r);
   const isAdmin   = state.role === "admin";
   const snapshot  = r.snapshot ?? [];
 
@@ -2983,10 +2993,9 @@ function ProfileDrawer() {
               </div>
               <div className="space-y-2.5">
                 {([
-                  ["Respondent token", r.type === "TSI" ? "Small Token" : peso(tokenAmt)],
-                  ["Referral bonus",   bonusAmt > 0 ? peso(bonusAmt) : "Not eligible"],
-                  ["Method",          r.method && r.method !== "—" ? `${r.method}${r.acct && r.acct !== "—" ? " " + r.acct : ""}`.trim() : "—"],
-                  ["Payout status",   r.payStatus || "—"],
+                  ["Enumerator",       r.enumerator || "—"],
+                  ["Enumerator payout", r.verified ? peso(payoutAmt) : "—"],
+                  ["Payout status",    r.payStatus || "—"],
                 ] as [string, string][]).map(([label, value]) => (
                   <div key={label} className="flex items-center justify-between">
                     <span className="text-[12.5px] text-gray-500">{label}</span>
@@ -3050,7 +3059,7 @@ function ProfileDrawer() {
               onClick={() => actions.markPaid(r.id)}
               className="w-full rounded-[10px] bg-emerald-600 py-3 text-[13.5px] font-bold text-white hover:bg-emerald-700"
             >
-              Mark as paid · {r.type === "TSI" ? "Small token" : peso(tokenAmt)}
+              Mark as paid · {peso(payoutAmt)}
             </button>
           </div>
         )}

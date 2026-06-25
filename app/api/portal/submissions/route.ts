@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase-server";
-import { rowsToRespondents } from "@/lib/submission-mapper";
+import { rowsToRespondents, buildEnumSlugMap } from "@/lib/submission-mapper";
 
 export async function GET() {
   const me = await getProfile();
@@ -10,19 +10,24 @@ export async function GET() {
   }
 
   const db = createAdminClient();
-  const { data, error } = await db
-    .from("submissions")
-    .select("*")
-    .neq("survey_type", "lead")
-    .eq("is_survey_completed", true)
-    .order("created_at", { ascending: false });
+  const [{ data, error }, { data: enumProfiles }] = await Promise.all([
+    db
+      .from("submissions")
+      .select("*")
+      .neq("survey_type", "lead")
+      .eq("is_survey_completed", true)
+      .order("created_at", { ascending: false }),
+    db.from("profiles").select("slug, full_name").eq("role", "enumerator"),
+  ]);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const enumBySlug = buildEnumSlugMap(enumProfiles ?? []);
   let respondents = rowsToRespondents(
     (data ?? []).map((row) => row as Record<string, unknown>),
+    enumBySlug,
   );
   // Full payout numbers + account names are admin-only — strip for other roles.
   if (me.role !== "admin") {

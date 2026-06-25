@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { requireApproved } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase-server";
-import { rowsToRespondents } from "@/lib/submission-mapper";
+import { rowsToRespondents, buildEnumSlugMap } from "@/lib/submission-mapper";
 import { PortalShell } from "@/components/portal/StaffPortal";
 import { defaultView, isRole } from "@/lib/portal-views";
+import { getAppSettings } from "@/lib/settings";
 import type { Respondent } from "@/lib/types";
 
 // Role-scoped portal shell. Gates on an approved profile, enforces that the URL
@@ -25,14 +26,19 @@ export default async function PortalRoleLayout({
   let respondents: Respondent[] = [];
   try {
     const db = createAdminClient();
-    const { data } = await db
-      .from("submissions")
-      .select("*")
-      .neq("survey_type", "lead")
-      .eq("is_survey_completed", true)
-      .order("created_at", { ascending: false });
+    const [{ data }, { data: enumProfiles }] = await Promise.all([
+      db
+        .from("submissions")
+        .select("*")
+        .neq("survey_type", "lead")
+        .eq("is_survey_completed", true)
+        .order("created_at", { ascending: false }),
+      db.from("profiles").select("slug, full_name").eq("role", "enumerator"),
+    ]);
+    const enumBySlug = buildEnumSlugMap(enumProfiles ?? []);
     respondents = rowsToRespondents(
       (data ?? []).map((row) => row as Record<string, unknown>),
+      enumBySlug,
     );
     // Full payout numbers + account names are admin-only — strip them for other
     // roles so they never reach the client payload.
@@ -43,11 +49,16 @@ export default async function PortalRoleLayout({
     // DB unavailable — portal loads with an empty respondent list.
   }
 
+  const settings = await getAppSettings();
+
   return (
     <PortalShell
       role={profile.role}
       initialRespondents={respondents}
       userName={profile.full_name ?? undefined}
+      userSlug={profile.slug ?? null}
+      initialSurveyPayout={settings.surveyPayout}
+      initialTargets={settings.targets}
     >
       {children}
     </PortalShell>
