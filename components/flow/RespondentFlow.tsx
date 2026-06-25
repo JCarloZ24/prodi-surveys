@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { usePortal } from "@/lib/store";
 import { classify } from "@/lib/classify";
-import { surveyDef, qCount } from "@/lib/survey";
 import { tok, bon } from "@/lib/selectors";
 import { peso, typePillClass, typeShort } from "@/lib/format";
 import { LogoMark } from "@/lib/icons";
@@ -14,27 +13,23 @@ import { FlowNav } from "./FlowNav";
 import { ProfileStep } from "./ProfileStep";
 import { SurveyStep } from "./SurveyStep";
 
-// Wizard step numbers (the gaps are intentional — they mirror the design's
-// branching, where Handoff(4) sits before Survey and survey-only respondents
-// enter at Survey(5)). Step 3 (Verify/OTP) has been removed — Register(2) goes
-// straight to Handoff(4):
-//   0 Welcome · 1 Profile · 2 Register · 4 Handoff
+// Wizard step numbers (the gaps are intentional — Survey enters at 5). Steps 3
+// (Verify/OTP) and 4 (Handoff) have been removed — Register(2) goes straight to
+// Survey(5), and every respondent is enumerator-assisted:
+//   0 Welcome · 1 Profile · 2 Register
 //   5 Survey · 6 Selfie · 7 Payout · 8 Review · 9 Success
 export function RespondentFlow() {
   const { state, actions } = usePortal();
   const step = state.rStep;
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
-  // Progress indicator: survey-only respondents only ever see Survey onward,
-  // and the Payout pip drops out when no token is offered.
+  // Progress indicator: the Payout pip drops out when no token is offered.
   const isTSI = state.rType === "TSI";
-  const stepDefs: [string, number][] = [];
-  if (!state.surveyOnly) stepDefs.push(["Profile", 1], ["Register", 2], ["Handoff", 4]);
-  stepDefs.push(["Survey", 5], ["Selfie", 6]);
+  const stepDefs: [string, number][] = [["Profile", 1], ["Register", 2], ["Survey", 5], ["Selfie", 6]];
   // TSI no longer has a Free Token / shipping step; only non-TSI paths show Payout.
   if (!isTSI && state.payoutOn) stepDefs.push(["Payout", 7]);
   stepDefs.push(["Submit", 8]);
-  const showSteps = state.surveyOnly ? step >= 5 && step <= 8 : step >= 1 && step <= 8;
+  const showSteps = step >= 1 && step <= 8;
   const activeIdx = stepDefs.findIndex(([, t]) => step === t);
   const progressPct = stepDefs.length ? ((activeIdx + 1) / stepDefs.length) * 100 : 0;
 
@@ -127,7 +122,6 @@ export function RespondentFlow() {
           {step === 1 && <ProfileStep />}
           {step === 2 && <Register />}
           {step === 3 && <Otp />}
-          {step === 4 && <Handoff />}
           {step === 5 && <SurveyStep />}
           {step === 6 && <Selfie />}
           {step === 7 && (isTSI ? <Shipping /> : <Payout />)}
@@ -369,7 +363,7 @@ function Register() {
   const mobileOk = mobileLocal.replace(/\D/g, "").length === 10;
   const canContinue = nameOk && emailOk && mobileOk;
 
-  // OTP step removed: create the submission row here, then advance to Handoff.
+  // Create the partial submission row here, then advance to the survey.
   const onContinue = () => {
     void actions.startSubmission();
     actions.flowNext();
@@ -544,7 +538,7 @@ function Otp() {
   // =false). The final submit updates this same row. Skipped in preview and when a
   // row already exists (e.g. user navigated back to re-verify). Never blocks verify.
   const startSubmission = async () => {
-    if (state.submissionId || state.handoffMode === "preview") return;
+    if (state.submissionId) return;
     try {
       const res = await fetch("/api/submit/start", {
         method: "POST",
@@ -643,162 +637,6 @@ function Otp() {
         >
           Resend code
         </button>
-      )}
-    </div>
-  );
-}
-
-function Handoff() {
-  const { state, actions } = usePortal();
-  const [emailSending, setEmailSending] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const picking = state.handoffMode !== "link";
-  const who = (state.reg.name || "").trim() || "the respondent";
-  // The self-service link mirrors the enumerator's own URL (slug + referral code)
-  // plus self-service=true, so the respondent skips Profile/Register/Verify and
-  // starts at the survey. t=<type> preserves the survey type the Profile step
-  // would otherwise have determined.
-  const surveyParams = new URLSearchParams();
-  if (state.reg.code) surveyParams.set("referral-code", state.reg.code);
-  surveyParams.set("self-service", "true");
-  surveyParams.set("t", state.rType);
-  // The partial submission id (created at the verify step) lets the self-service
-  // session continue the same row — inheriting the respondent's identity instead
-  // of starting blank. Falls back to the t/referral-code params if it's absent.
-  if (state.submissionId) surveyParams.set("sid", state.submissionId);
-  const surveyLink = publicUrl(`/s/${encodeURIComponent(state.enumeratorSlug)}?${surveyParams.toString()}`);
-
-  const handleSendEmail = async () => {
-    setEmailSending(true);
-    try {
-      await fetch("/api/send-survey-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: state.reg.email, name: who, surveyLink }),
-      });
-      setEmailSent(true);
-    } finally {
-      setEmailSending(false);
-    }
-  };
-
-  return (
-    <div>
-      <div className="mb-[22px] text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#15803D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 6L9 17l-5-5" />
-          </svg>
-        </div>
-        <h1 className="mb-2 text-[22px] font-extrabold tracking-[-.5px]">Registration complete</h1>
-        <p className="mx-auto max-w-[430px] text-[13.5px] text-gray-500">
-          How should <b className="text-gray-700">{who}</b> complete the survey?
-        </p>
-      </div>
-
-      {picking ? (
-        <>
-          <div className="flex flex-col gap-3">
-            <div
-              onClick={actions.handoffAssisted}
-              className="flex cursor-pointer items-start gap-3.5 rounded-2xl border-[1.5px] border-line bg-white p-[18px] hover:border-brand-pink hover:bg-brand-pinkSoft2"
-            >
-              <div className="flex h-[42px] w-[42px] flex-none items-center justify-center rounded-[11px] bg-brand-pinkSoft text-brand-pink">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="9" cy="8" r="3.2" />
-                  <path d="M3 20a6 6 0 0 1 12 0" />
-                  <path d="M17 11l2 2 4-4" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <div className="mb-[3px] text-[14.5px] font-bold">I&apos;ll assist them now</div>
-                <div className="text-[12.5px] leading-[1.5] text-gray-400">
-                  Stay with the respondent and fill out the survey together in this session
-                  (enumerator-assisted).
-                </div>
-              </div>
-              <svg className="mt-3" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C4C4CC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 18l6-6-6-6" />
-              </svg>
-            </div>
-
-            <div
-              onClick={actions.handoffSendLink}
-              className="flex cursor-pointer items-start gap-3.5 rounded-2xl border-[1.5px] border-line bg-white p-[18px] hover:border-brand-pink hover:bg-brand-pinkSoft2"
-            >
-              <div className="flex h-[42px] w-[42px] flex-none items-center justify-center rounded-[11px] bg-indigo-50 text-indigo-600">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5" />
-                  <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <div className="mb-[3px] text-[14.5px] font-bold">Send them a self-service link</div>
-                <div className="text-[12.5px] leading-[1.5] text-gray-400">
-                  The respondent completes the survey on their own device. They&apos;ll only see the
-                  survey — not the profile, registration, or verification steps.
-                </div>
-              </div>
-              <svg className="mt-3" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C4C4CC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 18l6-6-6-6" />
-              </svg>
-            </div>
-          </div>
-          <div className="mt-4">
-            <button
-              onClick={actions.flowBack}
-              className="h-11 w-full rounded-[11px] border border-[#E2E2E6] bg-white text-[13.5px] font-bold text-gray-700"
-            >
-              Back
-            </button>
-          </div>
-        </>
-      ) : (
-        <div className="rounded-2xl border border-line bg-white p-5">
-          <div className="mb-1.5 flex items-center gap-2.5">
-            <span className="rounded-md bg-green-100 px-2.5 py-[3px] text-[11px] font-bold text-green-700">
-              LINK READY
-            </span>
-            <span className="text-[12.5px] text-gray-400">Survey-only · expires in 7 days</span>
-          </div>
-          <p className="my-2.5 mb-3 text-[13px] leading-[1.55] text-gray-500">
-            Share this link with {who}. Opening it shows only the survey — none of the earlier steps.
-          </p>
-          <div className="mb-4 flex items-center gap-2 rounded-[9px] border border-line2 bg-muted px-[13px] py-[11px]">
-            <span className="flex-1 break-all font-mono text-[13px] text-gray-700">{surveyLink}</span>
-            <button
-              onClick={() => actions.copySurveyLink(surveyLink)}
-              className="rounded-[7px] bg-brand-pink px-[13px] py-[7px] text-[11.5px] font-bold text-white"
-            >
-              Copy
-            </button>
-          </div>
-          <button
-            onClick={() => actions.previewSurveyOnly(state.enumeratorSlug, state.rType)}
-            className="mb-2.5 h-[46px] w-full rounded-[11px] bg-brand-ink text-sm font-bold text-white"
-          >
-            Preview the respondent&apos;s survey-only view ↗
-          </button>
-          <button
-            onClick={handleSendEmail}
-            disabled={emailSending || emailSent}
-            className="mb-2.5 h-11 w-full rounded-[11px] border border-[#E2E2E6] bg-white text-[13.5px] font-bold text-gray-700 disabled:opacity-60"
-          >
-            {emailSent ? "✓ Email sent to respondent" : emailSending ? "Sending…" : "Send via respondent's email"}
-          </button>
-          <button
-            onClick={actions.handoffReset}
-            className="mb-2.5 h-11 w-full rounded-[11px] border border-[#E2E2E6] bg-white text-[13.5px] font-bold text-gray-700"
-          >
-            ← Back
-          </button>
-          <button
-            onClick={actions.handoffDone}
-            className="h-11 w-full rounded-[11px] border border-[#E2E2E6] bg-white text-[13.5px] font-bold text-gray-700"
-          >
-            Done — back to portal
-          </button>
-        </div>
       )}
     </div>
   );
@@ -1206,9 +1044,8 @@ function Shipping() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
 
-  // "Use my details" only works when we actually have registration details on file
-  // (the assisted flow, or a self-service link that prefilled them from the partial
-  // row). Without them, the respondent must enter the recipient name + phone.
+  // "Use my details" only works when we actually have registration details on file.
+  // Without them, the respondent must enter the recipient name + phone.
   const hasMyDetails = !!((state.reg.name || "").trim() && (state.reg.mobile || "").trim());
   const useMine = hasMyDetails && s.useMyDetails;
   const effectiveName = useMine ? state.reg.name : s.recipientName;
@@ -1254,8 +1091,7 @@ function Shipping() {
           </div>
         </div>
 
-        {/* Use my own details toggle — only when registration details exist
-            (hidden when we have none, e.g. a self-service link without prefill). */}
+        {/* Use my own details toggle — only when registration details exist. */}
         {hasMyDetails && (
           <div>
             <span className="mb-2 block text-[12px] font-bold text-gray-700">Recipient</span>
@@ -1453,14 +1289,6 @@ function Review() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const cls = classify(state.qual);
-  const defs = surveyDef(state.rType).filter((q) => q.kind !== "section");
-  const answered = defs.filter((q) => {
-    const v = state.survey[q.id as string];
-    if (v == null || v === "") return false;
-    if (Array.isArray(v)) return v.length > 0;
-    if (typeof v === "object") return Object.keys(v).length > 0;
-    return true;
-  }).length;
 
   const items: [string, string][] = [
     ["Name", state.reg.name || "—"],
@@ -1469,14 +1297,14 @@ function Review() {
     ["Survey path", typeShort(state.rType)],
     ["Qualification", cls.status],
     ["Referral source", state.qual.hearAbout || "—"],
-    ["Survey", answered + " of " + qCount(state.rType) + " answered"],
+    ["Survey", state.surveyDone ? "✓ Completed (KoboToolbox)" : "Not completed"],
     [
       "Selfie",
       state.selfie
         ? "✓ " + (state.selfieMethod === "upload" ? "Image uploaded" : "Selfie taken")
         : "Not yet",
     ],
-    ["Mode", state.surveyOnly ? "Self-service link" : "Enumerator-assisted"],
+    ["Mode", "Enumerator-assisted"],
   ];
   const isTSIpath = state.rType === "TSI";
   if (isTSIpath) {
@@ -1594,7 +1422,7 @@ function Success() {
           </div>
           <p className="mx-auto mb-4 max-w-[400px] text-[13px] leading-[1.55] text-gray-500">
             Know someone in your group who could take part? Refer them with your own link
-            {state.surveyOnly ? "." : " and earn a bonus once they're verified."}
+            and earn a bonus once they&apos;re verified.
           </p>
           <div className="flex gap-2.5">
             <button
@@ -1642,12 +1470,10 @@ function Success() {
                 <span className="font-bold">{tokenLabel}</span>
               </div>
             )}
-            {!state.surveyOnly && (
-              <div className="mt-[7px] flex justify-between text-[13px]">
-                <span className="font-semibold text-gray-400">Referral bonus (per verified)</span>
-                <span className="font-bold">{peso(bon(state.incentives, state.rType))}</span>
-              </div>
-            )}
+            <div className="mt-[7px] flex justify-between text-[13px]">
+              <span className="font-semibold text-gray-400">Referral bonus (per verified)</span>
+              <span className="font-bold">{peso(bon(state.incentives, state.rType))}</span>
+            </div>
             <div className="mt-[9px] text-[11px] text-[#B0B0B8]">
               Token &amp; bonus amounts depend on your respondent path.
             </div>

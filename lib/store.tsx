@@ -86,13 +86,14 @@ export interface PortalState {
   reg: Registration;
   otp: string;
   survey: SurveyAnswers;
+  // The survey now runs in an embedded KoboToolbox form; this flips true when the
+  // embed reports a successful submission, which unlocks the next step.
+  surveyDone: boolean;
   selfie: boolean;
   selfieMethod: string;
   selfieUrl: string;
   selfieFile: File | null;
   payoutOn: boolean;
-  surveyOnly: boolean;
-  handoffMode: string;
   payout: PayoutDetails;
   shipping: ShippingDetails;
   newCode: string;
@@ -127,9 +128,6 @@ function blankShipping(): ShippingDetails {
 }
 
 const FLOW_DRAFT_KEY = "prodi-surveys.flowDraft.v1";
-// Transient hand-off so a self-service preview tab can show the respondent's
-// prefilled identity (the real /s/ link carries it via the sid submission row).
-const PREVIEW_SELF_SERVICE_KEY = "prodi-surveys.previewSelfService";
 const REFERRERS_KEY = "prodi-surveys.referrers.v1";
 const FLOW_DRAFT_FIELDS = [
   "mode",
@@ -139,12 +137,11 @@ const FLOW_DRAFT_FIELDS = [
   "reg",
   "qual",
   "survey",
+  "surveyDone",
   "selfie",
   "selfieMethod",
   "selfieUrl",
   "payoutOn",
-  "surveyOnly",
-  "handoffMode",
   "payout",
   "shipping",
   "newCode",
@@ -221,13 +218,12 @@ function initialState(): PortalState {
     reg: blankReg(),
     otp: "",
     survey: {},
+    surveyDone: false,
     selfie: false,
     selfieMethod: "",
     selfieUrl: "",
     selfieFile: null,
     payoutOn: true,
-    surveyOnly: false,
-    handoffMode: "",
     payout: blankPayout(),
     shipping: blankShipping(),
     newCode: "",
@@ -245,13 +241,6 @@ function hydrateDraft(base: PortalState): PortalState {
     if (!raw) return base;
     const draft = JSON.parse(raw) as Partial<PortalState>;
     if (draft.mode !== "flow") return base;
-    // A self-service launch (base.submissionId set) must only resume a draft from
-    // the same survey-only submission. Otherwise a different respondent's draft — or
-    // the enumerator's pre-handoff (assisted) draft — lingering in this browser would
-    // bleed into the session and be submitted onto the wrong submission row.
-    if (base.submissionId && (!draft.surveyOnly || draft.submissionId !== base.submissionId)) {
-      return base;
-    }
     return {
       ...base,
       ...draft,
@@ -261,9 +250,6 @@ function hydrateDraft(base: PortalState): PortalState {
       payout: { ...blankPayout(), ...(draft.payout || {}) },
       shipping: { ...blankShipping(), ...(draft.shipping || {}) },
       otp: "",
-      // In survey-only flows rType is sourced from the URL param, not the draft.
-      // Keep whatever launchSurveyOnlyFlow already set on base.
-      ...(base.surveyOnly ? { rType: base.rType } : {}),
     };
   } catch {
     return base;
@@ -272,21 +258,6 @@ function hydrateDraft(base: PortalState): PortalState {
 
 function logEntry(action: string, target: string, by: string): AuditEntry {
   return [action, target, by, "just now", "#EDE9FE", "#5B21B6", "user"];
-}
-
-// Data carried into a self-service survey flow. When the link includes the
-// enumerator's partial submission id, the page loads that row and prefills the
-// respondent's identity/qualification/consent so the final submit UPDATES the
-// same row (rather than creating a second, identity-less one).
-export interface SelfServiceLaunch {
-  referralCode?: string;
-  rType?: string;
-  reg?: Partial<Registration>;
-  qual?: Partial<Qual>;
-  consent?: { terms?: boolean; privacy?: boolean; accepted_at?: string | null } | null;
-  payoutOn?: boolean;
-  submissionId?: string;
-  preview?: boolean;
 }
 
 export interface PortalActions {
@@ -330,9 +301,7 @@ export interface PortalActions {
   setEmail(id: string): void;
   launchFlow(): void;
   launchReferralFlow(code: string, preview?: boolean): void;
-  launchSurveyOnlyFlow(code: string, preview?: boolean, rType?: string): void;
-  launchEnumeratorFlow(slug: string, referralCode?: string, preview?: boolean): void;
-  launchEnumeratorSelfServiceFlow(slug: string, opts?: SelfServiceLaunch): void;
+  launchEnumeratorFlow(slug: string, referralCode?: string): void;
   exitFlow(): void;
   flowNext(): void;
   flowBack(): void;
@@ -345,18 +314,13 @@ export interface PortalActions {
   setAnswer(id: string, v: string): void;
   toggleMulti(id: string, opt: string): void;
   setMatrix(id: string, row: string, v: string): void;
+  setSurveyDone(v: boolean): void;
   takeSelfie(): void;
   uploadSelfie(): void;
   setSelfieUrl(url: string): void;
   setSelfieFile(file: File | null): void;
   clearSelfie(): void;
   setPayoutOn(v: boolean): void;
-  handoffAssisted(): void;
-  handoffSendLink(): void;
-  previewSurveyOnly(code?: string, rType?: string): void;
-  handoffDone(): void;
-  copySurveyLink(link: string): void;
-  handoffReset(): void;
   setPayout(k: keyof PayoutDetails, v: string): void;
   setShipping(k: keyof ShippingDetails, v: string | boolean): void;
   setOrg(t: Qual["orgType"]): void;
@@ -470,13 +434,12 @@ export function PortalProvider({
       rMaxStep: 0,
       otp: "",
       survey: {},
+      surveyDone: false,
       selfie: false,
       selfieMethod: "",
       selfieUrl: "",
       selfieFile: null,
       payoutOn: true,
-      surveyOnly: false,
-      handoffMode: "",
       referredBy: "",
       referredCode: "",
       referralPath: "",
@@ -799,7 +762,7 @@ export function PortalProvider({
           reg: { ...blankReg(), code: c },
         });
       },
-      launchEnumeratorFlow: (slug, referralCode, preview = false) => {
+      launchEnumeratorFlow: (slug, referralCode) => {
         const refC = (referralCode || "").trim().toUpperCase();
         const s = stateRef.current;
         // Avoid re-init when the flow is already set up for the same enumerator
@@ -808,7 +771,6 @@ export function PortalProvider({
         set({
           ...resetFlow(),
           enumeratorSlug: slug,
-          handoffMode: preview ? "preview" : "",
           ...(refC ? { referredBy: "Referral", referredCode: refC } : {}),
           reg: { ...blankReg(), code: refC },
           // A referral link implies "Friend or Referral" so the prefilled code
@@ -816,76 +778,12 @@ export function PortalProvider({
           ...(refC ? { qual: { ...blankQual(), hearAbout: "Friend or Referral" } } : {}),
         });
       },
-      // Enumerator-attributed self-service link (/s/<slug>?...&self-service=true):
-      // the respondent skips Profile/Register/Verify and starts at the survey. When
-      // the link carries the enumerator's partial submission (sid), reg/qual/consent
-      // are prefilled from it and submissionId is set so the final submit UPDATES
-      // that same row (one identified row per respondent). Without a row, rType comes
-      // from the URL (?t=) and a fresh row is created on submit.
-      launchEnumeratorSelfServiceFlow: (slug, opts = {}) => {
-        const { referralCode, rType, reg, qual, consent, payoutOn, submissionId, preview = false } = opts;
-        const refC =
-          (referralCode || "").trim().toUpperCase() || (reg?.code || "").trim().toUpperCase();
-        const sid = submissionId || "";
-        const s = stateRef.current;
-        if (s.mode === "flow" && s.surveyOnly && s.enumeratorSlug === slug && s.submissionId === sid && s.reg.code === refC) return;
-        set({
-          ...resetFlow(),
-          rStep: 5,
-          rMaxStep: 5,
-          surveyOnly: true,
-          enumeratorSlug: slug,
-          submissionId: sid,
-          handoffMode: preview ? "preview" : "",
-          ...(refC ? { referredBy: "Referral", referredCode: refC } : {}),
-          reg: { ...blankReg(), ...(reg || {}), code: refC },
-          qual: { ...blankQual(), ...(qual || {}) },
-          ...(rType ? { rType: rType as Respondent["type"] } : {}),
-          ...(typeof payoutOn === "boolean" ? { payoutOn } : {}),
-          ...(consent
-            ? {
-                consentTerms: !!consent.terms,
-                consentPrivacy: !!consent.privacy,
-                consentAt: consent.accepted_at || "",
-              }
-            : {}),
-        });
-      },
-      launchSurveyOnlyFlow: (surveyCode, preview = false, rType?) => {
-        const c = surveyCode.trim().toUpperCase();
-        const s = stateRef.current;
-        // Only skip re-init if the flow is already set up for the same code AND
-        // the same rType — a different ?t= param must re-launch to apply the new type.
-        if (s.mode === "flow" && s.surveyOnly && s.reg.code === c && (!rType || s.rType === (rType as Respondent["type"]))) return;
-        // In preview, pick up the respondent identity stashed by previewSurveyOnly so
-        // the preview shows the same prefilled name/email/mobile a real link carries.
-        let stash: { reg?: Partial<Registration>; qual?: Partial<Qual>; rType?: string; payoutOn?: boolean } = {};
-        if (preview && typeof window !== "undefined") {
-          try {
-            const raw = window.localStorage.getItem(PREVIEW_SELF_SERVICE_KEY);
-            if (raw) stash = JSON.parse(raw);
-          } catch {
-            /* ignore malformed/absent stash */
-          }
-        }
-        set({
-          ...resetFlow(),
-          rStep: 5,
-          rMaxStep: 5,
-          surveyOnly: true,
-          handoffMode: preview ? "preview" : "",
-          reg: { ...blankReg(), ...(stash.reg || {}), code: c },
-          ...(stash.qual ? { qual: { ...blankQual(), ...stash.qual } } : {}),
-          ...((rType || stash.rType) ? { rType: (rType || stash.rType) as Respondent["type"] } : {}),
-          ...(typeof stash.payoutOn === "boolean" ? { payoutOn: stash.payoutOn } : {}),
-        });
-      },
       exitFlow: () => set(resetFlow()),
-      // Branching wizard: Welcome(0) → Profile(1) → Register(2) → Handoff(4) →
-      // Survey(5) → Selfie(6) → Payout or Shipping(7) → Review(8) → Success(9).
-      // The OTP/email-verify step (3) has been removed: Register goes straight to
-      // Handoff. TSI respondents always see step 7 (Shipping/tumbler); others see
-      // Payout only when payoutOn.
+      // Linear wizard: Welcome(0) → Profile(1) → Register(2) → Survey(5) →
+      // Selfie(6) → Payout or Shipping(7) → Review(8) → Success(9). The OTP(3)
+      // and Handoff(4) steps have been removed: Register goes straight to Survey,
+      // and every respondent is enumerator-assisted. TSI respondents always see
+      // step 7 (Shipping/tumbler); others see Payout only when payoutOn.
       flowNext: () => {
         const s = stateRef.current;
         let n = s.rStep;
@@ -897,7 +795,7 @@ export function PortalProvider({
         } else if (n === 8) {
           n = 9;
         } else if (n === 2) {
-          n = 4; // skip the removed OTP step
+          n = 5; // skip the removed OTP(3) and Handoff(4) steps
         } else {
           n = Math.min(9, n + 1);
         }
@@ -908,30 +806,24 @@ export function PortalProvider({
         let n = s.rStep;
         const isTSI = s.rType === "TSI";
         if (n === 8) n = !isTSI && s.payoutOn ? 7 : 6;
-        else if (n === 5) n = s.surveyOnly ? 5 : 4;
-        else if (n === 4) n = 2; // skip the removed OTP step
+        else if (n === 5) n = 2; // skip the removed OTP(3) and Handoff(4) steps
         else n = Math.max(0, n - 1);
-        // Survey-only respondents never see steps before the survey.
-        if (s.surveyOnly && n < 5) n = 5;
         set({ rStep: n });
       },
       // Jump to any step already reached (t <= rMaxStep) — forward or backward.
       // Steps beyond the furthest reached aren't filled in yet, so they stay locked.
       goStep: (n) => {
         const s = stateRef.current;
-        let target = n;
-        if (s.surveyOnly && target < 5) target = 5;
-        if (target === s.rStep || target > s.rMaxStep) return;
-        set({ rStep: target });
+        if (n === s.rStep || n > s.rMaxStep) return;
+        set({ rStep: n });
       },
-      verifyOtp: () => set({ rStep: 4 }),
+      verifyOtp: () => set({ rStep: 5 }),
       // Create the submission row (is_survey_completed=false) when the respondent
-      // leaves Register. Previously fired after OTP verify; the OTP step is removed
-      // so this runs on Register → Handoff. Non-fatal: the final submit inserts a
-      // row if none exists. Skipped in preview and when a row already exists.
+      // leaves Register (Register → Survey). Non-fatal: the final submit inserts a
+      // row if none exists. Skipped when a row already exists.
       startSubmission: async () => {
         const s = stateRef.current;
-        if (s.submissionId || s.handoffMode === "preview") return;
+        if (s.submissionId) return;
         try {
           const res = await fetch("/api/submit/start", {
             method: "POST",
@@ -984,57 +876,13 @@ export function PortalProvider({
           return { survey: { ...s.survey, [id]: obj } };
         });
       },
+      setSurveyDone: (v) => set({ surveyDone: v }),
       takeSelfie: () => set({ selfieMethod: "camera" }),
       uploadSelfie: () => set({ selfieMethod: "upload" }),
       setSelfieUrl: (url) => set({ selfieUrl: url, selfie: true }),
       setSelfieFile: (file) => set({ selfieFile: file, selfie: !!file }),
       clearSelfie: () => set({ selfie: false, selfieUrl: "", selfieFile: null }),
       setPayoutOn: (v) => set({ payoutOn: v }),
-      handoffAssisted: () => {
-        const s = stateRef.current;
-        set({ rStep: 5, rMaxStep: Math.max(s.rMaxStep, 5), surveyOnly: false, handoffMode: "" });
-      },
-      handoffSendLink: () => {
-        const s = stateRef.current;
-        const who = (s.reg.name || "").trim() || "respondent";
-        set({
-          handoffMode: "link",
-          audit: [logEntry("Survey link sent", "· " + who + " (self-service)", userName()), ...s.audit],
-        });
-      },
-      previewSurveyOnly: (code, rType?) => {
-        const c = (code || "").trim().toUpperCase();
-        const tParam = rType ? "?t=" + encodeURIComponent(rType) : "";
-        if (c && typeof window !== "undefined") {
-          // Stash the respondent's identity so the preview tab shows it prefilled,
-          // mirroring a real self-service link (which carries it via the sid row).
-          try {
-            const s = stateRef.current;
-            window.localStorage.setItem(
-              PREVIEW_SELF_SERVICE_KEY,
-              JSON.stringify({ reg: s.reg, qual: s.qual, rType: rType || s.rType, payoutOn: s.payoutOn }),
-            );
-          } catch {
-            /* localStorage unavailable — preview just shows blanks */
-          }
-          window.open("/preview/s/" + encodeURIComponent(c) + tParam, "_blank");
-          return;
-        }
-        set({ rStep: 5, rMaxStep: 5, surveyOnly: true, handoffMode: "" });
-      },
-      handoffDone: () => {
-        set(resetFlow());
-        toast("Self-service survey link sent");
-      },
-      copySurveyLink: (link) => {
-        try {
-          if (navigator.clipboard) navigator.clipboard.writeText(link);
-        } catch {
-          /* clipboard unavailable */
-        }
-        toast("Survey link copied");
-      },
-      handoffReset: () => set({ handoffMode: "" }),
       setPayout: (k, v) => set((s) => ({ payout: { ...s.payout, [k]: v } })),
       setShipping: (k, v) => set((s) => ({ shipping: { ...s.shipping, [k]: v } })),
 
@@ -1108,11 +956,10 @@ export function PortalProvider({
           rType: "SME",
           otp: "",
           survey: {},
+          surveyDone: false,
           selfie: false,
           selfieMethod: "",
           payoutOn: true,
-          surveyOnly: false,
-          handoffMode: "",
           qual: blankQual(),
           reg: { ...blankReg(), code: c },
           payout: blankPayout(),
