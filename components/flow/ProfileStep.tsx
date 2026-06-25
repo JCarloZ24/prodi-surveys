@@ -5,34 +5,35 @@ import { usePortal } from "@/lib/store";
 import { RadioOption, MultiOption } from "./Options";
 import { cx } from "@/lib/cx";
 import { CustomSelect } from "@/components/ui/CustomSelect";
+import { ORG_TYPE_LABELS, PROFILE_Q } from "@/lib/profile";
 import type { Qual } from "@/lib/types";
 
 const ORG_CARDS: { key: Qual["orgType"]; icon: string; title: string; ex: string; help: string }[] = [
   {
     key: "gov",
     icon: "🏛️",
-    title: "Government or Business Support Organization",
+    title: ORG_TYPE_LABELS.gov,
     ex: "DTI · DOST · Philexport · Chambers of Commerce · Industry Associations",
     help: "Organizations that support, regulate, or promote businesses — such as government agencies (DTI, DOST), export promotion bodies (Philexport), chambers of commerce, and industry associations. Choose this if your role is to assist or oversee businesses rather than produce food yourself.",
   },
   {
     key: "tech",
     icon: "⚙️",
-    title: "Technology, Equipment, or Service Provider",
+    title: ORG_TYPE_LABELS.tech,
     ex: "Machinery suppliers · Packaging · Testing labs · Food innovation centers",
     help: "Companies that supply machinery, equipment, packaging, laboratory testing, product development, or technical services to food businesses. Choose this if you enable food production but don't make food products yourself.",
   },
   {
     key: "food",
     icon: "🍪",
-    title: "Food Processing Business",
+    title: ORG_TYPE_LABELS.food,
     ex: "Food manufacturers · Beverages · Snacks · Bakeries · Packaged foods",
     help: "Businesses that make, process, manufacture, or package food and beverage products — including manufacturers, bakeries, snack and beverage producers, and packaged-food companies. This is the main audience for this baseline survey.",
   },
   {
     key: "other",
     icon: "❓",
-    title: "Other",
+    title: ORG_TYPE_LABELS.other,
     ex: "My organization does not fit the categories above.",
     help: "Choose this if your organization doesn't fit any of the categories above. Our team will review your details to determine whether this survey applies to you.",
   },
@@ -246,7 +247,7 @@ export function ProfileStep() {
       </p>
 
       <span className="mb-3 block text-[14px] font-bold text-brand-ink">
-        What kind of organization do you work for?
+        {PROFILE_Q.orgType}
       </span>
       <div className="grid grid-cols-2 gap-3">
         {ORG_CARDS.map((c) => (
@@ -285,7 +286,7 @@ export function ProfileStep() {
         <Branch>
           <div>
             <FieldLabel>
-              Organization / business name<Req />
+              {PROFILE_Q.orgName}<Req />
             </FieldLabel>
             <input
               value={q.orgName}
@@ -303,7 +304,7 @@ export function ProfileStep() {
       {q.orgType === "gov" && (
         <Branch>
           <div>
-            <FieldLabel>Which organization do you work for?<Req /></FieldLabel>
+            <FieldLabel>{PROFILE_Q.govOrg}<Req /></FieldLabel>
             <CustomSelect
               value={q.govOrg}
               onChange={(v) => actions.setQual("govOrg", v)}
@@ -311,7 +312,7 @@ export function ProfileStep() {
             />
           </div>
           <div>
-            <FieldLabel>What department, office, or unit are you part of?<Req /></FieldLabel>
+            <FieldLabel>{PROFILE_Q.govDept}<Req /></FieldLabel>
             <input
               value={q.govDept}
               onChange={(e) => actions.setQual("govDept", e.target.value)}
@@ -321,8 +322,7 @@ export function ProfileStep() {
           </div>
           <div>
             <FieldLabel>
-              Does your organization help businesses grow, improve, export, or access support
-              services?<Req />
+              {PROFILE_Q.govSupports}<Req />
             </FieldLabel>
             {yesNo("govSupports")}
           </div>
@@ -333,7 +333,7 @@ export function ProfileStep() {
         <Branch>
           <div>
             <FieldLabel>
-              Organization / business name{" "}
+              {PROFILE_Q.orgName}{" "}
               <span className="font-medium text-gray-400">(optional)</span>
             </FieldLabel>
             <input
@@ -345,7 +345,7 @@ export function ProfileStep() {
           </div>
           <div>
             <FieldLabel>
-              Which best describes your organization?<Req />{" "}
+              {PROFILE_Q.techTypes}<Req />{" "}
               <span className="font-medium text-gray-400">(select all that apply)</span>
             </FieldLabel>
             <div className="flex flex-col gap-2">
@@ -361,7 +361,7 @@ export function ProfileStep() {
           </div>
           <div>
             <span className="mb-1 block text-[13px] font-bold text-gray-700">
-              Do you sell products or services to food manufacturers or food processing businesses?
+              {PROFILE_Q.techSells}
               <Req />
             </span>
             <div className="mb-2 text-[11.5px] text-gray-400">
@@ -376,7 +376,7 @@ export function ProfileStep() {
         <Branch>
           <div>
             <FieldLabel>
-              Organization / business name{" "}
+              {PROFILE_Q.orgName}{" "}
               <span className="font-medium text-gray-400">(optional)</span>
             </FieldLabel>
             <input
@@ -388,7 +388,7 @@ export function ProfileStep() {
           </div>
           <div>
             <span className="mb-1 block text-[13px] font-bold text-gray-700">
-              Does your business make, process, manufacture, or package food products?<Req />
+              {PROFILE_Q.foodMakes}<Req />
             </span>
             <div className="mb-2 text-[11.5px] text-gray-400">
               e.g. snacks, sauces, condiments, beverages, frozen foods, baked goods
@@ -398,7 +398,7 @@ export function ProfileStep() {
           {q.foodMakes === "Yes" && (
             <>
               <div>
-                <FieldLabel>What products does your business produce?<Req /></FieldLabel>
+                <FieldLabel>{PROFILE_Q.foodProducts}<Req /></FieldLabel>
                 <input
                   value={q.foodProducts}
                   onChange={(e) => actions.setQual("foodProducts", e.target.value)}
@@ -407,7 +407,7 @@ export function ProfileStep() {
                 />
               </div>
               <div>
-                <FieldLabel>How many employees does your business have?<Req /></FieldLabel>
+                <FieldLabel>{PROFILE_Q.foodEmployees}<Req /></FieldLabel>
                 <div className="flex flex-col gap-2">
                   {FOOD_EMP.map((o) => (
                     <RadioOption key={o} label={o} selected={q.foodEmployees === o} onClick={() => actions.setQual("foodEmployees", o)} />
@@ -415,7 +415,7 @@ export function ProfileStep() {
                 </div>
               </div>
               <div>
-                <FieldLabel>What is your role in the organization?<Req /></FieldLabel>
+                <FieldLabel>{PROFILE_Q.foodRole}<Req /></FieldLabel>
                 <div className="flex flex-col gap-2">
                   {FOOD_ROLE.map((o) => (
                     <RadioOption key={o} label={o} selected={q.foodRole === o} onClick={() => actions.setQual("foodRole", o)} />
@@ -430,7 +430,7 @@ export function ProfileStep() {
       {showHearAbout && (
         <Branch>
           <div>
-            <FieldLabel>How did you hear about this survey?<Req /></FieldLabel>
+            <FieldLabel>{PROFILE_Q.hearAbout}<Req /></FieldLabel>
             <CustomSelect
               value={q.hearAbout}
               onChange={(v) => {
@@ -443,7 +443,7 @@ export function ProfileStep() {
           </div>
           {q.hearAbout === "Friend or Referral" && (
             <div>
-              <FieldLabel>Referrer</FieldLabel>
+              <FieldLabel>{PROFILE_Q.referrer}</FieldLabel>
               <CustomSelect
                 value={q.refName}
                 onChange={(v) => {

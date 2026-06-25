@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { usePortal } from "@/lib/store";
 import { classify } from "@/lib/classify";
+import { buildProfileData } from "@/lib/profile";
 import { typePillClass, typeShort, peso } from "@/lib/format";
 import { LogoMark } from "@/lib/icons";
 import { cx } from "@/lib/cx";
@@ -1123,7 +1124,7 @@ function Review() {
         body: JSON.stringify({
           id: state.submissionId || null,
           registration_data: state.reg,
-          profiles_data: state.qual,
+          profiles_data: buildProfileData(state.qual),
           survey_type: state.rType,
           selfie_url: selfieUrl,
           // Respondent token: cash payout for SME/Agri-Tech, tumbler shipping for TSI,

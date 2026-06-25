@@ -2,6 +2,7 @@
 // Imported by both the portal server component and the portal API route.
 
 import { avatarColor } from "./format";
+import { PROFILE_Q } from "./profile";
 import type { CollectionMode, Respondent } from "./types";
 
 const PAYOUT_STATUS_LABEL: Record<string, string> = {
@@ -112,7 +113,9 @@ export function rowToRespondent(
     verified,
     referred,
     referrer: (row.referrer_code as string | null) ?? null,
-    referredBy: qual.refName || (row.referrer_code as string | null) || null,
+    // New rows store the referrer under the "Referrer" question label; the
+    // legacy `refName` fallback keeps pre-relabel (camelCase) rows working.
+    referredBy: qual[PROFILE_Q.referrer] || qual.refName || (row.referrer_code as string | null) || null,
     mode,
     enumerator,
     payStatus,
