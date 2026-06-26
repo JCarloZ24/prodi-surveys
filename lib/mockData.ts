@@ -25,17 +25,6 @@ export function buildData(): MockData {
   };
   const pick = <T,>(a: T[]): T => a[Math.floor(rnd() * a.length)];
 
-  const regions = [
-    "NCR",
-    "Region III",
-    "Region IV-A",
-    "Region VII",
-    "Region XI",
-    "Region VI",
-    "CAR",
-    "Region X",
-    "Region V",
-  ];
   const fnames = [
     "Maria", "Jose", "Ana", "Juan", "Liza", "Paolo", "Grace", "Mark", "Rhea",
     "Carlo", "Divine", "Noel", "Joy", "Ramon", "Cherry", "Ben", "Aileen",
@@ -108,7 +97,6 @@ export function buildData(): MockData {
       method === "Bank transfer"
         ? "BDO •••• " + (1000 + Math.floor(rnd() * 8999))
         : method + " •••• " + (100 + Math.floor(rnd() * 899));
-    const region = pick(regions);
     const position = pick(positions);
     const email =
       (fn + "." + ln).toLowerCase().replace(/[^a-z.]/g, "") + "@email.com";
@@ -122,7 +110,7 @@ export function buildData(): MockData {
     const recId = id++;
     const recCode = "PS-" + code(id * 7 + 3);
     return {
-      id: recId, name, org, type, status, region, position, email, mobile,
+      id: recId, name, org, type, status, position, email, mobile,
       emailV, surveyDone, selfie, verified, referred,
       referrer: ref, referredBy: null, mode, enumerator: enumr, payStatus, method, acct, compMin,
       flags: opts.flags || [], code: recCode, createdDays: days,

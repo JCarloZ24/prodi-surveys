@@ -788,7 +788,7 @@ function RespondentsView() {
               <thead>
                 <tr className="border-b border-[#F2F2F4]">
                   {[
-                    "RESPONDENT", "TYPE", "REGION", "MODE", "ENUMERATOR", "REFERRED BY", "PROFILE STATUS",
+                    "RESPONDENT", "TYPE", "MODE", "ENUMERATOR", "REFERRED BY", "PROFILE STATUS",
                     ...(showMoney ? ["PAY STATUS"] : []),
                     "FLAGS",
                     ...(showMoney ? ["PAYOUT"] : []),
@@ -816,7 +816,6 @@ function RespondentsView() {
                       </div>
                     </td>
                     <td className="px-4 py-3">{typeBadge(r.type)}</td>
-                    <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.region || "—"}</td>
                     <td className="px-4 py-3">
                       <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11.5px] font-semibold text-blue-700">
                         Enumerator-assisted
@@ -911,7 +910,7 @@ function QaView() {
                     {typeBadge(r.type)}
                   </div>
                   <div className="mt-0.5 text-[12.5px] text-gray-500">
-                    {r.org} · {r.region || "—"} · Enumerator-assisted
+                    {r.org} · Enumerator-assisted
                   </div>
                 </div>
                 <button
@@ -1915,12 +1914,11 @@ const REPORT_DEFS = [
 // (Date submitted, Path, Region, Status, Collection mode) and read the metric
 // columns (submissions, verified, pending QA, conversion). A path filter scopes
 // the dataset first. All figures are non-monetary, safe for stakeholders.
-type ReportDimension = "date" | "path" | "region" | "status" | "mode";
+type ReportDimension = "date" | "path" | "status" | "mode";
 
 const DIMENSIONS: { key: ReportDimension; label: string }[] = [
   { key: "date",   label: "Date submitted" },
   { key: "path",   label: "Path" },
-  { key: "region", label: "Region" },
   { key: "status", label: "Profile status" },
   { key: "mode",   label: "Collection mode" },
 ];
@@ -1938,8 +1936,6 @@ function dimensionValue(r: Respondent, dim: ReportDimension): { key: string; lab
     }
     case "path":
       return { key: r.type, label: PATH_LABEL[r.type] ?? r.type, sort: 0 };
-    case "region":
-      return { key: r.region || "—", label: r.region || "—", sort: 0 };
     case "status":
       return { key: r.status as string, label: r.status as string, sort: 0 };
     case "mode":
@@ -3086,11 +3082,10 @@ function ProfileDrawer() {
             {([
               ["EMAIL",         r.email],
               ["MOBILE",        r.mobile || "—"],
-              ["REGION",        r.region || "—"],
               ["POSITION",      r.position && r.position !== "—" ? r.position : null],
               ["MODE",          r.mode],
               ["ENUMERATOR",    r.enumerator && r.enumerator !== "—" ? r.enumerator : null],
-              ["REFERRAL CODE", r.code || "—"],
+              ["RESPONDENT'S REFERRAL CODE", r.code || "—"],
               ["REFERRED BY",   r.referredBy || null],
             ] as [string, string | null][]).filter(([, v]) => v !== null).map(([label, value]) => (
               <div key={label}>

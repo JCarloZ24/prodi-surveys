@@ -51,7 +51,6 @@ export interface Respondent {
   org: string;
   type: RespondentType;
   status: RespondentStatus | string;
-  region: string;
   position: string;
   email: string;
   mobile: string;
@@ -152,7 +151,6 @@ export interface Registration {
   mobile: string;
   org: string;
   position: string;
-  region: string;
   type: RespondentType;
   code: string;
   enumerator?: string;

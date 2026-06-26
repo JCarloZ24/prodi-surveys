@@ -43,13 +43,13 @@ export function buildReport(
   // verified survey) are appended only for non-stakeholder roles.
   const respondentTable = (list: Respondent[]): string => {
     const headers = [
-      "Name", "Organization", "Type", "Region", "Position",
+      "Name", "Organization", "Type", "Position",
       "Email", "Mobile", "Mode", "Enumerator", "Status", "Referred by",
     ];
     if (money) headers.push("Enumerator payout", "Payout status", "Method");
     const rows = list.map((r) => {
       const base: (string | number)[] = [
-        r.name, r.org, r.type, r.region, r.position,
+        r.name, r.org, r.type, r.position,
         r.email, r.mobile, r.mode, r.enumerator, r.status, r.referredBy ?? "",
       ];
       if (money) {

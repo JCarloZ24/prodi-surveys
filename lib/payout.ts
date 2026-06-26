@@ -24,3 +24,42 @@ export function payoutNumberLabel(method: string): string {
   if (method === "Bank transfer") return "Account number";
   return "Account / reference number";
 }
+
+// Canonical labels for the cash-payout fields persisted to submissions.token_data,
+// mirroring buildRegistrationData/buildProfileData so a stored row reads as the
+// payout form. The number field is keyed by its method-specific label.
+export const PAYOUT_Q = {
+  method: "Payout method",
+  acctName: "Account name",
+  bank: "Bank name",
+} as const;
+
+// Serialize the in-memory camelCase PayoutDetails into the labeled shape stored in
+// token_data (SME / Agri-Tech cash payouts).
+export function buildPayoutData(p: PayoutDetails): Record<string, string> {
+  const out: Record<string, string> = {
+    [PAYOUT_Q.method]: p.method || "",
+    [PAYOUT_Q.acctName]: p.acctName || "",
+    [payoutNumberLabel(p.method)]: p.acctNum || "",
+  };
+  if (p.method === "Bank transfer") out[PAYOUT_Q.bank] = p.bank || "";
+  return out;
+}
+
+// Readers that pull a payout field from a stored token_data record, accepting both
+// the labeled shape (new rows) and the legacy camelCase shape (pre-relabel rows).
+export function readPayoutMethod(rec: Record<string, string>): string {
+  return rec[PAYOUT_Q.method] || rec.method || "";
+}
+export function readPayoutAcctName(rec: Record<string, string>): string {
+  return rec[PAYOUT_Q.acctName] || rec.acctName || "";
+}
+export function readPayoutAcctNum(rec: Record<string, string>): string {
+  return (
+    rec["Mobile number"] ||
+    rec["Account number"] ||
+    rec["Account / reference number"] ||
+    rec.acctNum ||
+    ""
+  );
+}

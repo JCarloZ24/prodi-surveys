@@ -4,6 +4,7 @@
 import { avatarColor } from "./format";
 import { PROFILE_Q } from "./profile";
 import { REG_Q } from "./registration";
+import { readPayoutMethod, readPayoutAcctName, readPayoutAcctNum } from "./payout";
 import type { CollectionMode, Respondent } from "./types";
 
 const PAYOUT_STATUS_LABEL: Record<string, string> = {
@@ -71,13 +72,19 @@ export function rowToRespondent(
     ? new Date(row.respondent_paid_at as string).toLocaleDateString("en-PH", { month: "short", day: "numeric" })
     : "";
 
+  // Cash-payout fields (SME/Agri-Tech). Read via helpers that accept both the
+  // labeled token_data shape (new rows) and the legacy camelCase shape.
+  const payMethod = pay ? readPayoutMethod(pay) : "";
+  const payAcctName = pay ? readPayoutAcctName(pay) : "";
+  const payAcctNum = pay ? readPayoutAcctNum(pay) : "";
+
   // Payout method label. `acct` is the masked account only — callers prepend the
   // method (so it must not embed the method, or it renders e.g. "GCash GCash ••••").
   let method = "—";
   let acct = "—";
   if (pay) {
-    method = pay.method ?? "—";
-    acct = pay.acctNum ? `•••• ${String(pay.acctNum).slice(-3)}` : "—";
+    method = payMethod || "—";
+    acct = payAcctNum ? `•••• ${String(payAcctNum).slice(-3)}` : "—";
   } else if (ship) {
     const colorLabels: Record<string, string> = { grey: "Charcoal grey", blue: "Sky blue", black: "Black" };
     method = "Tumbler · " + (colorLabels[ship.color] ?? ship.color ?? "Grey");
@@ -105,7 +112,6 @@ export function rowToRespondent(
     org: reg[REG_Q.org] || reg.org || "—",
     type: surveyType as Respondent["type"],
     status: SUBMISSION_STATUS_LABEL[rawStatus] ?? rawStatus,
-    region: reg[REG_Q.region] || reg.region || "—",
     position: reg.position ?? "—",
     email: reg[REG_Q.email] || reg.email || "",
     mobile: reg[REG_Q.mobile] || reg.mobile || "",
@@ -127,8 +133,8 @@ export function rowToRespondent(
     // Full payout number (mobile / account / reference) + account name. Both are
     // admin-only — redacted to "" for non-admin viewers in the layout + API route
     // before they reach the client.
-    acctNum: pay?.acctNum ? String(pay.acctNum) : "",
-    acctName: pay?.acctName ? String(pay.acctName) : "",
+    acctNum: payAcctNum ? String(payAcctNum) : "",
+    acctName: payAcctName ? String(payAcctName) : "",
     // Respondent token payout + TSI tumbler shipping (address/phone/recipient are
     // admin-only — redacted for non-admin viewers in the layout/API).
     respondentPayStatus,

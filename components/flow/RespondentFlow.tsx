@@ -5,6 +5,7 @@ import { usePortal } from "@/lib/store";
 import { classify } from "@/lib/classify";
 import { buildProfileData } from "@/lib/profile";
 import { buildRegistrationData } from "@/lib/registration";
+import { buildPayoutData } from "@/lib/payout";
 import { typePillClass, typeShort, peso } from "@/lib/format";
 import { LogoMark } from "@/lib/icons";
 import { cx } from "@/lib/cx";
@@ -352,10 +353,9 @@ function Register() {
   // Mobile is stored as "+63" + the local digits the user types (leading 0
   // stripped); the +63 prefix is shown as a fixed addon.
   const mobileLocal = reg.mobile.replace(/^\+63/, "");
-  const nameOk = reg.name.trim().length > 0;
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reg.email.trim());
   const mobileOk = mobileLocal.replace(/\D/g, "").length === 10;
-  const canContinue = nameOk && emailOk && mobileOk;
+  const canContinue = emailOk && mobileOk;
 
   // Create the partial submission row here, then advance to the survey.
   const onContinue = () => {
@@ -371,11 +371,9 @@ function Register() {
       </p>
       <div className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-[22px]">
         <Field
-          label="Full name"
+          label={<>Full name <span className="font-medium text-gray-400">(optional)</span></>}
           value={reg.name}
           onChange={(v) => actions.setReg("name", v)}
-          onBlur={() => touch("name")}
-          error={touched.name && !nameOk ? "Please enter your full name." : ""}
           placeholder="Juan Dela Cruz"
         />
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
@@ -1129,8 +1127,9 @@ function Review() {
           survey_type: state.rType,
           selfie_url: selfieUrl,
           // Respondent token: cash payout for SME/Agri-Tech, tumbler shipping for TSI,
-          // stored in a single generic token_data column.
-          token_data: state.rType === "TSI" ? state.shipping : state.payout,
+          // stored in a single generic token_data column. Cash payouts are serialized
+          // to labeled keys so a stored row reads as the payout form (mirrors reg/profile).
+          token_data: state.rType === "TSI" ? state.shipping : buildPayoutData(state.payout),
           // External Kobo survey timing captured during the Survey step.
           kobo_start: state.koboStart || null,
           kobo_end: state.koboEnd || null,

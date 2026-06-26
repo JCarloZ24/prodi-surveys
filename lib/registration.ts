@@ -15,7 +15,6 @@ export const REG_Q = {
   email: "Email address",
   mobile: "Mobile number",
   org: "Organization",
-  region: "Region",
 } as const;
 
 // Build the persisted registration_data: a labeled map of the respondent's
@@ -26,6 +25,5 @@ export function buildRegistrationData(reg: Registration): Record<string, string>
     [REG_Q.email]: reg.email || "",
     [REG_Q.mobile]: reg.mobile || "",
     [REG_Q.org]: reg.org || "",
-    [REG_Q.region]: reg.region || "",
   };
 }

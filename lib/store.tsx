@@ -124,7 +124,6 @@ function blankReg(): Registration {
     mobile: "",
     org: "",
     position: "",
-    region: "NCR",
     type: "SME",
     code: "",
   };

@@ -8,13 +8,15 @@ import { CustomSelect } from "@/components/ui/CustomSelect";
 import { ORG_TYPE_LABELS, PROFILE_Q } from "@/lib/profile";
 import type { Qual } from "@/lib/types";
 
-const ORG_CARDS: { key: Qual["orgType"]; icon: string; title: string; ex: string; help: string }[] = [
+const ORG_CARDS: { key: Qual["orgType"]; icon: string; title: string; ex: string; help: string; path?: string; pathTone?: string }[] = [
   {
     key: "gov",
     icon: "🏛️",
     title: ORG_TYPE_LABELS.gov,
     ex: "DTI · DOST · Philexport · Chambers of Commerce · Industry Associations",
     help: "Organizations that support, regulate, or promote businesses — such as government agencies (DTI, DOST), export promotion bodies (Philexport), chambers of commerce, and industry associations. Choose this if your role is to assist or oversee businesses rather than produce food yourself.",
+    path: "TSI",
+    pathTone: "bg-violet-100 text-violet-800",
   },
   {
     key: "tech",
@@ -22,6 +24,8 @@ const ORG_CARDS: { key: Qual["orgType"]; icon: string; title: string; ex: string
     title: ORG_TYPE_LABELS.tech,
     ex: "Machinery suppliers · Packaging · Testing labs · Food innovation centers",
     help: "Companies that supply machinery, equipment, packaging, laboratory testing, product development, or technical services to food businesses. Choose this if you enable food production but don't make food products yourself.",
+    path: "Agri-Tech",
+    pathTone: "bg-green-100 text-green-800",
   },
   {
     key: "food",
@@ -29,6 +33,8 @@ const ORG_CARDS: { key: Qual["orgType"]; icon: string; title: string; ex: string
     title: ORG_TYPE_LABELS.food,
     ex: "Food manufacturers · Beverages · Snacks · Bakeries · Packaged foods",
     help: "Businesses that make, process, manufacture, or package food and beverage products — including manufacturers, bakeries, snack and beverage producers, and packaged-food companies. This is the main audience for this baseline survey.",
+    path: "SME",
+    pathTone: "bg-rose-100 text-rose-800",
   },
   {
     key: "other",
@@ -275,7 +281,14 @@ export function ProfileStep() {
                 {c.help}
               </div>
             </div>
-            <div className="mb-2.5 text-[26px] leading-none">{c.icon}</div>
+            <div className="mb-2.5 flex items-center gap-2">
+              <span className="text-[26px] leading-none">{c.icon}</span>
+              {c.path && (
+                <span className={cx("inline-block whitespace-nowrap rounded-[5px] px-2 py-0.5 text-[10px] font-bold", c.pathTone)}>
+                  {c.path}
+                </span>
+              )}
+            </div>
             <div className="mb-1.5 pr-5 text-[13.5px] font-bold leading-[1.3] text-brand-ink">{c.title}</div>
             <div className="text-[11.5px] leading-[1.45] text-gray-400">{c.ex}</div>
           </div>
