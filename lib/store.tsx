@@ -924,10 +924,36 @@ export function PortalProvider({
         });
       },
       setSurveyDone: (v) => set({ surveyDone: v }),
-      // Stamp when the respondent first reaches the Kobo survey step (once only),
-      // and when they continue to Selfie — bracketing the external survey.
-      setKoboStart: () => { if (!stateRef.current.koboStart) set({ koboStart: new Date().toISOString() }); },
-      setKoboEnd: () => set({ koboEnd: new Date().toISOString() }),
+      // Bracket the external Kobo survey: koboStart when the step first loads (once),
+      // koboEnd when the respondent continues to Selfie. Each is persisted to the
+      // already-created submission row right away (server makes kobo_start set-once),
+      // so the timing is saved even if the response is abandoned before final submit.
+      // The timestamp is captured on first call; persistence may run later (once the
+      // submissionId from startSubmission has arrived) but still sends the original time.
+      setKoboStart: () => {
+        const s = stateRef.current;
+        const ts = s.koboStart || new Date().toISOString();
+        if (!s.koboStart) set({ koboStart: ts });
+        if (s.submissionId) {
+          fetch("/api/submit/kobo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: s.submissionId, kobo_start: ts }),
+          }).catch(() => { /* non-fatal: final submit still carries kobo_start */ });
+        }
+      },
+      setKoboEnd: () => {
+        const s = stateRef.current;
+        const ts = new Date().toISOString();
+        set({ koboEnd: ts });
+        if (s.submissionId) {
+          fetch("/api/submit/kobo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: s.submissionId, kobo_end: ts }),
+          }).catch(() => { /* non-fatal: final submit still carries kobo_end */ });
+        }
+      },
       takeSelfie: () => set({ selfieMethod: "camera" }),
       uploadSelfie: () => set({ selfieMethod: "upload" }),
       setSelfieUrl: (url) => set({ selfieUrl: url, selfie: true }),
