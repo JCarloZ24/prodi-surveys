@@ -36,6 +36,21 @@ function passwordStrength(pw: string): { bars: number; label: string; color: str
   return { bars: 3, label: "Strong", color: "#10B981", hint: "" };
 }
 
+// Validates a PH mobile number (11 digits starting with 09). Returns the error to
+// show, or "" when valid/empty. The "Must start with 09" prefix error surfaces
+// immediately — even before the field is blurred — because a wrong prefix can never
+// become valid (covers autofill/paste, where onBlur may never fire). The incomplete-
+// length hint waits for `touched` so we don't nag while a correct prefix is still
+// being typed.
+function phMobileError(value: string, touched: boolean): string {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 0) return "";
+  if (digits.length === 11 && digits.startsWith("09")) return "";
+  const prefixWrong = digits[0] !== "0" || (digits.length >= 2 && digits[1] !== "9");
+  if (prefixWrong) return "Must start with 09";
+  return touched ? `${digits.length}/11 digits — must be 11 digits starting with 09` : "";
+}
+
 
 export function SignupForm({ role, title, subtitle, extraField }: Props) {
   const router = useRouter();
@@ -80,20 +95,12 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
 
   const mobileDigits = mobile.replace(/\D/g, "");
   const mobileValid = mobileDigits.length === 11 && mobileDigits.startsWith("09");
-  const mobileError = mobileTouched && mobile.length > 0 && !mobileValid
-    ? mobileDigits.length < 11
-      ? `${mobileDigits.length}/11 digits — must be 11 digits starting with 09`
-      : "Must start with 09"
-    : "";
+  const mobileError = phMobileError(mobile, mobileTouched);
 
   const isMobileMethod = payout.method === "GCash" || payout.method === "Maya";
   const payoutNumDigits = payout.acctNum.replace(/\D/g, "");
   const payoutNumValid = !isMobileMethod || (payoutNumDigits.length === 11 && payoutNumDigits.startsWith("09"));
-  const payoutNumError = isMobileMethod && payoutNumTouched && payout.acctNum.length > 0 && !payoutNumValid
-    ? payoutNumDigits.length < 11
-      ? `${payoutNumDigits.length}/11 digits — must be 11 digits starting with 09`
-      : "Must start with 09"
-    : "";
+  const payoutNumError = isMobileMethod ? phMobileError(payout.acctNum, payoutNumTouched) : "";
 
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
   const pwStrength = passwordStrength(password);
@@ -283,7 +290,7 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
                       className={cx(
                         authInputClass,
                         "pr-14",
-                        mobileError ? "border-red-300 bg-red-50" : mobileTouched && mobileValid ? "border-emerald-300 bg-emerald-50" : "",
+                        mobileError ? "border-red-300 bg-red-50" : mobileValid ? "border-emerald-300 bg-emerald-50" : "",
                       )}
                     />
                     <span className={cx(
@@ -296,7 +303,7 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
                   {mobileError && (
                     <p className="mt-1 text-[12px] font-semibold text-red-600">{mobileError}</p>
                   )}
-                  {mobileTouched && mobileValid && (
+                  {mobileValid && (
                     <p className="mt-1 text-[12px] font-semibold text-emerald-600">✓ Valid mobile number</p>
                   )}
                 </Field>
@@ -431,7 +438,7 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
                       className={cx(
                         authInputClass,
                         isMobileMethod && "pr-14",
-                        payoutNumError ? "border-red-300 bg-red-50" : payoutNumTouched && payoutNumValid && isMobileMethod ? "border-emerald-300 bg-emerald-50" : "",
+                        payoutNumError ? "border-red-300 bg-red-50" : isMobileMethod && payoutNumValid ? "border-emerald-300 bg-emerald-50" : "",
                       )}
                     />
                     {isMobileMethod && (
@@ -446,7 +453,7 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
                   {payoutNumError && (
                     <p className="mt-1 text-[12px] font-semibold text-red-600">{payoutNumError}</p>
                   )}
-                  {isMobileMethod && payoutNumTouched && payoutNumValid && (
+                  {isMobileMethod && payoutNumValid && (
                     <p className="mt-1 text-[12px] font-semibold text-emerald-600">✓ Valid mobile number</p>
                   )}
                 </Field>
