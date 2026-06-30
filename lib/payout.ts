@@ -1,8 +1,8 @@
 import type { PayoutDetails } from "@/lib/types";
 
 // Payout methods + validation shared by the respondent/enumerator signup payout
-// step and the admin referrer form. Mirrors the survey flow (RespondentFlow):
-// every method needs an account name + number; Bank transfer also needs the bank.
+// step. Mirrors the survey flow (RespondentFlow): every method needs an account
+// name + number; Bank transfer also needs the bank.
 export const PAYOUT_METHODS = ["GCash", "Maya", "Bank transfer", "Other"];
 
 export function payoutError(p: PayoutDetails): string | null {

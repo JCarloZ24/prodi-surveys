@@ -6,11 +6,10 @@ import { classify } from "@/lib/classify";
 import { buildProfileData } from "@/lib/profile";
 import { buildRegistrationData } from "@/lib/registration";
 import { buildPayoutData, buildShippingData } from "@/lib/token";
-import { typePillClass, typeShort, peso } from "@/lib/format";
+import { typeShort, peso } from "@/lib/format";
 import { LogoMark } from "@/lib/icons";
 import { cx } from "@/lib/cx";
 import { detectFaceCount, detectFaceInFrame } from "@/lib/faceDetect";
-import { publicUrl, respondentReferralPath } from "@/lib/public-url";
 import { FlowNav } from "./FlowNav";
 import { ProfileStep } from "./ProfileStep";
 import { SurveyStep } from "./SurveyStep";
@@ -195,11 +194,6 @@ function Welcome() {
           You&apos;ve been invited to take part in a baseline data collection study. The survey takes
           about <b>5–10 minutes</b>.
         </p>
-        {state.referredBy && (
-          <div className="my-3.5 inline-flex items-center gap-2 rounded-[9px] border border-brand-pinkLine bg-brand-pinkSoft2 px-3.5 py-2 text-[13px] font-semibold text-[#9D174D]">
-            Referred by {state.referredBy} · code {state.referredCode}
-          </div>
-        )}
       </div>
 
       <div className="my-[22px] rounded-2xl border border-line bg-white p-[18px] text-left">
@@ -1088,7 +1082,6 @@ function Review() {
     ["Mobile", state.reg.mobile || "—"],
     ["Survey path", typeShort(state.rType)],
     ["Qualification", cls.status],
-    ["Referral source", state.qual.hearAbout || "—"],
     ["Survey", state.surveyDone ? "✓ Completed (KoboToolbox)" : "Not completed"],
     [
       "Selfie",
@@ -1132,7 +1125,6 @@ function Review() {
           // External Kobo survey timing captured during the Survey step.
           kobo_start: state.koboStart || null,
           kobo_end: state.koboEnd || null,
-          referrer_code: state.reg.code || null,
           enumerator_slug: state.enumeratorSlug || null,
           consent: {
             terms: state.consentTerms,
@@ -1145,8 +1137,8 @@ function Review() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Submission failed");
       }
-      const data = await res.json().catch(() => ({}));
-      actions.submitFlow(data.referral_code);
+      await res.json().catch(() => ({}));
+      actions.submitFlow();
     } catch {
       setSubmitError("Submission failed. Please check your connection and try again.");
       setSubmitting(false);
@@ -1178,18 +1170,8 @@ function Review() {
 }
 
 function Success() {
-  const { state, actions } = usePortal();
+  const { state } = usePortal();
   const firstName = (state.reg.name || "").trim().split(" ")[0];
-  // Enumerator-enrolled respondents share a link routed through their enumerator
-  // (/s/<slug>?referral-code=<code>); otherwise fall back to the legacy referral
-  // path (set for /r/ and preview flows).
-  const referralPath = state.enumeratorSlug
-    ? respondentReferralPath(state.enumeratorSlug, state.newCode || "")
-    : state.referralPath || "/r/" + encodeURIComponent(state.newCode || "");
-  const referralUrl = publicUrl(referralPath);
-  // The referral link is only generated/shown if the respondent opts in to
-  // recommend someone. null = not asked yet, true = referring, false = declined.
-  const [refer, setRefer] = useState<boolean | null>(null);
   return (
     <div className="pt-[18px] text-center">
       <div className="mx-auto mb-[22px] flex h-[72px] w-[72px] items-center justify-center rounded-full bg-green-100">
@@ -1205,79 +1187,6 @@ function Success() {
         <b className="text-orange-800">pending QA review</b>. You&apos;ll be notified once it has
         been verified.
       </p>
-
-      {/* Ask before generating a referral link. */}
-      {refer === null && (
-        <div className="mb-3.5 rounded-2xl border border-line bg-white p-5">
-          <div className="mb-1.5 text-[15.5px] font-extrabold tracking-[-.3px] text-brand-ink">
-            Who else could you recommend?
-          </div>
-          <p className="mx-auto mb-4 max-w-[400px] text-[13px] leading-[1.55] text-gray-500">
-            Know someone in your group who could take part? Share your link so they can
-            join the study too.
-          </p>
-          <div className="flex gap-2.5">
-            <button
-              onClick={() => setRefer(false)}
-              className="h-[46px] flex-1 rounded-[11px] border border-[#E2E2E6] bg-white text-sm font-bold text-gray-700"
-            >
-              No, thanks
-            </button>
-            <button
-              onClick={() => { setRefer(true); actions.promoteToReferrer(); }}
-              className="h-[46px] flex-1 rounded-[11px] bg-brand-ink text-sm font-bold text-white"
-            >
-              Yes, refer someone
-            </button>
-          </div>
-        </div>
-      )}
-
-      {refer === true && (
-        <>
-          <div className="mb-3.5 rounded-2xl border border-line bg-white p-5 text-left">
-            <div className="mb-1.5 flex items-center justify-between">
-              <div className="text-[12px] font-bold uppercase tracking-[.4px] text-gray-400">
-                Your referral link
-              </div>
-              <span className={typePillClass(state.rType)}>{typeShort(state.rType)} path</span>
-            </div>
-            <p className="mb-3 text-[13px] leading-[1.55] text-gray-500">
-              Share this link with others in your group so they can take part in the study.
-            </p>
-            <div className="flex items-center gap-2 rounded-[9px] border border-line2 bg-muted px-[13px] py-2.5">
-              <span className="flex-1 break-all text-left font-mono text-[13px] text-gray-700">
-                {referralUrl}
-              </span>
-              <button
-                onClick={actions.copyReferral}
-                className="rounded-[7px] bg-brand-pink px-[13px] py-[7px] text-[11.5px] font-bold text-white"
-              >
-                Copy
-              </button>
-            </div>
-          </div>
-          <button
-            onClick={actions.previewReferral}
-            className="flex h-[46px] w-full items-center justify-center gap-2 rounded-[11px] bg-brand-ink text-sm font-bold text-white"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5" />
-              <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5" />
-            </svg>
-            Preview the referral link as a new respondent
-          </button>
-        </>
-      )}
-
-      {refer === false && (
-        <p className="mx-auto max-w-[400px] text-[13px] leading-[1.55] text-gray-500">
-          No problem — thanks again for taking part.{" "}
-          <button onClick={() => { setRefer(true); actions.promoteToReferrer(); }} className="font-semibold text-brand-pink underline">
-            Changed your mind? Refer someone
-          </button>
-        </p>
-      )}
 
       <p className="mt-3.5 text-[12px] text-gray-400">You can now safely close this window.</p>
     </div>

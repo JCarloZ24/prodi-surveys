@@ -33,7 +33,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
             </h1>
             <p className="mt-4 max-w-[320px] text-[14.5px] leading-[1.65] text-white/50">
               Register, verify, and track every respondent — with selfie checks, QA review,
-              referral tracking, and a full audit trail.
+              and a full audit trail.
             </p>
           </div>
 

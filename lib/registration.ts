@@ -2,10 +2,6 @@
 // camelCase `Registration` into the human-readable shape persisted to
 // submissions.registration_data. Keys are the actual fields the respondent filled in,
 // so a stored row reads as the registration form rather than cryptic keys.
-//
-// Note: the system-generated `generated_referral_code` is added to the stored object
-// separately (by the submit route) and intentionally keeps its snake_case key — it's
-// metadata queried by JSONB path (referral validation), not a respondent answer.
 
 import type { Registration } from "./types";
 

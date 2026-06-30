@@ -32,9 +32,6 @@ export const PROFILE_Q = {
   foodProducts: "What products does your business produce?",
   foodEmployees: "How many employees does your business have?",
   foodRole: "What is your role in the organization?",
-  hearAbout: "How did you hear about this survey?",
-  referrer: "Referrer",
-  hearAboutOther: "How did you hear about this survey? (details)",
 } as const;
 
 // Build the persisted profiles_data: an ordered question→answer map containing only
@@ -60,16 +57,6 @@ export function buildProfileData(qual: Qual): Record<string, string> {
     out[PROFILE_Q.foodRole] = qual.foodRole || "";
   } else if (qual.orgType === "other") {
     out[PROFILE_Q.orgName] = qual.orgName || "";
-  }
-
-  // "How did you hear about this survey?" is asked on the gov/tech/food paths.
-  if (qual.orgType === "gov" || qual.orgType === "tech" || qual.orgType === "food") {
-    out[PROFILE_Q.hearAbout] = qual.hearAbout || "";
-    if (qual.hearAbout === "Friend or Referral") {
-      out[PROFILE_Q.referrer] = qual.refName || "";
-    } else if (qual.hearAbout === "Other") {
-      out[PROFILE_Q.hearAboutOther] = qual.refName || "";
-    }
   }
 
   return out;

@@ -10,7 +10,6 @@ export const VIEW_KEYS: ViewKey[] = [
   "payouts",
   "enumerators",
   "stakeholders",
-  "referrers",
   "reports",
   "emails",
   "audit",
@@ -24,14 +23,14 @@ export const ALLOWED_STAKEHOLDER: ViewKey[] = [
 ];
 
 // Views an enumerator may access. They view respondents only — QA Review,
-// Payouts, Referrers, and the admin account pages are admin-only.
+// Payouts, and the admin account pages are admin-only.
 export const ALLOWED_ENUMERATOR: ViewKey[] = [
   "dashboard",
   "respondents",
 ];
 
 // Account-management views only an admin may access.
-export const ADMIN_ONLY: ViewKey[] = ["enumerators", "stakeholders", "referrers"];
+export const ADMIN_ONLY: ViewKey[] = ["enumerators", "stakeholders"];
 
 export function allowedViews(role: Role): ViewKey[] {
   if (role === "stakeholder") return VIEW_KEYS.filter((v) => ALLOWED_STAKEHOLDER.includes(v));

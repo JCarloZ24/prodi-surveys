@@ -206,71 +206,6 @@ export function funnel(all: Respondent[], c: Counts, totalTarget = 114): FunnelS
   ).map(([label, value]) => ({ label, value, pct: Math.min(100, Math.round((value / max) * 100)) }));
 }
 
-export interface ReferrerVM {
-  name: string;
-  kind: string;
-  referred: number;
-  verified: number;
-  initials: string;
-  avatarBg: string;
-  code: string;
-  convLabel: string;
-}
-
-// Referral attribution only — referrals no longer carry any bonus money.
-export function referrers(
-  all: Respondent[],
-  manual: { name: string; kind: string }[],
-  codeOf: (n: number) => string,
-  hashOf: (s: string) => number,
-  initialsOf: (n: string) => string,
-): ReferrerVM[] {
-  const refMap: Record<
-    string,
-    { name: string; referred: number; verified: number; kind: string }
-  > = {};
-  manual.forEach((m) => {
-    refMap[m.name] = { name: m.name, referred: 0, verified: 0, kind: m.kind || "Partner / TSI" };
-  });
-  all.forEach((r) => {
-    if (!r.referrer) return;
-    const k = r.referrer;
-    refMap[k] =
-      refMap[k] ||
-      { name: k, referred: 0, verified: 0, kind: ["DTI", "Philexport", "DOST"].includes(k) ? "Partner / TSI" : "Respondent" };
-    refMap[k].referred++;
-    if (r.verified) refMap[k].verified++;
-  });
-  return Object.values(refMap)
-    .sort((a, b) => b.verified - a.verified || b.referred - a.referred)
-    .slice(0, 12)
-    .map((r) => ({
-      ...r,
-      initials: initialsOf(r.name).toUpperCase(),
-      avatarBg: colorPick(r.name),
-      code: "PS-" + codeOf(hashOf(r.name)),
-      convLabel: r.referred ? Math.round((r.verified / r.referred) * 100) + "%" : "—",
-    }));
-}
-
-export interface Tile {
-  label: string;
-  value: string | number;
-}
-
-export function refTiles(all: Respondent[]): Tile[] {
-  const totalReferrals = all.filter((r) => r.referrer).length;
-  const verifiedRef = all.filter((r) => r.referrer && r.verified).length;
-  return [
-    { label: "Total referrals", value: totalReferrals },
-    { label: "Verified referrals", value: verifiedRef },
-    {
-      label: "Conversion rate",
-      value: totalReferrals ? Math.round((verifiedRef / totalReferrals) * 100) + "%" : "0%",
-    },
-  ];
-}
-
 export interface PayoutTotals {
   pending: number;
   paidTotal: number;
@@ -345,8 +280,7 @@ export function filteredRows(
     rows = rows.filter(
       (r) =>
         r.name.toLowerCase().includes(q) ||
-        r.org.toLowerCase().includes(q) ||
-        r.code.toLowerCase().includes(q),
+        r.org.toLowerCase().includes(q),
     );
   }
   return rows;

@@ -44,13 +44,13 @@ export function buildReport(
   const respondentTable = (list: Respondent[]): string => {
     const headers = [
       "Name", "Organization", "Type", "Position",
-      "Email", "Mobile", "Mode", "Enumerator", "Status", "Referred by",
+      "Email", "Mobile", "Mode", "Enumerator", "Status",
     ];
     if (money) headers.push("Enumerator payout", "Payout status", "Method");
     const rows = list.map((r) => {
       const base: (string | number)[] = [
         r.name, r.org, r.type, r.position,
-        r.email, r.mobile, r.mode, r.enumerator, r.status, r.referredBy ?? "",
+        r.email, r.mobile, r.mode, r.enumerator, r.status,
       ];
       if (money) {
         base.push(
@@ -86,16 +86,6 @@ export function buildReport(
         const map = new Map((r.snapshot ?? []).map(([l, v]) => [l, v]));
         return [r.name, r.org, r.type, r.status, ...labels.map((l) => map.get(l) ?? "")];
       });
-      return { filename, content: toCsv(headers, rows) };
-    }
-
-    case "Referral report": {
-      // Attribution only — referrals no longer carry any bonus money.
-      const list = respondents.filter((r) => r.referred);
-      const headers = ["Referral code", "Referrer", "Respondent", "Organization", "Type", "Status", "Verified"];
-      const rows = list.map((r) => [
-        r.referrer ?? "", r.referredBy ?? "", r.name, r.org, r.type, r.status, r.verified ? "Yes" : "No",
-      ]);
       return { filename, content: toCsv(headers, rows) };
     }
 

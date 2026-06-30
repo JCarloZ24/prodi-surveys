@@ -39,7 +39,6 @@ export type ViewKey =
   | "payouts"
   | "enumerators"
   | "stakeholders"
-  | "referrers"
   | "reports"
   | "emails"
   | "audit"
@@ -58,10 +57,6 @@ export interface Respondent {
   surveyDone: boolean;
   selfie: boolean;
   verified: boolean;
-  // Referral attribution (tracking only — referrals no longer carry any bonus money).
-  referred: boolean;
-  referrer: string | null;
-  referredBy: string | null;
   mode: CollectionMode;
   enumerator: string;
   // Enumerator payout status for this survey's flat ₱400 (Verified → Pending → Paid).
@@ -74,7 +69,6 @@ export interface Respondent {
   acctName?: string;
   compMin: number;
   flags: string[];
-  code: string;
   // Live survey answers for the QA drawer snapshot — [question label, answer text].
   snapshot?: [string, string][];
   // Raw survey answers keyed by question id (the JSONB blob) — used by the survey
@@ -90,7 +84,6 @@ export interface Respondent {
   // Added when a respondent is created through the survey flow.
   assignedType?: string;
   qualStatus?: string;
-  hearAbout?: string;
   selfieMethod?: string;
   payoutOn?: boolean;
   // Respondent token payout (₱ cash for SME/Agri-Tech, tumbler for TSI), tracked
@@ -122,11 +115,6 @@ export interface Enumerator {
   email: string;
 }
 
-export interface ManualReferrer {
-  name: string;
-  kind: string;
-}
-
 export type Targets = Record<RespondentType, number>;
 
 export interface Qual {
@@ -140,8 +128,6 @@ export interface Qual {
   foodProducts: string;
   foodEmployees: string;
   foodRole: string;
-  hearAbout: string;
-  refName: string;
   orgName: string;
 }
 
@@ -152,7 +138,6 @@ export interface Registration {
   org: string;
   position: string;
   type: RespondentType;
-  code: string;
   enumerator?: string;
 }
 
@@ -222,7 +207,7 @@ export interface EmailBlock {
 
 export interface EmailDef {
   id: string;
-  audience: "Respondent" | "Enumerator" | "Referrer" | "Stakeholder";
+  audience: "Respondent" | "Enumerator" | "Stakeholder";
   name: string;
   subject: string;
   from: string;

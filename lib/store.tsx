@@ -17,15 +17,12 @@ import {
 import { blankQual } from "./classify";
 import { buildProfileData } from "./profile";
 import { buildRegistrationData } from "./registration";
-import { code as codeOf, hash } from "./format";
-import { publicUrl, respondentReferralPath } from "./public-url";
 import { buildReport } from "./reports";
 import { DEFAULT_SURVEY_PAYOUT, DEFAULT_RESPONDENT_TOKEN } from "./selectors";
 import type {
   AppMode,
   AuditEntry,
   Enumerator,
-  ManualReferrer,
   PayoutDetails,
   Qual,
   Registration,
@@ -65,13 +62,6 @@ export interface PortalState {
   showAddEnum: boolean;
   newEnumName: string;
   newEnumEmail: string;
-  manualReferrers: ManualReferrer[];
-  showAddRef: boolean;
-  newRefName: string;
-  newRefKind: string;
-  referredBy: string;
-  referredCode: string;
-  referralPath: string;
   enumeratorSlug: string;
   submissionId: string;
   qual: Qual;
@@ -105,7 +95,6 @@ export interface PortalState {
   payoutOn: boolean;
   payout: PayoutDetails;
   shipping: ShippingDetails;
-  newCode: string;
   consentTerms: boolean;
   consentPrivacy: boolean;
   consentAt: string;
@@ -125,7 +114,6 @@ function blankReg(): Registration {
     org: "",
     position: "",
     type: "SME",
-    code: "",
   };
 }
 function blankPayout(): PayoutDetails {
@@ -136,7 +124,6 @@ function blankShipping(): ShippingDetails {
 }
 
 const FLOW_DRAFT_KEY = "prodi-surveys.flowDraft.v1";
-const REFERRERS_KEY = "prodi-surveys.referrers.v1";
 const FLOW_DRAFT_FIELDS = [
   "mode",
   "rStep",
@@ -154,13 +141,9 @@ const FLOW_DRAFT_FIELDS = [
   "payoutOn",
   "payout",
   "shipping",
-  "newCode",
   "consentTerms",
   "consentPrivacy",
   "consentAt",
-  "referredBy",
-  "referredCode",
-  "referralPath",
   "enumeratorSlug",
   "submissionId",
 ] as const;
@@ -190,20 +173,6 @@ function initialState(): PortalState {
     showAddEnum: false,
     newEnumName: "",
     newEnumEmail: "",
-    manualReferrers: (() => {
-      if (typeof window === "undefined") return [{ name: "DOST", kind: "Partner / TSI" }];
-      try {
-        const raw = window.localStorage.getItem(REFERRERS_KEY);
-        if (raw) return JSON.parse(raw) as ManualReferrer[];
-      } catch { /* ignore */ }
-      return [{ name: "DOST", kind: "Partner / TSI" }];
-    })(),
-    showAddRef: false,
-    newRefName: "",
-    newRefKind: "Partner / TSI",
-    referredBy: "",
-    referredCode: "",
-    referralPath: "",
     enumeratorSlug: "",
     submissionId: "",
     qual: blankQual(),
@@ -231,7 +200,6 @@ function initialState(): PortalState {
     payoutOn: true,
     payout: blankPayout(),
     shipping: blankShipping(),
-    newCode: "",
     consentTerms: false,
     consentPrivacy: false,
     consentAt: "",
@@ -299,14 +267,9 @@ export interface PortalActions {
   renameEnumerator(i: number, v: string): void;
   setEnumEmail(i: number, v: string): void;
   removeEnumerator(i: number): void;
-  setShowAddRef(b: boolean): void;
-  setNewRefName(v: string): void;
-  setNewRefKind(v: string): void;
-  addReferrer(): void;
   setEmail(id: string): void;
   launchFlow(): void;
-  launchReferralFlow(code: string, preview?: boolean): void;
-  launchEnumeratorFlow(slug: string, referralCode?: string): void;
+  launchEnumeratorFlow(slug: string): void;
   exitFlow(): void;
   flowNext(): void;
   flowBack(): void;
@@ -331,10 +294,7 @@ export interface PortalActions {
   setOrg(t: Qual["orgType"]): void;
   setQual(f: keyof Qual, v: string): void;
   toggleTech(opt: string): void;
-  submitFlow(referralCode?: string): void;
-  promoteToReferrer(): void;
-  copyReferral(): void;
-  previewReferral(): void;
+  submitFlow(): void;
   setConsentTerms(v: boolean): void;
   setConsentPrivacy(v: boolean): void;
   confirmConsent(): void;
@@ -469,9 +429,6 @@ export function PortalProvider({
       selfieUrl: "",
       selfieFile: null,
       payoutOn: true,
-      referredBy: "",
-      referredCode: "",
-      referralPath: "",
       enumeratorSlug: "",
       submissionId: "",
       qual: blankQual(),
@@ -773,56 +730,16 @@ export function PortalProvider({
         toast("Enumerator removed · " + e.name);
       },
 
-      setShowAddRef: (b) =>
-        set(b ? { showAddRef: true } : { showAddRef: false, newRefName: "" }),
-      setNewRefName: (v) => set({ newRefName: v }),
-      setNewRefKind: (v) => set({ newRefKind: v }),
-      addReferrer: () => {
-        const s = stateRef.current;
-        const name = (s.newRefName || "").trim();
-        if (!name) return;
-        const list = [...s.manualReferrers, { name, kind: s.newRefKind }];
-        const c = "PS-" + codeOf(hash(name));
-        try { window.localStorage.setItem(REFERRERS_KEY, JSON.stringify(list)); } catch { /* ignore */ }
-        set({
-          manualReferrers: list,
-          newRefName: "",
-          newRefKind: "Partner / TSI",
-          showAddRef: false,
-          audit: [logEntry("Referrer added", "· " + name + " (" + c + ")", userName()), ...s.audit],
-        });
-        toast("Referrer added · " + name + " · " + c);
-      },
-
       setEmail: (id) => set({ emailSel: id }),
 
       launchFlow: () => set(resetFlow()),
-      launchReferralFlow: (referralCode, preview = false) => {
-        const c = referralCode.trim().toUpperCase();
+      launchEnumeratorFlow: (slug) => {
         const s = stateRef.current;
-        if (s.mode === "flow" && s.reg.code === c) return;
-        set({
-          ...resetFlow(),
-          referredBy: "Referral",
-          referredCode: c,
-          referralPath: (preview ? "/preview/r/" : "/r/") + encodeURIComponent(c),
-          reg: { ...blankReg(), code: c },
-        });
-      },
-      launchEnumeratorFlow: (slug, referralCode) => {
-        const refC = (referralCode || "").trim().toUpperCase();
-        const s = stateRef.current;
-        // Avoid re-init when the flow is already set up for the same enumerator
-        // link + referral code.
-        if (s.mode === "flow" && s.enumeratorSlug === slug && s.reg.code === refC) return;
+        // Avoid re-init when the flow is already set up for the same enumerator link.
+        if (s.mode === "flow" && s.enumeratorSlug === slug) return;
         set({
           ...resetFlow(),
           enumeratorSlug: slug,
-          ...(refC ? { referredBy: "Referral", referredCode: refC } : {}),
-          reg: { ...blankReg(), code: refC },
-          // A referral link implies "Friend or Referral" so the prefilled code
-          // surfaces (and validates) in the Profile step.
-          ...(refC ? { qual: { ...blankQual(), hearAbout: "Friend or Referral" } } : {}),
         });
       },
       exitFlow: () => set(resetFlow()),
@@ -879,7 +796,6 @@ export function PortalProvider({
               registration_data: buildRegistrationData(s.reg),
               profiles_data: buildProfileData(s.qual),
               survey_type: s.rType,
-              referrer_code: s.reg.code || null,
               enumerator_slug: s.enumeratorSlug || null,
               // Every respondent is offered a token (cash for SME/Agri-Tech, tumbler for TSI).
               payout_offered: true,
@@ -989,14 +905,10 @@ export function PortalProvider({
         });
       },
 
-      submitFlow: (referralCode) => {
+      submitFlow: () => {
         // The submission is already persisted to Supabase by the Review step's
-        // /api/submit call. Here we only generate the referral code shown on the
-        // success screen and advance the wizard. The API returns the saved code;
-        // the client fallback is only for old/offline-like responses.
-        const s = stateRef.current;
-        const c = referralCode || "PS-" + codeOf(hash((s.reg.email || s.reg.name || "respondent") + Date.now()));
-        set({ newCode: c, rStep: 9 });
+        // /api/submit call. Here we only advance the wizard to the success screen.
+        set({ rStep: 9 });
       },
 
       notify: (msg) => toast(msg),
@@ -1005,77 +917,6 @@ export function PortalProvider({
       // Stamp the moment both consents were accepted (when leaving the Welcome
       // step), so the submission carries an auditable consent timestamp.
       confirmConsent: () => set({ consentAt: new Date().toISOString() }),
-
-      // Record the respondent as a referrer (type=respondent) when they opt in to
-      // refer someone. Idempotent server-side (unique referral_code), fire-and-forget.
-      promoteToReferrer: () => {
-        const s = stateRef.current;
-        const code = s.newCode;
-        if (!code) return;
-        fetch("/api/referral/promote", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            referral_code: code,
-            full_name: s.reg.name,
-            email: s.reg.email,
-            phone: s.reg.mobile,
-            // Prefill the referrer's payout from the payout/token step the
-            // respondent just completed. TSI respondents chose a tumbler instead
-            // of a cash payout, so they have no payout details to carry over.
-            payout_details: s.rType === "TSI" ? null : s.payout,
-          }),
-        }).catch(() => {
-          /* non-fatal: the success screen still shows the link */
-        });
-      },
-      copyReferral: () => {
-        const s = stateRef.current;
-        const path = s.enumeratorSlug
-          ? respondentReferralPath(s.enumeratorSlug, s.newCode || "")
-          : s.referralPath || "/r/" + encodeURIComponent(s.newCode || "");
-        const link = publicUrl(path);
-        try {
-          if (navigator.clipboard) navigator.clipboard.writeText(link);
-        } catch {
-          /* clipboard unavailable */
-        }
-        toast("Referral link copied · " + link);
-      },
-      previewReferral: () => {
-        const s = stateRef.current;
-        const c = s.newCode;
-        if (typeof window !== "undefined") {
-          // Enumerator-enrolled respondents preview through the real survey link
-          // (nothing is recorded until submit); others use the /r/ preview route.
-          window.location.href = s.enumeratorSlug
-            ? respondentReferralPath(s.enumeratorSlug, c)
-            : "/preview/r/" + encodeURIComponent(c);
-          return;
-        }
-        set({
-          mode: "flow",
-          rStep: 0,
-          rMaxStep: 0,
-          referredBy: "Referral",
-          referredCode: c,
-          referralPath: "/preview/r/" + encodeURIComponent(c),
-          rType: "SME",
-          survey: {},
-          surveyDone: false,
-          koboStart: "",
-          koboEnd: "",
-          selfie: false,
-          selfieMethod: "",
-          payoutOn: true,
-          qual: blankQual(),
-          reg: { ...blankReg(), code: c },
-          payout: blankPayout(),
-          consentTerms: false,
-          consentPrivacy: false,
-          consentAt: "",
-        });
-      },
     };
   }, [set, toast, settingsDirty]);
 

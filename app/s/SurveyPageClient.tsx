@@ -5,28 +5,22 @@ import { RespondentFlow } from "@/components/flow/RespondentFlow";
 import { Toast } from "@/components/ui/Toast";
 import { PortalProvider, usePortal } from "@/lib/store";
 
-function EnumeratorFlow({ slug, referralCode }: { slug: string; referralCode?: string }) {
+function EnumeratorFlow({ slug }: { slug: string }) {
   const { actions } = usePortal();
 
   useEffect(() => {
-    actions.launchEnumeratorFlow(slug, referralCode);
-  }, [actions, slug, referralCode]);
+    actions.launchEnumeratorFlow(slug);
+  }, [actions, slug]);
 
   return <RespondentFlow />;
 }
 
-// Survey opened from an enumerator's link: /s/<enumerator-slug>
-// (optionally ?referral-code=<code>). The slug + referral code are recorded on submit.
-export function SurveyPageClient({
-  slug,
-  referralCode,
-}: {
-  slug: string;
-  referralCode?: string;
-}) {
+// Survey opened from an enumerator's link: /s/<enumerator-slug>.
+// The slug is recorded on submit.
+export function SurveyPageClient({ slug }: { slug: string }) {
   return (
     <PortalProvider>
-      <EnumeratorFlow slug={slug} referralCode={referralCode} />
+      <EnumeratorFlow slug={slug} />
       <Toast />
     </PortalProvider>
   );

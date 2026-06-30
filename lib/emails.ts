@@ -122,23 +122,6 @@ export function emailDefs(): EmailDef[] {
       ],
     },
     {
-      id: "refbonus",
-      audience: "Referrer",
-      name: "Referral verified",
-      subject: "Your referral was verified",
-      from: "Prodi-Surveys <no-reply@prodigitality.net>",
-      to: "referrer",
-      preheader: "Someone you referred is now verified.",
-      accent: "#7C3AED",
-      vars: { referredName: "Island Beverages", referralCode: "PS-9K2D" },
-      blocks: [
-        { type: "h", text: "Thank you — your referral was verified" },
-        { type: "p", text: "A respondent you referred has completed and passed verification. Thank you for helping us reach more businesses." },
-        { type: "kv", rows: [["Referred respondent", "{{referredName}}"], ["Your referral code", "{{referralCode}}"], ["Status", "Verified"]] },
-        { type: "note", text: "Referrals are tracked for attribution only." },
-      ],
-    },
-    {
       id: "stakeholder",
       audience: "Stakeholder",
       name: "Weekly progress report",

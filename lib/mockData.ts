@@ -3,13 +3,12 @@
 // records every run. Swap this module for a real API later — nothing else
 // depends on how the data is produced.
 
-import { avatarColor, code } from "./format";
+import { avatarColor } from "./format";
 import type { AuditEntry, Respondent } from "./types";
 
 interface MakeOpts {
   flags?: string[];
   fast?: boolean;
-  referrer?: string;
 }
 
 export interface MockData {
@@ -76,7 +75,6 @@ export function buildData(): MockData {
       "Selfie Submitted", "Pending QA", "Needs Follow-up", "Verified", "Rejected",
     ].includes(status);
     const verified = status === "Verified";
-    const referred = rnd() < 0.55;
     const mode: Respondent["mode"] = "Enumerator-assisted";
     const enumr = pick(enumNames);
     let payStatus = "—";
@@ -88,10 +86,6 @@ export function buildData(): MockData {
       ? Math.floor(rnd() * 3) + 3
       : Math.floor(rnd() * 16) + 8;
     const days = Math.floor(rnd() * 42);
-    const ref = referred
-      ? opts.referrer ||
-        pick(["DTI", "Philexport", "Maria Santos", fn + " " + pick(lnames), "Jun Mercado"])
-      : null;
     const method = pick(methods);
     const acct =
       method === "Bank transfer"
@@ -108,12 +102,11 @@ export function buildData(): MockData {
       " " +
       (1000 + Math.floor(rnd() * 8999));
     const recId = id++;
-    const recCode = "PS-" + code(id * 7 + 3);
     return {
       id: recId, name, org, type, status, position, email, mobile,
-      emailV, surveyDone, selfie, verified, referred,
-      referrer: ref, referredBy: null, mode, enumerator: enumr, payStatus, method, acct, compMin,
-      flags: opts.flags || [], code: recCode, createdDays: days,
+      emailV, surveyDone, selfie, verified,
+      mode, enumerator: enumr, payStatus, method, acct, compMin,
+      flags: opts.flags || [], createdDays: days,
       color: avatarColor(name),
     };
   };
@@ -165,8 +158,6 @@ export function buildData(): MockData {
       if (status === "Rejected" && k === 1) opts = { flags: ["Duplicate email"] };
       if (status === "Needs Follow-up" && k === 0)
         opts = { flags: ["Missing selfie"] };
-      if (status === "Verified" && k % 9 === 0)
-        opts = { referrer: "Maria Santos" };
       recs.push(make("SME", org, status, opts));
     }
   });

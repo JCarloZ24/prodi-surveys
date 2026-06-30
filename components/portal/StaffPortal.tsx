@@ -15,7 +15,6 @@ import {
   groupBreakdown,
   payoutFor,
   payoutTotals,
-  refTiles,
   totals,
 } from "@/lib/selectors";
 import { aggregateResponses } from "@/lib/responses";
@@ -29,7 +28,6 @@ import { cx } from "@/lib/cx";
 import { LogoMark } from "@/lib/icons";
 import { createBrowserSupabase } from "@/lib/supabase-browser";
 import { allowedViews, isViewAllowed } from "@/lib/portal-views";
-import { ReferrersView } from "@/components/portal/ReferrersView";
 import type { Respondent, RespondentType, Role, Targets, ViewKey } from "@/lib/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -87,7 +85,6 @@ const NAV: { key: ViewKey; label: string; icon: React.ReactNode }[] = [
   { key: "payouts",     label: "Payouts",      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> },
   { key: "enumerators", label: "Enumerators",  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
   { key: "stakeholders", label: "Stakeholders", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg> },
-  { key: "referrers",   label: "Referrers",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> },
   { key: "reports",     label: "Reports / Export", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> },
   { key: "emails",      label: "Emails",        icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
   { key: "audit",       label: "Audit Logs",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="10" y1="17" x2="8" y2="17"/></svg> },
@@ -146,7 +143,6 @@ export function PortalView({ view }: { view: ViewKey }) {
     case "payouts":      return <PayoutsView />;
     case "enumerators":  return <EnumeratorsView />;
     case "stakeholders": return <StakeholdersView />;
-    case "referrers":    return <ReferrersView />;
     case "reports":      return <ReportsView />;
     case "emails":       return <EmailsView />;
     case "audit":        return <AuditView />;
@@ -415,7 +411,7 @@ function PortalChrome({ role, userSlug, children }: { role: Role; userSlug: stri
             <input
               value={state.search}
               onChange={(e) => actions.setSearch(e.target.value)}
-              placeholder="Search respondents, orgs, referral codes..."
+              placeholder="Search respondents, orgs..."
               className="h-9 w-full rounded-[9px] border border-[#E4E4E7] bg-[#F7F7F8] pl-9 pr-3.5 text-[12.5px] focus:border-[#18181B] focus:bg-white focus:outline-none"
             />
           </div>
@@ -520,8 +516,6 @@ function Dashboard() {
   const { totalTarget, remaining } = useMemo(() => totals(state.targets, c.verified), [state.targets, c.verified]);
   const funnelSteps = useMemo(() => funnel(state.respondents, c, totalTarget), [state.respondents, c, totalTarget]);
   const pt = useMemo(() => payoutTotals(state.respondents, state.surveyPayout), [state.respondents, state.surveyPayout]);
-  // Referral attribution tiles (counts only — no bonus money any more).
-  const tiles = useMemo(() => refTiles(state.respondents), [state.respondents]);
 
   return (
     <div className="space-y-5">
@@ -640,55 +634,35 @@ function Dashboard() {
         )}
       </div>
 
-      {/* Referrals + Payouts — hidden entirely for stakeholders */}
-      {state.role !== "stakeholder" && (
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Referrals */}
-        <div className="rounded-2xl border border-[#E4E4E7] bg-white p-5">
+      {/* Payouts — admin only */}
+      {state.role === "admin" && (
+        <div className="rounded-2xl p-5" style={{ background: "#1A0F3D" }}>
           <div className="mb-4 flex items-center justify-between">
-            <span className="text-[13.5px] font-bold text-[#18181B]">Referrals</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[13.5px] font-bold text-white">Payouts</span>
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/60" style={{ background: "rgba(255,255,255,0.1)" }}>
+                ADMIN
+              </span>
+            </div>
+            <button onClick={() => go("payouts")} className="text-[12px] font-semibold text-white/50 hover:text-white/80">
+              Manage →
+            </button>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {tiles.map((t) => (
-              <div key={t.label} className="rounded-[12px] bg-[#F7F7F8] p-4">
-                <div className="text-[22px] font-extrabold text-[#18181B]">{t.value}</div>
-                <div className="mt-0.5 text-[11.5px] text-gray-500">{t.label}</div>
-              </div>
-            ))}
+            <div className="rounded-[12px] p-4" style={{ background: "rgba(255,255,255,0.08)" }}>
+              <div className="text-[22px] font-extrabold text-white">{peso(pt.pending)}</div>
+              <div className="mt-0.5 text-[11.5px] text-white/45">Enumerator payouts pending</div>
+            </div>
+            <div className="rounded-[12px] p-4" style={{ background: "rgba(255,255,255,0.08)" }}>
+              <div className="text-[22px] font-extrabold text-white">{peso(pt.paidTotal)}</div>
+              <div className="mt-0.5 text-[11.5px] text-white/45">Paid out</div>
+            </div>
+            <div className="rounded-[12px] p-4" style={{ background: "rgba(255,255,255,0.08)" }}>
+              <div className="text-[22px] font-extrabold text-white">{pt.onHold}</div>
+              <div className="mt-0.5 text-[11.5px] text-white/45">On hold</div>
+            </div>
           </div>
         </div>
-
-        {/* Payouts — admin only */}
-        {state.role === "admin" && (
-          <div className="rounded-2xl p-5" style={{ background: "#1A0F3D" }}>
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-[13.5px] font-bold text-white">Payouts</span>
-                <span className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/60" style={{ background: "rgba(255,255,255,0.1)" }}>
-                  ADMIN
-                </span>
-              </div>
-              <button onClick={() => go("payouts")} className="text-[12px] font-semibold text-white/50 hover:text-white/80">
-                Manage →
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-[12px] p-4" style={{ background: "rgba(255,255,255,0.08)" }}>
-                <div className="text-[22px] font-extrabold text-white">{peso(pt.pending)}</div>
-                <div className="mt-0.5 text-[11.5px] text-white/45">Enumerator payouts pending</div>
-              </div>
-              <div className="rounded-[12px] p-4" style={{ background: "rgba(255,255,255,0.08)" }}>
-                <div className="text-[22px] font-extrabold text-white">{peso(pt.paidTotal)}</div>
-                <div className="mt-0.5 text-[11.5px] text-white/45">Paid out</div>
-              </div>
-              <div className="rounded-[12px] p-4" style={{ background: "rgba(255,255,255,0.08)" }}>
-                <div className="text-[22px] font-extrabold text-white">{pt.onHold}</div>
-                <div className="mt-0.5 text-[11.5px] text-white/45">On hold</div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
       )}
     </div>
   );
@@ -788,7 +762,7 @@ function RespondentsView() {
               <thead>
                 <tr className="border-b border-[#F2F2F4]">
                   {[
-                    "RESPONDENT", "TYPE", "MODE", "ENUMERATOR", "REFERRED BY", "PROFILE STATUS",
+                    "RESPONDENT", "TYPE", "MODE", "ENUMERATOR", "PROFILE STATUS",
                     ...(showMoney ? ["PAY STATUS"] : []),
                     "FLAGS",
                     ...(showMoney ? ["PAYOUT"] : []),
@@ -822,7 +796,6 @@ function RespondentsView() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.enumerator || "—"}</td>
-                    <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.referredBy || "—"}</td>
                     <td className="px-4 py-3">{statusBadge(r.status)}</td>
                     {showMoney && (
                       <td className="px-4 py-3">
@@ -1044,7 +1017,7 @@ function RevealNumber({ value, name, canReveal }: { value: string; name?: string
 }
 
 // Shared Approve / Hold / Mark-paid action cell, used for both the respondent
-// token and the referrer bonus (each tracks its own status independently).
+// token and the enumerator payout (each tracks its own status independently).
 function PayoutActionCell({
   status,
   role,
@@ -1905,7 +1878,6 @@ const REPORT_DEFS = [
   { name: "Full respondent list",  desc: "All 114 records",              icon: "📋", fmts: ["CSV", "Excel"] },
   { name: "Verified respondents",  desc: "Verified only",                icon: "✅", fmts: ["CSV", "Excel"] },
   { name: "Survey answers",        desc: "KoboToolbox-compatible",       icon: "📝", fmts: ["CSV", "Kobo"] },
-  { name: "Referral report",       desc: "Referrers & conversions",      icon: "🔗", fmts: ["CSV", "Excel"] },
   { name: "Payout report",         desc: "Admin only",                   icon: "💳", fmts: ["CSV", "Excel"] },
   { name: "Audit log",             desc: "Full action history",          icon: "📒", fmts: ["CSV"] },
 ] as const;
@@ -2098,7 +2070,7 @@ function SubmissionsReport({ respondents }: { respondents: Respondent[] }) {
         )}
       </div>
 
-      {/* Per-respondent detail — who submitted, path, enumerator, referrer */}
+      {/* Per-respondent detail — who submitted, path, enumerator */}
       <div className="overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white">
         <div className="border-b border-[#F2F2F4] px-4 py-2.5 text-[12px] font-bold text-[#18181B]">
           Submission detail · {visible.length}
@@ -2110,7 +2082,7 @@ function SubmissionsReport({ respondents }: { respondents: Respondent[] }) {
             <table className="w-full min-w-[860px] text-left">
               <thead>
                 <tr className="border-b border-[#F2F2F4]">
-                  {["RESPONDENT", "PATH", "SUBMITTED", "MODE", "ENUMERATOR", "REFERRED BY", "STATUS"].map((h) => (
+                  {["RESPONDENT", "PATH", "SUBMITTED", "MODE", "ENUMERATOR", "STATUS"].map((h) => (
                     <th key={h} className="px-4 py-3 text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{h}</th>
                   ))}
                 </tr>
@@ -2141,11 +2113,6 @@ function SubmissionsReport({ respondents }: { respondents: Respondent[] }) {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.enumerator || "—"}</td>
-                    <td className="px-4 py-3 text-[12.5px] text-gray-600">
-                      {r.referredBy || r.referrer
-                        ? <span>{r.referredBy || "—"}{r.referrer ? <span className="text-gray-400"> · {r.referrer}</span> : null}</span>
-                        : "—"}
-                    </td>
                     <td className="px-4 py-3">{statusBadge(r.status)}</td>
                   </tr>
                 ))}
@@ -2592,14 +2559,12 @@ function EmailsView() {
   const sections = [
     { label: "Respondent",   audience: "Respondent" },
     { label: "Enumerator",   audience: "Enumerator" },
-    { label: "Referrer",     audience: "Referrer" },
     { label: "Stakeholder",  audience: "Stakeholder" },
   ] as const;
 
   const audienceColor: Record<string, string> = {
     Respondent:  "#E0195F",
     Enumerator:  "#7C3AED",
-    Referrer:    "#059669",
     Stakeholder: "#18181B",
   };
 
@@ -2607,7 +2572,7 @@ function EmailsView() {
     <div className="space-y-4">
       <PageHeader
         title="Email notifications"
-        sub="Previews of the transactional emails the system sends to respondents, enumerators, referrers, and stakeholders."
+        sub="Previews of the transactional emails the system sends to respondents, enumerators, and stakeholders."
       />
 
       <div className="flex gap-5 flex-col lg:flex-row">
@@ -2684,7 +2649,6 @@ function EmailsView() {
                   {sel.to === "respondent" ? "maria.delacruz@email.com"
                     : sel.to === "enumerator" ? "grace.tan@prodigitality.net"
                     : sel.to === "stakeholder" ? "arianne@prodigitality.net"
-                    : sel.to === "referrer" ? "partner@dti.gov.ph"
                     : sel.to}
                 </div>
               </div>
@@ -2885,7 +2849,7 @@ function SettingsView() {
         <div className="mb-1 text-[14px] font-bold text-[#18181B]">Enumerator payout</div>
         <p className="mb-4 text-[12.5px] text-gray-500">
           Flat amount paid to the enumerator for each verified (successful) survey. Respondents
-          and referrers are not paid.
+          are not paid.
         </p>
         <div className="flex items-center justify-between">
           <span className="text-[13px] font-semibold text-gray-700">Payout per verified survey</span>
@@ -3085,8 +3049,6 @@ function ProfileDrawer() {
               ["POSITION",      r.position && r.position !== "—" ? r.position : null],
               ["MODE",          r.mode],
               ["ENUMERATOR",    r.enumerator && r.enumerator !== "—" ? r.enumerator : null],
-              ["RESPONDENT'S REFERRAL CODE", r.code || "—"],
-              ["REFERRED BY",   r.referredBy || null],
             ] as [string, string | null][]).filter(([, v]) => v !== null).map(([label, value]) => (
               <div key={label}>
                 <div className="text-[10.5px] font-bold uppercase tracking-[0.5px] text-gray-400">{label}</div>

@@ -2,7 +2,6 @@
 // Imported by both the portal server component and the portal API route.
 
 import { avatarColor } from "./format";
-import { PROFILE_Q } from "./profile";
 import { REG_Q } from "./registration";
 import { readPayout, readShipping } from "./token";
 import type { CollectionMode, Respondent } from "./types";
@@ -27,7 +26,6 @@ export function rowToRespondent(
   enumBySlug?: Map<string, string>,
 ): Respondent {
   const reg = (row.registration_data as Record<string, string>) ?? {};
-  const qual = (row.profiles_data as Record<string, string>) ?? {};
   const surveyType = (row.survey_type as string) ?? "SME";
   // token_data is the single generic token column: payout shape for SME/Agri-Tech,
   // tumbler-shipping shape for TSI. Normalize it back to the canonical shape by path
@@ -41,7 +39,6 @@ export function rowToRespondent(
   // pre-relabel rows working without a data backfill.
   const name = reg[REG_Q.name] || reg.name || "—";
   const verified = rawStatus === "verified";
-  const referred = Boolean(row.referrer_code);
 
   // enumerator_payout_status — the enumerator's flat ₱400 for this survey.
   // Fall back to deriving from QA status (verified → Pending).
@@ -117,11 +114,6 @@ export function rowToRespondent(
     selfie: Boolean(row.selfie_url),
     selfieUrl: (row.selfie_url as string | null) ?? undefined,
     verified,
-    referred,
-    referrer: (row.referrer_code as string | null) ?? null,
-    // New rows store the referrer under the "Referrer" question label; the
-    // legacy `refName` fallback keeps pre-relabel (camelCase) rows working.
-    referredBy: qual[PROFILE_Q.referrer] || qual.refName || (row.referrer_code as string | null) || null,
     mode,
     enumerator,
     payStatus,
@@ -142,7 +134,6 @@ export function rowToRespondent(
     shipAddress: ship?.address ? String(ship.address) : "",
     compMin: 0,
     flags: [],
-    code: reg.generated_referral_code ?? "",
     createdDays,
     submittedAt: createdAt ? createdAt.toISOString() : "",
     color: avatarColor(name),

@@ -115,23 +115,9 @@ test.describe("Profile — Government path", () => {
     await page.getByPlaceholder(/Export Marketing Bureau/i).fill("Export Marketing Bureau");
     await radioClick(page, "Yes");
 
-    // hearAbout is now the second combobox
-    await nthSelect(page, 1).selectOption("DTI");
-
     await expect(nextBtn(page)).toBeEnabled();
     await nextBtn(page).click();
     await expect(page.getByRole("heading", { name: "Register your details" })).toBeVisible();
-  });
-
-  test("referral code field appears when 'Friend or Referral' is selected in hear-about", async ({
-    page,
-  }) => {
-    await nthSelect(page, 0).selectOption("DTI");
-    await page.getByPlaceholder(/Export Marketing Bureau/i).fill("Export Marketing Bureau");
-    await radioClick(page, "Yes");
-    await nthSelect(page, 1).selectOption("Friend or Referral");
-
-    await expect(page.getByPlaceholder(/Who referred you/i)).toBeVisible();
   });
 });
 
@@ -150,13 +136,12 @@ test.describe("Profile — Technology / Equipment path", () => {
     await expect(nextBtn(page)).toBeDisabled();
 
     await page.getByText("Packaging Company").click();
-    await expect(nextBtn(page)).toBeDisabled(); // still needs techSells + hearAbout
+    await expect(nextBtn(page)).toBeDisabled(); // still needs techSells
   });
 
   test("completing all tech fields enables Next and advances to Register", async ({ page }) => {
     await page.getByText("Machinery & Equipment Supplier").click();
     await radioClick(page, "Yes");
-    await nthSelect(page, 0).selectOption("DOST");
 
     await expect(nextBtn(page)).toBeEnabled();
     await nextBtn(page).click();
@@ -166,7 +151,6 @@ test.describe("Profile — Technology / Equipment path", () => {
   test("selecting 'No' for selling to food businesses is still valid", async ({ page }) => {
     await page.getByText("Packaging Company").click();
     await radioClick(page, "No");
-    await nthSelect(page, 0).selectOption("Enumerator");
 
     await expect(nextBtn(page)).toBeEnabled();
   });
@@ -180,7 +164,6 @@ test.describe("Profile — Technology / Equipment path", () => {
 
     // Laboratory Testing Services should still be selected; complete the form
     await radioClick(page, "No");
-    await nthSelect(page, 0).selectOption("Enumerator");
 
     await expect(nextBtn(page)).toBeEnabled();
   });
@@ -223,7 +206,6 @@ test.describe("Profile — Food Processing path", () => {
     // Fill everything except products
     await page.getByText("10–99 employees").click();
     await page.getByText("Owner").click();
-    await nthSelect(page, 0).selectOption("DTI");
     await expect(nextBtn(page)).toBeDisabled();
   });
 
@@ -232,7 +214,6 @@ test.describe("Profile — Food Processing path", () => {
     await page.getByPlaceholder(/dried mangoes/i).fill("Banana chips");
     await page.getByText("10–99 employees").click();
     await page.getByText("Owner").click();
-    await nthSelect(page, 0).selectOption("DTI");
 
     await expect(nextBtn(page)).toBeEnabled();
     await nextBtn(page).click();
@@ -317,15 +298,11 @@ test.describe("Exit survey modal", () => {
  * ── BUGS FOUND ────────────────────────────────────────────────────────────────
  *
  * BUG 1 — Accessibility: <FieldLabel> renders a <span>, not a <label>.
- *   Affected: govOrg select, govDept input, foodProducts input, hearAbout select,
+ *   Affected: govOrg select, govDept input, foodProducts input,
  *             and all other inputs/selects wrapped by <FieldLabel> in ProfileStep.tsx.
  *   Impact:  Screen readers cannot associate the label text with the control.
  *            Playwright's getByLabel() also fails (confirmed by test failures 6–12
  *            before this fix), so keyboard-only and AT users are affected.
  *   Fix:     Change FieldLabel's root element from <span> to <label>, or add
  *            htmlFor / aria-labelledby on each control.
- *
- * BUG 2 — UX: "How did you hear about this survey?" select has no label association.
- *   Same root cause as Bug 1. The Branch section wrapping hearAbout uses
- *   <FieldLabel> which renders a <span>, so the <select> has no accessible name.
  */

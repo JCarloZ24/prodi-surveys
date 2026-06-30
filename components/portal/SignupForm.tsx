@@ -467,7 +467,7 @@ export function SignupForm({ role, title, subtitle, extraField }: Props) {
             {current === "slug" && (
               <>
                 <p className="text-[12.5px] text-gray-500">
-                  Pick a unique handle for your referral link. Choose a suggestion or type your own.
+                  Pick a unique handle for your survey link. Choose a suggestion or type your own.
                 </p>
                 {suggestions.length > 0 && (
                   <div className="flex flex-wrap gap-2">

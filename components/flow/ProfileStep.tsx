@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePortal } from "@/lib/store";
 import { RadioOption, MultiOption } from "./Options";
 import { cx } from "@/lib/cx";
@@ -52,17 +52,12 @@ const TECH_TYPES = [
 ];
 const FOOD_EMP = ["10–99 employees", "100–199 employees", "200+ employees"];
 const FOOD_ROLE = ["Owner", "Manager", "Department Head", "Technical Staff", "Administrative Staff", "Other"];
-const HEAR_ABOUT = ["Friend or Referral", "Social Media", "Other"];
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="mb-2 block text-[13px] font-bold text-gray-700">{children}</span>;
 }
 function Req() {
   return <span className="text-brand-pink"> *</span>;
-}
-// Dropdown label for a referrer: "Full Name (PS-XXXX)".
-function referrerLabel(r: { full_name: string; referral_code: string }) {
-  return `${r.full_name} (${r.referral_code})`;
 }
 
 function Branch({ children }: { children: React.ReactNode }) {
@@ -88,64 +83,16 @@ export function ProfileStep() {
   const [saving, setSaving] = useState(false);
   const [thanked, setThanked] = useState(false);
 
-  // Referrers for the "Friend or Referral" dropdown, loaded from the referrer
-  // table. Selecting one records its code as the submission's referrer_code.
-  const [referrerList, setReferrerList] = useState<{ full_name: string; referral_code: string }[]>([]);
-
-  // Load the referrer list (name + code) from the referrer table for the dropdown.
-  useEffect(() => {
-    let active = true;
-    const run = async () => {
-      try {
-        const res = await fetch("/api/referral/referrers");
-        const data = await res.json();
-        if (active && res.ok) setReferrerList(data.referrers ?? []);
-      } catch {
-        /* ignore — the dropdown just stays empty */
-      }
-    };
-    run();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  // When the survey is opened with a ?referral-code that matches a known referrer
-  // (reg.code is already prefilled by launchEnumeratorFlow), pre-select it in the
-  // dropdown once the list has loaded.
-  useEffect(() => {
-    const prefill = () => {
-      const refCode = state.reg.code;
-      if (!refCode || q.hearAbout !== "Friend or Referral" || q.refName) return;
-      const found = referrerList.find((r) => r.referral_code === refCode);
-      if (found) actions.setQual("refName", referrerLabel(found));
-    };
-    prefill();
-  }, [referrerList, state.reg.code, q.hearAbout, q.refName, actions]);
-
-  // Reflect the selected referrer's code in the address bar so the link is
-  // shareable / survives reload. replaceState avoids a navigation that would
-  // remount and reset the flow.
-  const syncReferralUrl = () => {
-    if (typeof window === "undefined") return;
-    const url = new URL(window.location.href);
-    if (state.reg.code) url.searchParams.set("referral-code", state.reg.code);
-    else url.searchParams.delete("referral-code");
-    window.history.replaceState(window.history.state, "", url);
-  };
-
   const profileBlocked =
     (q.orgType === "other" && showOtherReview) || (q.orgType === "food" && q.foodMakes === "No");
-  const blockTone = q.orgType === "food" && q.foodMakes === "No";
   let ready = false;
   if (q.orgType === "gov") ready = !!q.govOrg && !!q.govDept && !!q.govSupports;
   else if (q.orgType === "tech") ready = techArr.length > 0 && !!q.techSells;
   else if (q.orgType === "food")
     ready = q.foodMakes === "Yes" && !!q.foodProducts && !!q.foodEmployees && !!q.foodRole;
   else if (q.orgType === "other") ready = !!q.orgName.trim();
-  ready = ready && !!q.hearAbout && !profileBlocked;
+  ready = ready && !profileBlocked;
   if (q.orgType === "other") ready = !!q.orgName.trim() && !showOtherReview;
-  const showHearAbout = (q.orgType === "gov" || q.orgType === "tech" || q.orgType === "food") && !blockTone;
   const chooseDifferentCategory = () => {
     setShowOtherReview(false);
     actions.setOrg("");
@@ -440,50 +387,6 @@ export function ProfileStep() {
         </Branch>
       )}
 
-      {showHearAbout && (
-        <Branch>
-          <div>
-            <FieldLabel>{PROFILE_Q.hearAbout}<Req /></FieldLabel>
-            <CustomSelect
-              value={q.hearAbout}
-              onChange={(v) => {
-                actions.setQual("hearAbout", v);
-                actions.setQual("refName", "");
-                if (v !== "Friend or Referral") actions.setReg("code", "");
-              }}
-              options={HEAR_ABOUT}
-            />
-          </div>
-          {q.hearAbout === "Friend or Referral" && (
-            <div>
-              <FieldLabel>{PROFILE_Q.referrer}</FieldLabel>
-              <CustomSelect
-                value={q.refName}
-                onChange={(v) => {
-                  actions.setQual("refName", v);
-                  // Selecting a referrer records their code as the referrer_code.
-                  const found = referrerList.find((r) => referrerLabel(r) === v);
-                  actions.setReg("code", found?.referral_code ?? "");
-                }}
-                options={referrerList.map(referrerLabel)}
-                placeholder="Select a referrer…"
-              />
-            </div>
-          )}
-          {q.hearAbout === "Other" && (
-            <div>
-              <FieldLabel>Please specify</FieldLabel>
-              <input
-                value={q.refName}
-                onChange={(e) => actions.setQual("refName", e.target.value)}
-                placeholder="How did you find out?"
-                className="h-[42px] w-full rounded-[9px] border border-[#E2E2E6] px-3 text-[13.5px] outline-none"
-              />
-            </div>
-          )}
-        </Branch>
-      )}
-
       <div className="mt-[18px] flex gap-2.5">
         <button
           onClick={actions.flowBack}
@@ -510,7 +413,6 @@ export function ProfileStep() {
               }).catch(() => {});
               return;
             }
-            syncReferralUrl();
             actions.flowNext();
           }}
           disabled={!ready}

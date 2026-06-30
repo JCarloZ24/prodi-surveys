@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { code, hash } from "@/lib/format";
 import { createAdminClient } from "@/lib/supabase-server";
-import { REG_Q } from "@/lib/registration";
 
 // POST /api/submit — persist a completed survey submission.
 // Uses the service-role client: submissions hold sensitive payout details, so
@@ -9,33 +7,24 @@ import { REG_Q } from "@/lib/registration";
 // SELECT policy on this table).
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { id, registration_data, profiles_data, survey_type, selfie_url, token_data, kobo_start, kobo_end, referrer_code, enumerator_slug, consent } = body;
+  const { id, registration_data, profiles_data, survey_type, selfie_url, token_data, kobo_start, kobo_end, enumerator_slug, consent } = body;
 
   if (!registration_data || !profiles_data || !survey_type) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   const db = createAdminClient();
-  const generatedReferralCode =
-    "PS-" + code(hash((registration_data[REG_Q.email] || registration_data[REG_Q.name] || "respondent") + Date.now()));
-  // The respondent's own referral code is system metadata (queried by JSONB path in
-  // referral validation), so it keeps its snake_case key alongside the labeled fields.
-  const savedRegistration = {
-    ...registration_data,
-    generated_referral_code: generatedReferralCode,
-  };
 
   // token_data is the single generic token column: a cash-payout shape for
   // SME/Agri-Tech, a tumbler-shipping shape for TSI (only one is ever populated).
   const payload: Record<string, unknown> = {
-    registration_data: savedRegistration,
+    registration_data,
     profiles_data,
     survey_type,
     selfie_url: selfie_url || null,
     token_data: token_data || null,
     kobo_start: kobo_start || null,
     kobo_end: kobo_end || null,
-    referrer_code: referrer_code || null,
     enumerator_slug: enumerator_slug || null,
     consent: consent || null,
     status: "submitted",
@@ -56,5 +45,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ id: data?.id, referral_code: generatedReferralCode });
+  return NextResponse.json({ id: data?.id });
 }

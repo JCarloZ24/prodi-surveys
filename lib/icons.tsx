@@ -5,7 +5,6 @@ export type IconName =
   | "dashboard"
   | "respondents"
   | "surveys"
-  | "referrals"
   | "qa"
   | "payouts"
   | "enumerators"
@@ -37,15 +36,6 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M9 8h6" />
       <path d="M9 12h6" />
       <path d="M9 16h4" />
-    </>
-  ),
-  referrals: (
-    <>
-      <circle cx={6} cy={12} r={2.5} />
-      <circle cx={18} cy={6} r={2.5} />
-      <circle cx={18} cy={18} r={2.5} />
-      <path d="M8.4 10.8l7.2-3.5" />
-      <path d="M8.4 13.2l7.2 3.5" />
     </>
   ),
   qa: (
