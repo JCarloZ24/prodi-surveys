@@ -295,6 +295,9 @@ export interface PortalActions {
   // self-service link for the respondent to finish on their own.
   chooseMode(mode: "assisted" | "self"): Promise<void>;
   generateSelfServiceLink(): Promise<{ code: string; url: string } | null>;
+  // Return from the generated-link panel to the two mode-choice cards. Clears only
+  // the local view; the DB code stays, so re-picking self-service restores the same link.
+  clearGeneratedLink(): void;
   sendInvite(): Promise<boolean>;
   // Hydrate a self-service draft opened via /s/<slug>/<code> and drop the respondent
   // into the survey.
@@ -889,7 +892,20 @@ export function PortalProvider({
       chooseMode: async (mode) => {
         const s = stateRef.current;
         if (mode === "assisted") {
-          set({ selfService: false, rStep: 5, rMaxStep: Math.max(s.rMaxStep, 5) });
+          // If a self-service link was already generated (enumerator changed their
+          // mind), clear it server-side so the finished row isn't mislabeled.
+          if (s.accessCode && s.submissionId) {
+            try {
+              await fetch("/api/submit/self-service", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: s.submissionId, clear: true }),
+              });
+            } catch {
+              // Non-fatal: the mapper only labels self-service when access_code persists.
+            }
+          }
+          set({ selfService: false, accessCode: "", selfServiceLink: "", rStep: 5, rMaxStep: Math.max(s.rMaxStep, 5) });
           return;
         }
         // Self-service: ensure the draft row exists, then generate the link.
@@ -907,6 +923,7 @@ export function PortalProvider({
         if (!subId) return null;
         return doGenerateLink(subId);
       },
+      clearGeneratedLink: () => set({ accessCode: "", selfServiceLink: "" }),
       sendInvite: async () => {
         const s = stateRef.current;
         if (!s.submissionId || !s.accessCode) {

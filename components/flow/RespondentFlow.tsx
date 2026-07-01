@@ -513,12 +513,22 @@ function ModeChoice() {
           )}
         </div>
 
-        <button
-          onClick={() => actions.exitFlow()}
-          className="mt-5 h-12 w-full rounded-[11px] bg-white text-[15px] font-bold text-gray-700 ring-1 ring-inset ring-[#E2E2E6]"
-        >
-          Done — start a new respondent
-        </button>
+        <div className="mt-5 flex gap-2.5">
+          {/* Back to the mode choice — in case the enumerator changes their mind and
+              wants enumerator-assisted instead (picking it clears this link). */}
+          <button
+            onClick={() => actions.clearGeneratedLink()}
+            className="h-12 rounded-[11px] border border-[#E2E2E6] bg-white px-[22px] text-[15px] font-bold text-gray-700"
+          >
+            Back
+          </button>
+          <button
+            onClick={() => actions.exitFlow()}
+            className="h-12 flex-1 rounded-[11px] bg-white text-[15px] font-bold text-gray-700 ring-1 ring-inset ring-[#E2E2E6]"
+          >
+            Done — start a new respondent
+          </button>
+        </div>
       </div>
     );
   }

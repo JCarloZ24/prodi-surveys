@@ -12,7 +12,7 @@ import { publicUrl } from "@/lib/public-url";
 // (never rotated) so a link that was already copied or emailed stays valid.
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { id, reg, qual, rType } = body;
+  const { id, reg, qual, rType, clear } = body;
 
   if (!id) {
     return NextResponse.json({ error: "Missing submission id" }, { status: 400 });
@@ -35,6 +35,20 @@ export async function POST(req: NextRequest) {
   }
   if (row.status === "submitted") {
     return NextResponse.json({ error: "Survey already submitted" }, { status: 409 });
+  }
+
+  // Clear the self-service link — used when the enumerator changes their mind and
+  // switches back to enumerator-assisted, so the finished row is not mislabeled.
+  if (clear) {
+    const { error: clrError } = await db
+      .from("submissions")
+      .update({ access_code: null, resume_state: null })
+      .eq("id", id);
+    if (clrError) {
+      console.error("Self-service clear error:", clrError);
+      return NextResponse.json({ error: clrError.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, cleared: true });
   }
 
   const buildUrl = (code: string) =>
