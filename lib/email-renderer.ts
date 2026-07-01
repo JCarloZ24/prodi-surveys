@@ -43,10 +43,14 @@ export function renderEmailHtml(def: EmailDef, vars: Record<string, string>): st
   <div style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',monospace;font-size:34px;font-weight:900;letter-spacing:10px;color:#18181B">${esc(interpolate(block.text ?? "", vars))}</div>
 </div>`;
 
-      case "btn":
+      case "btn": {
+        // Use a real link when the caller passes `href` (e.g. the invite email's
+        // survey link); fall back to "#" for templates that don't supply one.
+        const href = vars.href ? esc(vars.href) : "#";
         return `<div style="margin:20px 0">
-  <a href="#" style="display:inline-block;background:${accent};color:#fff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 24px;border-radius:10px">${esc(interpolate(block.text ?? "", vars))}</a>
+  <a href="${href}" style="display:inline-block;background:${accent};color:#fff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 24px;border-radius:10px">${esc(interpolate(block.text ?? "", vars))}</a>
 </div>`;
+      }
 
       case "linkbox":
         return `<div style="margin:0 0 14px;padding:11px 14px;border-radius:9px;border:1px solid #E2E2E6;font-size:12.5px;word-break:break-all;color:${accent}">${esc(interpolate(block.text ?? "", vars))}</div>`;

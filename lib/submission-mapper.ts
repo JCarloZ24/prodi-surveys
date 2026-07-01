@@ -3,6 +3,7 @@
 
 import { avatarColor } from "./format";
 import { REG_Q } from "./registration";
+import { PROFILE_Q } from "./profile";
 import { readPayout, readShipping } from "./token";
 import type { CollectionMode, Respondent } from "./types";
 
@@ -26,6 +27,11 @@ export function rowToRespondent(
   enumBySlug?: Map<string, string>,
 ): Respondent {
   const reg = (row.registration_data as Record<string, string>) ?? {};
+  const prof = (row.profiles_data as Record<string, string>) ?? {};
+  // The Register "Organization" field is optional; the org captured in the profile
+  // step lives under govOrg (gov/TSI) or orgName (tech/food/other). Used as the org
+  // fallback so the drawer/table never shows a blank org when the profile has one.
+  const profileOrg = prof[PROFILE_Q.govOrg] || prof[PROFILE_Q.orgName] || "";
   const surveyType = (row.survey_type as string) ?? "SME";
   // token_data is the single generic token column: payout shape for SME/Agri-Tech,
   // tumbler-shipping shape for TSI. Normalize it back to the canonical shape by path
@@ -36,8 +42,17 @@ export function rowToRespondent(
   const ship = isTSI && token ? readShipping(token) : null;
   const rawStatus = (row.status as string) ?? "submitted";
   // New rows use labeled keys ("Full name", …); the camelCase fallback keeps
-  // pre-relabel rows working without a data backfill.
-  const name = reg[REG_Q.name] || reg.name || "—";
+  // pre-relabel rows working without a data backfill. Full name is optional at
+  // Register, so when it's blank fall back to the payout/shipping account name,
+  // then the email local-part, so the respondent is still identifiable in QA.
+  const emailLocal = (reg[REG_Q.email] || reg.email || "").split("@")[0];
+  const name =
+    reg[REG_Q.name] ||
+    reg.name ||
+    (pay?.acctName as string) ||
+    (ship?.recipientName as string) ||
+    emailLocal ||
+    "—";
   const verified = rawStatus === "verified";
 
   // enumerator_payout_status — the enumerator's flat ₱400 for this survey.
@@ -91,10 +106,11 @@ export function rowToRespondent(
     ? Math.floor((Date.now() - createdAt.getTime()) / 86_400_000)
     : 0;
 
-  // Every survey is enumerator-assisted (respondents come via /s/[slug]). The
+  // Self-service when a per-respondent link was generated (access_code set, the path
+  // where the enumerator copies/sends the link); otherwise enumerator-assisted. The
   // enumerator is resolved from the submission's enumerator_slug → profile name;
   // fall back to a name stored on the registration, then "—".
-  const mode: CollectionMode = "Enumerator-assisted";
+  const mode: CollectionMode = row.access_code ? "Self-service" : "Enumerator-assisted";
   const enumSlug = (row.enumerator_slug as string | null) ?? "";
   const enumerator =
     (enumSlug && enumBySlug?.get(enumSlug)) || reg.enumerator || "—";
@@ -103,7 +119,7 @@ export function rowToRespondent(
     id: idx + 1,
     supabaseId: row.id as string,
     name,
-    org: reg[REG_Q.org] || reg.org || "—",
+    org: reg[REG_Q.org] || reg.org || profileOrg || "—",
     type: surveyType as Respondent["type"],
     status: SUBMISSION_STATUS_LABEL[rawStatus] ?? rawStatus,
     position: reg.position ?? "—",

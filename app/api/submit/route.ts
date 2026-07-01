@@ -15,6 +15,19 @@ export async function POST(req: NextRequest) {
 
   const db = createAdminClient();
 
+  // A self-service link can be opened more than once; once the row is finalized,
+  // reject further submits so a stale re-open can't overwrite verified data.
+  if (id) {
+    const { data: existing } = await db
+      .from("submissions")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    if (existing?.status === "submitted") {
+      return NextResponse.json({ error: "This survey has already been submitted." }, { status: 409 });
+    }
+  }
+
   // token_data is the single generic token column: a cash-payout shape for
   // SME/Agri-Tech, a tumbler-shipping shape for TSI (only one is ever populated).
   const payload: Record<string, unknown> = {
