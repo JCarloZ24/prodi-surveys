@@ -885,12 +885,21 @@ export function PortalProvider({
           // Keep reg.type in lockstep with the survey path (rType) so the stored
           // registration never disagrees with survey_type.
           const newType = (map[t] || s.rType) as Respondent["type"];
+          // When the survey path changes, discard any survey completion carried over
+          // from the previous path. surveyDone isn't path-specific, so without this
+          // the Survey step would render "Survey completed" and skip the new path's
+          // form (e.g. finishing SME then switching to TSI skipped the TSI survey).
+          const pathReset =
+            newType !== s.rType
+              ? { surveyDone: false, survey: {}, koboStart: "", koboEnd: "" }
+              : {};
           // Reset the org/business name when switching categories so it never
           // leaks across selections (the tech/food/other branches each re-capture it).
           return {
             qual: { ...s.qual, orgType: t, orgName: "" },
             rType: newType,
             reg: { ...s.reg, type: newType, org: "" },
+            ...pathReset,
           };
         });
       },
