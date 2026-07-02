@@ -14,23 +14,18 @@ import { FlowNav } from "./FlowNav";
 import { ProfileStep } from "./ProfileStep";
 import { SurveyStep } from "./SurveyStep";
 
-// Wizard step numbers (the gaps are intentional — Survey enters at 5). Step 3
-// (Verify/OTP) is removed; step 4 is the collection-mode choice (enumerator-assisted
-// vs self-service) shown after Register. Step 7 is the respondent token: a cash Payout
-// step on SME/Agri-Tech, a free-token Shipping (tumbler) step on TSI.
-//   0 Welcome · 1 Profile · 2 Register · 4 Mode · 5 Survey · 6 Selfie · 7 Token · 8 Review · 9 Success
-// A self-service respondent resumes at 5 (Survey) and never sees 0–4.
+// Wizard step numbers (the gaps are intentional — Survey enters at 5). Steps 3
+// (Verify/OTP) and 4 (Handoff) are removed — Register(2) goes straight to
+// Survey(5). Step 7 is the respondent token: a cash Payout step on SME/Agri-Tech,
+// a free-token Shipping (tumbler) step on TSI.
+//   0 Welcome · 1 Profile · 2 Register · 5 Survey · 6 Selfie · 7 Token · 8 Review · 9 Success
 export function RespondentFlow() {
   const { state, actions } = usePortal();
   const step = state.rStep;
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const tokenLabel = state.rType === "TSI" ? "Free token" : "Payout";
-  // A self-service respondent resumes at the Survey step (Profile/Register/Mode were
-  // done by the enumerator), so their stepper starts there.
-  const stepDefs: [string, number][] = state.selfService
-    ? [["Survey", 5], ["Selfie", 6], [tokenLabel, 7], ["Submit", 8]]
-    : [["Profile", 1], ["Register", 2], ["Mode", 4], ["Survey", 5], ["Selfie", 6], [tokenLabel, 7], ["Submit", 8]];
+  const stepDefs: [string, number][] = [["Profile", 1], ["Register", 2], ["Survey", 5], ["Selfie", 6], [tokenLabel, 7], ["Submit", 8]];
   const showSteps = step >= 1 && step <= 8;
   const activeIdx = stepDefs.findIndex(([, t]) => step === t);
   const progressPct = stepDefs.length ? ((activeIdx + 1) / stepDefs.length) * 100 : 0;
@@ -123,7 +118,6 @@ export function RespondentFlow() {
           {step === 0 && <Welcome />}
           {step === 1 && <ProfileStep />}
           {step === 2 && <Register />}
-          {step === 4 && <ModeChoice />}
           {step === 5 && <SurveyStep />}
           {step === 6 && <Selfie />}
           {step === 7 && (state.rType === "TSI" ? <Shipping /> : <Payout />)}
@@ -429,154 +423,6 @@ function Register() {
         )}
       </div>
       <FlowNav nextLabel="Continue" disabled={!canContinue} onNext={onContinue} />
-    </div>
-  );
-}
-
-// Step 4 — the enumerator chooses how the survey gets completed. Only shown in the
-// enumerator-driven flow (a self-service respondent resumes straight at Survey).
-function ModeChoice() {
-  const { state, actions } = usePortal();
-  const [busy, setBusy] = useState(false);
-  const [sending, setSending] = useState(false);
-  const generated = !!state.accessCode;
-  const respondentName = (state.reg.name || "").trim();
-  const email = (state.reg.email || "").trim();
-
-  const pickSelf = async () => {
-    setBusy(true);
-    await actions.chooseMode("self");
-    setBusy(false);
-  };
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(state.selfServiceLink);
-      actions.notify("Link copied");
-    } catch {
-      actions.notify("Couldn't copy — select and copy the link manually.");
-    }
-  };
-  const send = async () => {
-    setSending(true);
-    await actions.sendInvite();
-    setSending(false);
-  };
-
-  if (generated) {
-    return (
-      <div>
-        <h1 className="mb-1.5 text-[22px] font-extrabold tracking-[-.5px]">Self-service link ready</h1>
-        <p className="mb-[22px] text-[13.5px] text-gray-500">
-          Share this link with{" "}
-          <b className="text-gray-700">{respondentName || "the respondent"}</b>. They&apos;ll
-          continue the survey on their own device — no need to stay with them.
-        </p>
-
-        <div className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-[22px]">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="text-[12px] font-bold uppercase tracking-[.4px] text-gray-400">Respondent</div>
-              <div className="text-[14px] font-bold text-brand-ink">{respondentName || "—"}</div>
-            </div>
-            <div className="text-right">
-              <div className="text-[12px] font-bold uppercase tracking-[.4px] text-gray-400">Unique code</div>
-              <div className="font-mono text-[14px] font-bold text-brand-pink">{state.accessCode}</div>
-            </div>
-          </div>
-
-          <div>
-            <span className="mb-1.5 block text-[12px] font-bold text-gray-700">Survey link</span>
-            <div className="flex items-center gap-2 rounded-[9px] border border-line2 bg-muted px-[13px] py-2.5">
-              <span className="flex-1 break-all text-left font-mono text-[12.5px] text-gray-700">
-                {state.selfServiceLink}
-              </span>
-              <button
-                onClick={copyLink}
-                className="flex-none rounded-[7px] bg-brand-pink px-[13px] py-[7px] text-[11.5px] font-bold text-white"
-              >
-                Copy
-              </button>
-            </div>
-          </div>
-
-          <button
-            onClick={send}
-            disabled={!email || sending}
-            className="flex h-[46px] w-full items-center justify-center gap-2 rounded-[11px] bg-brand-ink text-sm font-bold text-white disabled:opacity-40"
-          >
-            {sending ? "Sending…" : email ? `Send via email to ${email}` : "Send via email"}
-          </button>
-          {!email && (
-            <p className="-mt-2 text-[11.5px] text-gray-400">
-              No email was entered for this respondent — you can still copy and share the link.
-            </p>
-          )}
-        </div>
-
-        <div className="mt-5 flex gap-2.5">
-          {/* Back to the mode choice — in case the enumerator changes their mind and
-              wants enumerator-assisted instead (picking it clears this link). */}
-          <button
-            onClick={() => actions.clearGeneratedLink()}
-            className="h-12 rounded-[11px] border border-[#E2E2E6] bg-white px-[22px] text-[15px] font-bold text-gray-700"
-          >
-            Back
-          </button>
-          <button
-            onClick={() => actions.exitFlow()}
-            className="h-12 flex-1 rounded-[11px] bg-white text-[15px] font-bold text-gray-700 ring-1 ring-inset ring-[#E2E2E6]"
-          >
-            Done — start a new respondent
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h1 className="mb-1.5 text-[22px] font-extrabold tracking-[-.5px]">How will the survey be completed?</h1>
-      <p className="mb-[22px] text-[13.5px] text-gray-500">
-        Continue the survey together now, or generate a link the respondent can use to
-        finish it themselves.
-      </p>
-
-      <div className="flex flex-col gap-3">
-        <button
-          onClick={() => actions.chooseMode("assisted")}
-          disabled={busy}
-          className="rounded-2xl border-[1.5px] border-[#E2E2E6] bg-white p-[18px] text-left transition-colors hover:border-brand-pink disabled:opacity-50"
-        >
-          <div className="flex items-center gap-2 text-[15px] font-extrabold text-brand-ink">
-            <span>🧑‍💼</span> Enumerator-assisted
-          </div>
-          <p className="mt-1.5 text-[13px] leading-[1.5] text-gray-500">
-            Continue now and complete the survey together on this device.
-          </p>
-        </button>
-
-        <button
-          onClick={pickSelf}
-          disabled={busy}
-          className="rounded-2xl border-[1.5px] border-[#E2E2E6] bg-white p-[18px] text-left transition-colors hover:border-brand-pink disabled:opacity-50"
-        >
-          <div className="flex items-center gap-2 text-[15px] font-extrabold text-brand-ink">
-            <span>🔗</span> Self-service
-          </div>
-          <p className="mt-1.5 text-[13px] leading-[1.5] text-gray-500">
-            {busy
-              ? "Generating a unique link…"
-              : "Generate a unique link (and email it) so the respondent can finish on their own."}
-          </p>
-        </button>
-      </div>
-
-      <button
-        onClick={actions.flowBack}
-        className="mt-[18px] h-[46px] rounded-[11px] border border-[#E2E2E6] bg-white px-[22px] text-sm font-bold text-gray-700"
-      >
-        Back
-      </button>
     </div>
   );
 }
@@ -1243,7 +1089,7 @@ function Review() {
         ? "✓ " + (state.selfieMethod === "upload" ? "Image uploaded" : "Selfie taken")
         : "Not yet",
     ],
-    ["Mode", state.selfService ? "Self-service" : "Enumerator-assisted"],
+    ["Mode", "Enumerator-assisted"],
     state.rType === "TSI"
       ? ["Token", "Tumbler · " + (TUMBLER_COLORS.find((c) => c.value === state.shipping.color)?.label ?? state.shipping.color)]
       : ["Token", peso(state.respondentToken) + " · " + state.payout.method],

@@ -112,16 +112,12 @@ export function SurveyStep() {
       )}
 
       <div className="mt-[18px] flex gap-2.5">
-        {/* A self-service respondent resumes at Survey — there's no prior step to
-            go back to, so the Back button is hidden. */}
-        {!state.selfService && (
-          <button
-            onClick={actions.flowBack}
-            className="h-[46px] rounded-[11px] border border-[#E2E2E6] bg-white px-[22px] text-sm font-bold text-gray-700"
-          >
-            Back
-          </button>
-        )}
+        <button
+          onClick={actions.flowBack}
+          className="h-[46px] rounded-[11px] border border-[#E2E2E6] bg-white px-[22px] text-sm font-bold text-gray-700"
+        >
+          Back
+        </button>
         <button
           onClick={onContinue}
           disabled={!done}

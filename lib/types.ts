@@ -8,10 +8,9 @@ export type AppMode = "login" | "portal" | "flow";
 
 export type RespondentType = "TSI" | "AgriTech" | "SME";
 
-// How the survey was collected. "Self-service" when the enumerator generated a
-// per-respondent link (/s/[slug]/[access_code]) for the respondent to finish on
-// their own; "Enumerator-assisted" when completed together on the enumerator's device.
-export type CollectionMode = "Enumerator-assisted" | "Self-service";
+// Every survey is enumerator-assisted — respondents reach the survey only through
+// an enumerator's link (/s/[slug]). Self-service collection no longer exists.
+export type CollectionMode = "Enumerator-assisted";
 
 export type RespondentStatus =
   | "New"

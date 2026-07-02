@@ -98,13 +98,6 @@ export interface PortalState {
   consentTerms: boolean;
   consentPrivacy: boolean;
   consentAt: string;
-  // Self-service: true only while a respondent completes a resumed self-service link
-  // (drives the reduced stepper + skips Profile/Register/Mode). The enumerator who
-  // generates the link stays false. accessCode / selfServiceLink hold the generated
-  // link so the enumerator can copy it (and survive a reload).
-  selfService: boolean;
-  accessCode: string;
-  selfServiceLink: string;
 }
 
 const USER_NAMES: Record<Role, string> = {
@@ -130,7 +123,7 @@ function blankShipping(): ShippingDetails {
   return { color: "grey" as TumblerColor, useMyDetails: true, recipientName: "", recipientPhone: "", address: "" };
 }
 
-export const FLOW_DRAFT_KEY = "prodi-surveys.flowDraft.v1";
+const FLOW_DRAFT_KEY = "prodi-surveys.flowDraft.v1";
 const FLOW_DRAFT_FIELDS = [
   "mode",
   "rStep",
@@ -153,11 +146,6 @@ const FLOW_DRAFT_FIELDS = [
   "consentAt",
   "enumeratorSlug",
   "submissionId",
-  // Persist the generated link (not selfService) so the enumerator can reopen the
-  // Mode step and re-copy after a reload, without the enumerator's own device ever
-  // flipping into the respondent's self-service view.
-  "accessCode",
-  "selfServiceLink",
 ] as const;
 
 function initialState(): PortalState {
@@ -215,9 +203,6 @@ function initialState(): PortalState {
     consentTerms: false,
     consentPrivacy: false,
     consentAt: "",
-    selfService: false,
-    accessCode: "",
-    selfServiceLink: "",
   };
 }
 
@@ -291,26 +276,6 @@ export interface PortalActions {
   goStep(n: number): void;
   startSubmission(): Promise<void>;
   setSubmissionId(id: string): void;
-  // Mode step (after Register): continue enumerator-assisted, or generate a
-  // self-service link for the respondent to finish on their own.
-  chooseMode(mode: "assisted" | "self"): Promise<void>;
-  generateSelfServiceLink(): Promise<{ code: string; url: string } | null>;
-  // Return from the generated-link panel to the two mode-choice cards. Clears only
-  // the local view; the DB code stays, so re-picking self-service restores the same link.
-  clearGeneratedLink(): void;
-  sendInvite(): Promise<boolean>;
-  // Hydrate a self-service draft opened via /s/<slug>/<code> and drop the respondent
-  // into the survey.
-  resumeFromDraft(d: {
-    submissionId: string;
-    accessCode: string;
-    reg: Registration;
-    qual: Qual;
-    rType: Respondent["type"];
-    enumeratorSlug: string;
-    consent: { terms?: boolean; privacy?: boolean; accepted_at?: string | null } | null;
-    startStep: number;
-  }): void;
   setReg(k: keyof Registration, v: string): void;
   setAnswer(id: string, v: string): void;
   toggleMulti(id: string, opt: string): void;
@@ -473,65 +438,7 @@ export function PortalProvider({
       consentTerms: false,
       consentPrivacy: false,
       consentAt: "",
-      selfService: false,
-      accessCode: "",
-      selfServiceLink: "",
     });
-
-    // Create the "started" submission row (idempotent) and return its id. Shared by
-    // the startSubmission action and self-service link generation.
-    const doStartSubmission = async (): Promise<string> => {
-      const s = stateRef.current;
-      if (s.submissionId) return s.submissionId;
-      try {
-        const res = await fetch("/api/submit/start", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            registration_data: buildRegistrationData(s.reg),
-            profiles_data: buildProfileData(s.qual),
-            survey_type: s.rType,
-            enumerator_slug: s.enumeratorSlug || null,
-            payout_offered: true,
-            consent: {
-              terms: s.consentTerms,
-              privacy: s.consentPrivacy,
-              accepted_at: s.consentAt || null,
-            },
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.id) {
-          set({ submissionId: data.id });
-          return data.id as string;
-        }
-      } catch {
-        // Non-fatal: the caller decides what to do without an id.
-      }
-      return "";
-    };
-
-    // Attach an access code + resume_state to the draft and store the generated link.
-    const doGenerateLink = async (
-      subId: string,
-    ): Promise<{ code: string; url: string } | null> => {
-      const s = stateRef.current;
-      try {
-        const res = await fetch("/api/submit/self-service", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: subId, reg: s.reg, qual: s.qual, rType: s.rType }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.code && data.url) {
-          set({ accessCode: data.code, selfServiceLink: data.url });
-          return { code: data.code, url: data.url };
-        }
-      } catch {
-        // fall through to null
-      }
-      return null;
-    };
 
     return {
       setLoginEmail: (v) => set({ loginEmail: v }),
@@ -853,9 +760,7 @@ export function PortalProvider({
         } else if (n === 8) {
           n = 9;
         } else if (n === 2) {
-          n = 4; // Register → Mode (collection-mode choice); skips removed OTP(3)
-        } else if (n === 4) {
-          n = 5; // Mode → Survey (enumerator-assisted continues here)
+          n = 5; // skip the removed OTP(3) and Handoff(4) steps
         } else {
           n = Math.min(9, n + 1);
         }
@@ -866,10 +771,7 @@ export function PortalProvider({
         let n = s.rStep;
         if (n === 8) n = 7; // Review → Token step
         else if (n === 7) n = 6; // Token step → Selfie
-        // A self-service respondent has no steps before Survey, so Back stays put
-        // (their Survey step also hides the Back button); the enumerator goes 5→4.
-        else if (n === 5) n = s.selfService ? 5 : 4;
-        else if (n === 4) n = 2; // Mode → Register
+        else if (n === 5) n = 2; // skip the removed OTP(3) and Handoff(4) steps
         else n = Math.max(0, n - 1);
         set({ rStep: n });
       },
@@ -884,90 +786,33 @@ export function PortalProvider({
       // Register (Register → Survey). Non-fatal: the final submit inserts a row if
       // none exists. Skipped when a row already exists.
       startSubmission: async () => {
-        // Non-fatal: the final submit will insert a row if none exists.
-        await doStartSubmission();
-      },
-      setSubmissionId: (id) => set({ submissionId: id }),
-
-      chooseMode: async (mode) => {
         const s = stateRef.current;
-        if (mode === "assisted") {
-          // If a self-service link was already generated (enumerator changed their
-          // mind), clear it server-side so the finished row isn't mislabeled.
-          if (s.accessCode && s.submissionId) {
-            try {
-              await fetch("/api/submit/self-service", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: s.submissionId, clear: true }),
-              });
-            } catch {
-              // Non-fatal: the mapper only labels self-service when access_code persists.
-            }
-          }
-          set({ selfService: false, accessCode: "", selfServiceLink: "", rStep: 5, rMaxStep: Math.max(s.rMaxStep, 5) });
-          return;
-        }
-        // Self-service: ensure the draft row exists, then generate the link.
-        const subId = s.submissionId || (await doStartSubmission());
-        if (!subId) {
-          toast("Couldn't prepare the link. Please try again.");
-          return;
-        }
-        const result = await doGenerateLink(subId);
-        if (!result) toast("Couldn't generate the link. Please try again.");
-      },
-      generateSelfServiceLink: async () => {
-        const s = stateRef.current;
-        const subId = s.submissionId || (await doStartSubmission());
-        if (!subId) return null;
-        return doGenerateLink(subId);
-      },
-      clearGeneratedLink: () => set({ accessCode: "", selfServiceLink: "" }),
-      sendInvite: async () => {
-        const s = stateRef.current;
-        if (!s.submissionId || !s.accessCode) {
-          toast("Generate the link first.");
-          return false;
-        }
+        if (s.submissionId) return;
         try {
-          const res = await fetch("/api/portal/send-invite", {
+          const res = await fetch("/api/submit/start", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: s.submissionId }),
+            body: JSON.stringify({
+              registration_data: buildRegistrationData(s.reg),
+              profiles_data: buildProfileData(s.qual),
+              survey_type: s.rType,
+              enumerator_slug: s.enumeratorSlug || null,
+              // Every respondent is offered a token (cash for SME/Agri-Tech, tumbler for TSI).
+              payout_offered: true,
+              consent: {
+                terms: s.consentTerms,
+                privacy: s.consentPrivacy,
+                accepted_at: s.consentAt || null,
+              },
+            }),
           });
           const data = await res.json().catch(() => ({}));
-          if (res.ok) {
-            toast("Invite sent" + (data.email ? " · " + data.email : ""));
-            return true;
-          }
-          toast(data.error || "Couldn't send the email.");
-          return false;
+          if (res.ok && data.id) set({ submissionId: data.id });
         } catch {
-          toast("Couldn't send the email.");
-          return false;
+          // Non-fatal: the final submit will insert a row if none exists.
         }
       },
-      resumeFromDraft: (d) => {
-        set({
-          ...resetFlow(),
-          mode: "flow",
-          selfService: true,
-          submissionId: d.submissionId,
-          accessCode: d.accessCode,
-          enumeratorSlug: d.enumeratorSlug,
-          reg: { ...blankReg(), ...(d.reg || {}) },
-          qual: { ...blankQual(), ...(d.qual || {}) },
-          rType: d.rType,
-          rStep: d.startStep,
-          rMaxStep: d.startStep,
-          // Consent was captured by the enumerator; carry it so the final submit
-          // records it rather than overwriting with a blank consent.
-          consentTerms: d.consent?.terms ?? false,
-          consentPrivacy: d.consent?.privacy ?? false,
-          consentAt: d.consent?.accepted_at ?? "",
-        });
-      },
+      setSubmissionId: (id) => set({ submissionId: id }),
       setReg: (k, v) => {
         if (k === "type") set((s) => ({ reg: { ...s.reg, type: v as Respondent["type"] }, rType: v as Respondent["type"] }));
         else set((s) => ({ reg: { ...s.reg, [k]: v } }));

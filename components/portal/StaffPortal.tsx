@@ -792,7 +792,7 @@ function RespondentsView() {
                     <td className="px-4 py-3">{typeBadge(r.type)}</td>
                     <td className="px-4 py-3">
                       <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11.5px] font-semibold text-blue-700">
-                        {r.mode}
+                        Enumerator-assisted
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.enumerator || "—"}</td>
@@ -883,7 +883,7 @@ function QaView() {
                     {typeBadge(r.type)}
                   </div>
                   <div className="mt-0.5 text-[12.5px] text-gray-500">
-                    {r.org} · {r.mode}
+                    {r.org} · Enumerator-assisted
                   </div>
                 </div>
                 <button
@@ -2109,7 +2109,7 @@ function SubmissionsReport({ respondents }: { respondents: Respondent[] }) {
                     </td>
                     <td className="px-4 py-3">
                       <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11.5px] font-semibold text-blue-700">
-                        {r.mode}
+                        Enumerator-assisted
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[12.5px] text-gray-600">{r.enumerator || "—"}</td>
