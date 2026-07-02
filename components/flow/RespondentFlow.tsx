@@ -133,7 +133,7 @@ export function RespondentFlow() {
           href="/portal/login"
           className="text-[10.5px] font-medium text-gray-400 underline-offset-2 hover:text-gray-600 hover:underline"
         >
-          Enumerator? Log in
+          Enumerator Dashboard view
         </a>
       </footer>
 
