@@ -126,6 +126,17 @@ export function RespondentFlow() {
         </div>
       </div>
 
+      {/* Subtle enumerator escape hatch: respondents ignore it, enumerators use it
+          to reach their portal login from the shared survey link. */}
+      <footer className="flex-none px-[22px] py-2 text-center">
+        <a
+          href="/portal/login"
+          className="text-[10.5px] font-medium text-gray-400 underline-offset-2 hover:text-gray-600 hover:underline"
+        >
+          Enumerator? Log in
+        </a>
+      </footer>
+
       {showExitConfirm && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-5"
