@@ -1082,7 +1082,7 @@ function Review() {
     ["Mobile", state.reg.mobile || "—"],
     ["Survey path", typeShort(state.rType)],
     ["Qualification", cls.status],
-    ["Survey", state.surveyDone ? "✓ Completed (KoboToolbox)" : "Not completed"],
+    ["Survey", state.surveyDone && state.surveyDoneType === state.rType ? "✓ Completed (KoboToolbox)" : "Not completed"],
     [
       "Selfie",
       state.selfie

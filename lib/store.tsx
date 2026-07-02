@@ -84,6 +84,11 @@ export interface PortalState {
   // The survey now runs in an embedded KoboToolbox form; this flips true when the
   // embed reports a successful submission, which unlocks the next step.
   surveyDone: boolean;
+  // The survey path (rType) the completion above belongs to. surveyDone is only
+  // authoritative when this equals the current rType, so a completion recorded for
+  // a previously-selected path (or a resumed/stale draft) can never skip the survey
+  // for a different path.
+  surveyDoneType: Respondent["type"] | "";
   // ISO timestamps bracketing the external Kobo survey step: koboStart is stamped
   // when the Survey step mounts, koboEnd when the respondent continues to Selfie.
   koboStart: string;
@@ -133,6 +138,7 @@ const FLOW_DRAFT_FIELDS = [
   "qual",
   "survey",
   "surveyDone",
+  "surveyDoneType",
   "koboStart",
   "koboEnd",
   "selfie",
@@ -191,6 +197,7 @@ function initialState(): PortalState {
     reg: blankReg(),
     survey: {},
     surveyDone: false,
+    surveyDoneType: "",
     koboStart: "",
     koboEnd: "",
     selfie: false,
@@ -422,6 +429,7 @@ export function PortalProvider({
       rMaxStep: 0,
       survey: {},
       surveyDone: false,
+      surveyDoneType: "",
       koboStart: "",
       koboEnd: "",
       selfie: false,
@@ -839,7 +847,9 @@ export function PortalProvider({
           return { survey: { ...s.survey, [id]: obj } };
         });
       },
-      setSurveyDone: (v) => set({ surveyDone: v }),
+      // Stamp which path the completion is for, so it can't be mistaken for a
+      // completion of a different path later (see surveyDoneType).
+      setSurveyDone: (v) => set((s) => ({ surveyDone: v, surveyDoneType: v ? s.rType : "" })),
       // Bracket the external Kobo survey: koboStart when the step first loads (once),
       // koboEnd when the respondent continues to Selfie. Each is persisted to the
       // already-created submission row right away (server makes kobo_start set-once),
@@ -886,12 +896,12 @@ export function PortalProvider({
           // registration never disagrees with survey_type.
           const newType = (map[t] || s.rType) as Respondent["type"];
           // When the survey path changes, discard any survey completion carried over
-          // from the previous path. surveyDone isn't path-specific, so without this
-          // the Survey step would render "Survey completed" and skip the new path's
-          // form (e.g. finishing SME then switching to TSI skipped the TSI survey).
-          const pathReset =
+          // from the previous path (surveyDoneType makes the Survey step ignore it
+          // regardless, but clearing it keeps persisted state honest and also resets
+          // the Kobo timing/answers that are likewise scoped to the old path).
+          const pathReset: Partial<PortalState> =
             newType !== s.rType
-              ? { surveyDone: false, survey: {}, koboStart: "", koboEnd: "" }
+              ? { surveyDone: false, surveyDoneType: "", survey: {}, koboStart: "", koboEnd: "" }
               : {};
           // Reset the org/business name when switching categories so it never
           // leaks across selections (the tech/food/other branches each re-capture it).

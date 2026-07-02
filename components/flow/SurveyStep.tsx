@@ -10,7 +10,9 @@ import { koboEmbedUrl, KOBO_ENKETO_ORIGIN, isKoboSubmitSuccess } from "@/lib/kob
 // posts a `submissionsuccess` message to this window, which unlocks "Continue".
 export function SurveyStep() {
   const { state, actions } = usePortal();
-  const done = state.surveyDone;
+  // Completion is only valid for the path it was recorded on — a stale surveyDone
+  // from a previously-selected path (or a resumed draft) must not skip this form.
+  const done = state.surveyDone && state.surveyDoneType === state.rType;
   const [reopened, setReopened] = useState(false);
 
   // The flow only reaches this step client-side, so window is available; building
